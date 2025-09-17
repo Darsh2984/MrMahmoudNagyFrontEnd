@@ -1,0 +1,110 @@
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import { useNavigate, Link } from "react-router-dom";
+import "../styles/AppStyles.css"; 
+
+function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+
+  // ✅ Add login-page class to body when this page is active
+  useEffect(() => {
+    document.body.classList.add("login-page");
+    return () => {
+      document.body.classList.remove("login-page");
+    };
+  }, []);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/auth/login`,
+        { email: email.toLowerCase(), password }
+      );
+
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+      setMessage("✅ Login successful!");
+
+      if (res.data.user.role === "teacher") {
+        navigate("/teacher-dashboard");
+      } else if (res.data.user.role === "student") {
+        // ✅ Check if student is assigned to a group
+        if (!res.data.user.groupId) {
+          navigate("/Accessdenied");
+        } else {
+          navigate("/student-dashboard");
+        }
+      } else if (res.data.user.role === "parent") {
+        navigate("/parent-dashboard");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      console.error("❌ Login failed:", err);
+      if (err.response && err.response.data.activationRequired) {
+        navigate("/set-password", { state: { email: err.response.data.email } });
+        return;
+      }
+      setMessage("❌ Login failed! Please check credentials.");
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <h2 className="login-title">🔐 Welcome Back</h2>
+
+        <form onSubmit={handleLogin}>
+          <div className="input-group">
+            <i className="fas fa-envelope"></i>
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="input-group">
+            <i className="fas fa-lock"></i>
+            <input
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
+          <button type="submit" className="login-btn">
+            Login
+          </button>
+        </form>
+
+        {/* 🔹 Forgot password link */}
+        <p className="forgot-link">
+          <Link to="/forgot-password">Forgot Password?</Link>
+        </p>
+
+        {/* 🔹 Register link */}
+        <p className="forgot-link">
+          Don’t have an account?{" "}
+          <Link to="/register">Register here</Link>
+        </p>
+
+        {message && (
+          <p className={`message ${message.includes("✅") ? "success" : "error"}`}>
+            {message}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default Login;

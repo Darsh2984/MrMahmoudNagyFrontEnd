@@ -1,0 +1,144 @@
+/* Container */
+.landing-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #0b3c49;
+  color: white;
+  padding: 60px 80px;
+  min-height: 90vh;
+}
+
+/* Left Text */
+.hero-text {
+  flex: 1;
+  max-width: 50%;
+}
+
+.hero-title {
+  font-family: "Bufalino Bold", sans-serif;
+  font-size: 150px;
+  line-height: 0.85;
+  margin-bottom: 30px;
+  font-weight: normal; 
+  letter-spacing: -2px;
+  text-transform: uppercase;
+  display: inline-block;
+}
+
+/* Subtitle aligned under title */
+.hero-subtitle {
+  font-family: "CO Headline Light", sans-serif;
+  font-size: 22px;
+  line-height: 1.6;
+  color: #dbe4e8;
+  display: block;
+  max-width: 90%;      
+  margin-left: 130px;    
+  word-spacing: 4px;
+  text-align: justify; 
+}
+
+/* Right Image */
+.hero-image {
+  flex: 1;
+  text-align: right;
+}
+
+.hero-image img {
+  max-width: 420px;
+  width: 100%;
+  height: 750px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+
+/* === Courses Section === */
+.courses-section {
+  background: #f5f1eb; /* cream */
+  padding: 80px;
+  text-align: center;
+}
+
+.cards-row {
+  display: flex;
+  justify-content: center;
+  gap: 100px;
+  margin-bottom: 30px;
+}
+
+/* Image cards */
+.course-card {
+  flex: 1;
+  max-width: 320px;
+  height: 220px;
+  border-radius: 12px;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 4px 10px rgba(51, 49, 46, 0.15);
+}
+
+/* Description cards under each image */
+.description-row .desc-card {
+  background: #fff;
+  flex: 1;
+  max-width: 320px;
+  padding: 20px;
+  border-radius: 8px;
+  color: #33312e; /* charcoal */
+  font-size: 16px;
+  box-shadow: 0 2px 6px rgba(51, 49, 46, 0.1);
+}
+
+/* === Footer Buttons === */
+.footer-actions {
+  background: #f5f1eb;
+  text-align: center;
+  padding: 60px 0;
+}
+
+.footer-actions button {
+  padding: 15px 40px;
+  margin: 0 15px;
+  font-size: 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s ease;
+}
+
+.btn-register {
+  background: #c85d47; /* terracotta red */
+  color: white;
+}
+
+.btn-signin {
+  background: #8baa91; /* sage green */
+  color: white;
+}
+
+.btn-register:hover {
+  background: #d77e42; /* warm orange */
+}
+
+.btn-signin:hover {
+  background: #0b3c49; /* deep teal */
+}
+
+
+/* === Fonts === */
+@font-face {
+  font-family: "Bufalino Bold";
+  src: url("../assets/fonts/fonnts.com-Bufalino_Extrabold.otf") format("opentype");
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: "CO Headline Light";
+  src: url("../assets/fonts/Co Headline Light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+}

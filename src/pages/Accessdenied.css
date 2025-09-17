@@ -1,0 +1,31 @@
+.access-denied {
+  background-color: #f5f1eb; /* cream white */
+  color: #0b3c49; /* deep teal for main text */
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 40px;
+}
+
+.denied-title {
+  font-family: "Bufalino Bold", sans-serif;
+  font-size: 120px;
+  text-transform: uppercase;
+  color: #c85d47; /* terracotta red */
+  margin-bottom: 40px;
+  letter-spacing: -3px;
+}
+
+.denied-subtitle {
+  font-family: "Bufalino Bold", sans-serif;
+  font-size: 28px;
+  line-height: 1.6;
+  color: #33312e; /* charcoal */
+}
+
+.highlight {
+  color: #d77e42; /* warm orange for emphasis */
+}
