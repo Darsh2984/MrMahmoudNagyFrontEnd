@@ -1,15 +1,15 @@
 import React from "react";
-import { useNavigate } from "react-router-dom"; // ✅ import navigate
+import { useNavigate } from "react-router-dom";
 import "./LandingPage.css";
-import heroImg from "../assets/images/teacherimg.png";
 
-// Example placeholders
-import cambridgeCoreImg from "../assets/images/cambridge-core.jpg";
-import cambridgeOImg from "../assets/images/cambridge-olevel.jpg";
-import edexcelOImg from "../assets/images/edexcel-olevel.jpg";
+// ✅ Use const with require for images
+const heroImg = require("../assets/images/teacherimg.png");
+const cambridgeCoreImg = require("../assets/images/cambridge-core.jpg");
+const cambridgeOImg = require("../assets/images/cambridge-olevel.jpg");
+const edexcelOImg = require("../assets/images/edexcel-olevel.jpg");
 
 export default function LandingPage() {
-  const navigate = useNavigate(); // ✅ initialize navigate
+  const navigate = useNavigate();
 
   return (
     <div>
@@ -31,34 +31,28 @@ export default function LandingPage() {
       {/* === Courses Section === */}
       <div className="courses-section">
         <div className="cards-row">
-          {/* Cambridge Core */}
           <div className="course-block">
-            <div
-              className="course-card"
-              style={{ backgroundImage: `url(${cambridgeCoreImg})` }}
-            ></div>
+            <div className="course-card">
+              <img src={cambridgeCoreImg} alt="Cambridge Core" />
+            </div>
             <div className="desc-card">
               <p>Physics Cambridge Core Description</p>
             </div>
           </div>
 
-          {/* Cambridge O Level */}
           <div className="course-block">
-            <div
-              className="course-card"
-              style={{ backgroundImage: `url(${cambridgeOImg})` }}
-            ></div>
+            <div className="course-card">
+              <img src={cambridgeOImg} alt="Cambridge O Level" />
+            </div>
             <div className="desc-card">
               <p>Physics Cambridge O Level Description</p>
             </div>
           </div>
 
-          {/* Edexcel O Level */}
           <div className="course-block">
-            <div
-              className="course-card"
-              style={{ backgroundImage: `url(${edexcelOImg})` }}
-            ></div>
+            <div className="course-card">
+              <img src={edexcelOImg} alt="Edexcel O Level" />
+            </div>
             <div className="desc-card">
               <p>Physics Edexcel O Level Description</p>
             </div>
@@ -66,19 +60,12 @@ export default function LandingPage() {
         </div>
       </div>
 
-
       {/* === Footer Buttons === */}
       <div className="footer-actions">
-        <button
-          className="btn-register"
-          onClick={() => navigate("/register")} // ✅ redirect
-        >
+        <button className="btn-register" onClick={() => navigate("/register")}>
           Register
         </button>
-        <button
-          className="btn-signin"
-          onClick={() => navigate("/login")} // ✅ redirect
-        >
+        <button className="btn-signin" onClick={() => navigate("/login")}>
           Sign In
         </button>
       </div>

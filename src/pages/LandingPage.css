@@ -11,7 +11,6 @@
   min-height: 90vh;
 }
 
-/* Background overlay image */
 .landing-hero::before {
   content: "";
   position: absolute;
@@ -24,14 +23,12 @@
   z-index: 0;
 }
 
-/* Ensure hero text & image stay above */
 .hero-text,
 .hero-image {
   position: relative;
   z-index: 1;
 }
 
-/* Left Text */
 .hero-text {
   flex: 1;
   max-width: 50%;
@@ -45,7 +42,6 @@
   font-weight: normal;
   letter-spacing: -2px;
   text-transform: uppercase;
-  display: inline-block;
 }
 
 .hero-subtitle {
@@ -53,14 +49,12 @@
   font-size: 22px;
   line-height: 1.6;
   color: #dbe4e8;
-  display: block;
   max-width: 90%;
   margin-left: 130px;
-  word-spacing: 4px;
   text-align: justify;
+  word-spacing: 4px;
 }
 
-/* Right Image */
 .hero-image {
   flex: 1;
   text-align: right;
@@ -76,7 +70,7 @@
 
 /* ================= Courses Section ================= */
 .courses-section {
-  background: #f5f1eb; /* cream */
+  background: #f5f1eb;
   padding: 80px;
   text-align: center;
 }
@@ -89,28 +83,30 @@
   flex-wrap: wrap;
 }
 
-/* Course block = image + description */
 .course-block {
   display: flex;
   flex-direction: column;
   align-items: center;
-  flex: 1 1 30%;    /* 3 per row on large screens */
+  flex: 1 1 30%;
   max-width: 30%;
 }
 
-/* Image cards */
 .course-card {
   width: 100%;
-  height: 220px;
   border-radius: 12px;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  overflow: hidden;
   box-shadow: 0 4px 10px rgba(51, 49, 46, 0.15);
-  margin-bottom: 15px; /* spacing before description */
+  margin-bottom: 15px;
 }
 
-/* Description cards under each image */
+.course-card img {
+  width: 100%;
+  height: auto;
+  display: block;
+  object-fit: contain; /* ensures full image shows */
+  border-radius: 12px;
+}
+
 .desc-card {
   background: #fff;
   width: 100%;
@@ -141,41 +137,37 @@
 }
 
 .btn-register {
-  background: #c85d47; /* terracotta red */
+  background: #c85d47;
   color: white;
 }
 
 .btn-signin {
-  background: #8baa91; /* sage green */
+  background: #8baa91;
   color: white;
 }
 
 .btn-register:hover {
-  background: #d77e42; /* warm orange */
+  background: #d77e42;
 }
 
 .btn-signin:hover {
-  background: #0b3c49; /* deep teal */
+  background: #0b3c49;
 }
 
 /* ================= Fonts ================= */
 @font-face {
   font-family: "Bufalino Bold";
   src: url("../assets/fonts/fonnts.com-Bufalino_Extrabold.otf") format("opentype");
-  font-weight: bold;
-  font-style: normal;
 }
 
 @font-face {
   font-family: "CO Headline Light";
   src: url("../assets/fonts/Co Headline Light.otf") format("opentype");
-  font-weight: 300;
-  font-style: normal;
 }
 
-/* ================= Responsive Breakpoints ================= */
+/* ================= Responsive ================= */
 
-/* Tablets & small laptops (≤1200px) */
+/* Tablets & small laptops */
 @media (max-width: 1200px) {
   .landing-hero {
     flex-direction: column;
@@ -185,7 +177,6 @@
 
   .hero-title {
     font-size: 80px;
-    line-height: 1;
     margin-left: 0;
   }
 
@@ -205,30 +196,21 @@
     flex: 1 1 30%;
     max-width: 30%;
   }
-
-  .course-card {
-    height: 200px;
-  }
 }
 
-/* Medium phones (≤768px, Samsung A54 portrait, iPhone Pro Max) */
+/* Medium phones */
 @media (max-width: 768px) {
   .cards-row {
-    justify-content: center;
     gap: 20px;
   }
 
   .course-block {
     flex: 1 1 45%;
-    max-width: 45%;  /* 2 per row */
-  }
-
-  .course-card {
-    height: 200px;
+    max-width: 45%; /* 2 per row */
   }
 }
 
-/* Small phones (≤480px, iPhone Mini / older Androids) */
+/* Small phones */
 @media (max-width: 480px) {
   .cards-row {
     flex-direction: column;
@@ -238,11 +220,7 @@
 
   .course-block {
     flex: none;
-    width: 90%;   /* full width */
+    width: 90%;
     max-width: 90%;
-  }
-
-  .course-card {
-    height: 200px;
   }
 }
