@@ -2,7 +2,6 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import "./LandingPage.css";
 
-// ✅ Use const with require for images
 const heroImg = require("../assets/images/teacherimg.png");
 const cambridgeCoreImg = require("../assets/images/cambridge-core.jpg");
 const cambridgeOImg = require("../assets/images/cambridge-olevel.jpg");
@@ -60,7 +59,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* === Footer Buttons === */}
+      {/* === Register / Sign In Section (under courses) === */}
       <div className="footer-actions">
         <button className="btn-register" onClick={() => navigate("/register")}>
           Register
@@ -68,6 +67,27 @@ export default function LandingPage() {
         <button className="btn-signin" onClick={() => navigate("/login")}>
           Sign In
         </button>
+      </div>
+
+      {/* === Contact Section (last part) === */}
+      <div className="contact-section">
+        <h2 className="contact-title">Get in Touch</h2>
+        <p className="contact-message">
+          Have questions or need help? Reach out directly 👇
+        </p>
+        <div className="contact-buttons">
+          <a href="tel:+201066770745" className="contact-btn call-btn">
+            📞 Call Mr Mahmoud
+          </a>
+          <a
+            href="https://wa.link/lx46no"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="contact-btn whatsapp-btn"
+          >
+            💬 Message on WhatsApp
+          </a>
+        </div>
       </div>
     </div>
   );

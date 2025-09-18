@@ -29,3 +29,20 @@
 .highlight {
   color: #d77e42; /* warm orange for emphasis */
 }
+
+.denied-contact {
+  margin-top: 15px;
+  font-size: 18px;
+  color: #33312e; /* charcoal for consistency */
+}
+
+.denied-contact a {
+  color: #8baa91; /* sage green */
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.denied-contact a:hover {
+  text-decoration: underline;
+  color: #c85d47; /* terracotta red on hover */
+}

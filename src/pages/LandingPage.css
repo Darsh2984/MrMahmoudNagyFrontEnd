@@ -8,7 +8,7 @@
   background: #0b3c49;
   color: white;
   padding: 60px 80px;
-  min-height: 90vh;
+  height: 90vh;
 }
 
 .landing-hero::before {
@@ -153,6 +153,66 @@
 .btn-signin:hover {
   background: #0b3c49;
 }
+
+
+
+/* ================= Contact Section ================= */
+.contact-section {
+  background: #f5f1eb; /* Cream White */
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.contact-title {
+  font-family: "Bufalino Bold", sans-serif;
+  font-size: 42px;
+  color: #c85d47; /* Terracotta red */
+  margin-bottom: 15px;
+}
+
+.contact-message {
+  font-size: 18px;
+  color: #33312e; /* Charcoal */
+  margin-bottom: 30px;
+}
+
+.contact-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  flex-wrap: wrap;
+}
+
+.contact-btn {
+  display: inline-block;
+  padding: 14px 28px;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  text-decoration: none;
+  transition: background 0.3s ease;
+  color: white;
+}
+
+/* Specific styles */
+.call-btn {
+  background: #0b3c49; /* Deep teal */
+}
+
+.call-btn:hover {
+  background: #33312e; /* Charcoal */
+}
+
+.whatsapp-btn {
+  background: #8baa91; /* Sage green */
+}
+
+.whatsapp-btn:hover {
+  background: #d77e42; /* Warm Orange */
+}
+
+
+
 
 /* ================= Fonts ================= */
 @font-face {

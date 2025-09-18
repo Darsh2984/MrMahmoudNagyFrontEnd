@@ -10,7 +10,7 @@ function Register() {
     name: "",
     email: "",
     password: "",
-    role: "student",
+    role: "student", // ✅ Always student
     studentPhone: "",
     parentName: "",
     parentPhone: "",
@@ -81,67 +81,46 @@ function Register() {
             />
           </div>
 
-          {/* Role */}
+          {/* ✅ Student fields only */}
+          <label className="field-label">Student Phone</label>
+          <PhoneInput
+            country={"eg"}
+            value={form.studentPhone}
+            onChange={(phone) => setForm({ ...form, studentPhone: phone })}
+            inputStyle={{ width: "100%" }}
+            containerStyle={{ marginBottom: "15px" }}
+          />
+
           <div className="input-group">
-            <i className="fas fa-user-tag"></i>
-            <select
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-            >
-              <option value="student">🎓 Student</option>
-              <option value="teacher">👨‍🏫 Teacher</option>
-              <option value="parent">👪 Parent</option>
-            </select>
+            <i className="fas fa-user"></i>
+            <input
+              type="text"
+              placeholder="Parent Full Name"
+              value={form.parentName}
+              onChange={(e) => setForm({ ...form, parentName: e.target.value })}
+              required
+            />
           </div>
 
-          {/* Extra fields only for Students */}
-          {form.role === "student" && (
-            <>
-              {/* Student Phone */}
-              <label className="field-label">Student Phone</label>
-              <PhoneInput
-                country={"eg"}
-                value={form.studentPhone}
-                onChange={(phone) => setForm({ ...form, studentPhone: phone })}
-                inputStyle={{ width: "100%" }}
-                containerStyle={{ marginBottom: "15px" }}
-              />
+          <label className="field-label">Parent Phone</label>
+          <PhoneInput
+            country={"eg"}
+            value={form.parentPhone}
+            onChange={(phone) => setForm({ ...form, parentPhone: phone })}
+            inputStyle={{ width: "100%" }}
+            containerStyle={{ marginBottom: "15px" }}
+          />
 
-              {/* Parent Name */}
-              <div className="input-group">
-                <i className="fas fa-user"></i>
-                <input
-                  type="text"
-                  placeholder="Parent Full Name"
-                  value={form.parentName}
-                  onChange={(e) => setForm({ ...form, parentName: e.target.value })}
-                  required
-                />
-              </div>
-
-              {/* Parent Phone */}
-              <label className="field-label">Parent Phone</label>
-              <PhoneInput
-                country={"eg"}
-                value={form.parentPhone}
-                onChange={(phone) => setForm({ ...form, parentPhone: phone })}
-                inputStyle={{ width: "100%" }}
-                containerStyle={{ marginBottom: "15px" }}
-              />
-
-              {/* Parent Email */}
-              <div className="input-group">
-                <i className="fas fa-envelope"></i>
-                <input
-                  type="email"
-                  placeholder="Parent Email"
-                  value={form.parentEmail}
-                  onChange={(e) => setForm({ ...form, parentEmail: e.target.value })}
-                  required
-                />
-              </div>
-            </>
-          )}
+          <div className="input-group">
+            <i className="fas fa-envelope"></i>
+            <input
+              type="email"
+              placeholder="Parent Email"
+              value={form.parentEmail}
+              onChange={(e) => setForm({ ...form, parentEmail: e.target.value })}
+              required
+            />
+          </div>
 
           {/* Submit */}
           <button type="submit" className="login-btn">
@@ -149,7 +128,6 @@ function Register() {
           </button>
         </form>
 
-        {/* 🔹 Already have account link */}
         <p className="forgot-link">
           Already have an account? <Link to="/login">Login</Link>
         </p>
