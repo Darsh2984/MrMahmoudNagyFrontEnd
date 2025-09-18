@@ -27,7 +27,7 @@
 .hero-text {
   flex: 1;
   max-width: 50%;
-  text-align: left; /* ✅ force left alignment */
+  text-align: center; 
 }
 
 .hero-image {
@@ -222,6 +222,17 @@
 .whatsapp-btn:hover {
   background: #d77e42; /* Warm Orange */
 }
+
+.courses-logo {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.courses-logo img {
+  max-width: 200px;  /* ✅ adjust as needed */
+  height: auto;
+}
+
 
 
 

@@ -6,6 +6,8 @@ const heroImg = require("../assets/images/teacherimg.png");
 const cambridgeCoreImg = require("../assets/images/cambridge-core.jpg");
 const cambridgeOImg = require("../assets/images/cambridge-olevel.jpg");
 const edexcelOImg = require("../assets/images/edexcel-olevel.jpg");
+const logoImg = require("../assets/images/logo.png");
+
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -29,6 +31,10 @@ export default function LandingPage() {
 
       {/* === Courses Section === */}
       <div className="courses-section">
+         {/* ✅ Logo at top */}
+        <div className="courses-logo">
+          <img src={logoImg} alt="Logo" />
+        </div>
         <div className="cards-row">
           <div className="course-block">
             <div className="course-card">
@@ -76,11 +82,11 @@ export default function LandingPage() {
           Have questions or need help? Reach out directly 👇
         </p>
         <div className="contact-buttons">
-          <a href="tel:+201066770745" className="contact-btn call-btn">
-            📞 Call Mr Mahmoud
+          <a href="tel:+201030400674" className="contact-btn call-btn">
+            📞 Call ENG Mahmoud Nagy
           </a>
           <a
-            href="https://wa.link/lx46no"
+            href="https://wa.link/ejd459"
             target="_blank"
             rel="noopener noreferrer"
             className="contact-btn whatsapp-btn"
