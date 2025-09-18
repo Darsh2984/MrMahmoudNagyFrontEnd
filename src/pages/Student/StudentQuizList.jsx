@@ -63,38 +63,70 @@ function StudentQuizList() {
             <p>No quizzes available</p>
           ) : (
             <ul className="quiz-list">
-              {quizzes.map((quiz) => (
-                <li key={quiz._id} className="quiz-card">
-                  <h3 style={{ marginBottom: "8px", color: "#2c3e50" }}>{quiz.title}</h3>
-                  <p>⏳ Duration: {quiz.duration} minutes</p>
-                  {quiz.startTime && (
-                    <p>📅 Starts: {new Date(quiz.startTime).toLocaleString()}</p>
-                  )}
-                  {quiz.endTime && (
-                    <p>📅 Ends: {new Date(quiz.endTime).toLocaleString()}</p>
-                  )}
+              {quizzes.map((quiz) => {
+                const now = new Date();
+                const startTime = quiz.startTime ? new Date(quiz.startTime) : null;
+                const endTime = quiz.endTime ? new Date(quiz.endTime) : null;
 
-                  {/* Show score if already submitted */}
-                  {quiz.alreadySubmitted && (
-                    <p style={{ marginTop: "8px", color: "#27ae60", fontWeight: "bold" }}>
-                      ✅ Score: {quiz.score} / {quiz.total}
-                    </p>
-                  )}
+                let buttonLabel = "";
+                let buttonClass = "btn";
+                let buttonDisabled = false;
+                let onClickAction = null;
 
-                  <button
-                    className={`btn ${quiz.alreadySubmitted ? "btn-green" : "btn-blue"}`}
-                    style={{ marginTop: "12px" }}
-                    onClick={() =>
-                      quiz.alreadySubmitted
-                        ? navigate(`/student/quiz-result/${quiz._id}`)
-                        : navigate(`/student/take-quiz/${quiz._id}`)
-                    }
-                  >
-                    {quiz.alreadySubmitted ? "📊 View Results" : "🚀 Start Quiz"}
-                  </button>
-                </li>
-              ))}
+                if (quiz.alreadySubmitted) {
+                  // ✅ Already taken
+                  buttonLabel = "📊 View Results";
+                  buttonClass = "btn-green";
+                  onClickAction = () => navigate(`/student/quiz-result/${quiz._id}`);
+                } else if (startTime && now < startTime) {
+                  // ⏳ Not started yet
+                  buttonLabel = "⏳ Opening Soon";
+                  buttonClass = "btn-gray";
+                  buttonDisabled = true;
+                } else if (endTime && now > endTime) {
+                  // ❌ Quiz closed
+                  buttonLabel = "🚫 Quiz Closed";
+                  buttonClass = "btn-red";
+                  buttonDisabled = true;
+                } else {
+                  // 🚀 Quiz is active
+                  buttonLabel = "🚀 Start Quiz";
+                  buttonClass = "btn-blue";
+                  onClickAction = () => navigate(`/student/take-quiz/${quiz._id}`);
+                }
+
+                return (
+                  <li key={quiz._id} className="quiz-card">
+                    <h3 style={{ marginBottom: "8px", color: "#2c3e50" }}>{quiz.title}</h3>
+                    <p>⏳ Duration: {quiz.duration} minutes</p>
+
+                    {quiz.startTime && (
+                      <p>📅 Starts: {new Date(quiz.startTime).toLocaleString()}</p>
+                    )}
+                    {quiz.endTime && (
+                      <p>📅 Ends: {new Date(quiz.endTime).toLocaleString()}</p>
+                    )}
+
+                    {/* Show score if already submitted */}
+                    {quiz.alreadySubmitted && (
+                      <p style={{ marginTop: "8px", color: "#27ae60", fontWeight: "bold" }}>
+                        ✅ Score: {quiz.score} / {quiz.total}
+                      </p>
+                    )}
+
+                    <button
+                      className={`btn ${buttonClass}`}
+                      style={{ marginTop: "12px" }}
+                      disabled={buttonDisabled}
+                      onClick={onClickAction}
+                    >
+                      {buttonLabel}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
+
           )}
         </div>
       </main>
