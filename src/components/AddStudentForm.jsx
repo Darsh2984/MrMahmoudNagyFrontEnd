@@ -6,7 +6,7 @@ import "../../src/styles/AppStyles.css";
 function AddStudentForm({ years, onStudentAdded }) {
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
-  const [selectedStudent, setSelectedStudent] = useState("");
+  const [selectedStudent, setSelectedStudent] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,27 +28,25 @@ function AddStudentForm({ years, onStudentAdded }) {
   }, []);
 
   const addStudentToGroup = async () => {
-    if (!selectedYear || !selectedGroup || !selectedStudent) {
-      toast.warn("⚠️ Please select a Year, Group, and Student");
-      return;
-    }
-    try {
-      await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/group/${selectedGroup}/add-student`,
-        { studentId: selectedStudent }
-      );
-      toast.success("✅ Student added successfully");
-      setSelectedStudent("");
-      if (onStudentAdded) onStudentAdded();
-    } catch (err) {
-      console.error("❌ Error adding student:", err);
-      if (err.response?.data?.msg?.includes("already exists")) {
-        toast.error("❌ This student is already in another group");
-      } else {
-        toast.error("❌ Failed to add student");
-      }
-    }
-  };
+  if (!selectedYear || !selectedGroup || selectedStudent.length === 0) {
+    toast.warn("⚠️ Please select a Year, Group, and at least one Student");
+    return;
+  }
+
+  try {
+    await axios.post(
+      `${process.env.REACT_APP_API_URL}/api/group/${selectedGroup}/add-student`,
+      { studentIds: selectedStudent } // send array now
+    );
+
+    toast.success("✅ Students added successfully");
+    setSelectedStudent([]);
+    if (onStudentAdded) onStudentAdded();
+  } catch (err) {
+    console.error("❌ Error adding students:", err);
+    toast.error("❌ Failed to add students");
+  }
+};
 
   return (
     <div className="section-card">
@@ -91,26 +89,41 @@ function AddStudentForm({ years, onStudentAdded }) {
         </>
       )}
 
-      {/* Student Selector */}
-      <label className="field-label">Select Student</label>
-      {loading ? (
-        <p>Loading students...</p>
-      ) : error ? (
-        <p className="error">{error}</p>
-      ) : (
-        <select
-          className="styled-select"
-          value={selectedStudent}
-          onChange={(e) => setSelectedStudent(e.target.value)}
-        >
-          <option value="">-- Select Student --</option>
-          {students.map((s) => (
-            <option key={s._id} value={s._id}>
-              {s.name} ({s.email})
-            </option>
-          ))}
-        </select>
-      )}
+     {/* Student Selector */}
+<label className="field-label">Select Students</label>
+{loading ? (
+  <p>Loading students...</p>
+) : error ? (
+  <p className="error">{error}</p>
+) : (
+  <div className="checkbox-grid">
+  {students.map((s) => (
+    <label
+      key={s._id}
+      className={`checkbox-card ${selectedStudent.includes(s._id) ? "selected" : ""}`}
+    >
+      <input
+        type="checkbox"
+        value={s._id}
+        checked={selectedStudent.includes(s._id)}
+        onChange={(e) => {
+          if (e.target.checked) {
+            setSelectedStudent([...selectedStudent, s._id]);
+          } else {
+            setSelectedStudent(selectedStudent.filter((id) => id !== s._id));
+          }
+        }}
+      />
+      <div className="checkbox-content">
+        <strong>{s.name}</strong> {/* ✅ student full name */}
+        <p>{s.schoolId?.name || "No School"}</p> {/* ✅ school */}
+      </div>
+    </label>
+  ))}
+</div>
+
+
+)}
 
       {/* Add Button */}
       <br />

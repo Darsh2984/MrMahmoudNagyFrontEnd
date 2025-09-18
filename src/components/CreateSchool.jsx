@@ -5,6 +5,7 @@ import "../styles/AppStyles.css";
 function CreateSchool({ teacherId }) {
   const [schools, setSchools] = useState([]);
   const [schoolName, setSchoolName] = useState("");
+  const [collapsed, setCollapsed] = useState(false); // ✅ collapsible state
 
   useEffect(() => {
     if (teacherId) fetchSchools();
@@ -22,7 +23,10 @@ function CreateSchool({ teacherId }) {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/school`, { name: schoolName, teacherId });
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/school`, {
+        name: schoolName,
+        teacherId,
+      });
       setSchoolName("");
       fetchSchools();
     } catch (err) {
@@ -41,7 +45,15 @@ function CreateSchool({ teacherId }) {
 
   return (
     <div className="section-card">
-      <h3>🏫 Manage Schools</h3>
+      <div className="school-header">
+        <h3>🏫 Manage Schools</h3>
+        <button
+          className="collapse-btn"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          {collapsed ? "▼ Expand" : "▲ Collapse"}
+        </button>
+      </div>
 
       <form onSubmit={handleCreate} style={{ marginBottom: "15px" }}>
         <input
@@ -54,14 +66,21 @@ function CreateSchool({ teacherId }) {
         <button type="submit" className="btn btn-purple">Add School</button>
       </form>
 
-      <ul className="styled-list">
-        {schools.map((school) => (
-          <li key={school._id}>
-            {school.name}
-            <button onClick={() => handleDelete(school._id)} className="btn btn-purple small-btn">🗑 Delete</button>
-          </li>
-        ))}
-      </ul>
+      {!collapsed && (
+        <div className="school-list">
+          {schools.map((school) => (
+            <div key={school._id} className="school-row">
+              <span className="school-name">{school.name}</span>
+              <button
+                onClick={() => handleDelete(school._id)}
+                className="btn btn-danger small-btn"
+              >
+                🗑 Delete
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

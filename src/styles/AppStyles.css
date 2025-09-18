@@ -13,6 +13,107 @@
   background: #f5f1eb; /* cream white background */
 }
 
+
+/* SCHOOLS CREATION SECTION */
+/* Container for the list */
+/* Container */
+.school-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.collapse-btn {
+  background: #8baa91; /* Sage Green */
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s ease;
+}
+
+.collapse-btn:hover {
+  background: #76977d;
+}
+
+.school-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+/* Each row (Cream background, teal text) */
+.school-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f5f1eb;       /* Cream White */
+  padding: 10px 15px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  transition: background 0.2s ease;
+}
+
+.school-row:hover {
+  background: #e9e3dc; /* slightly darker cream */
+}
+
+.school-name {
+  font-weight: 600;
+  color: #0b3c49; /* Deep Teal */
+}
+
+/* Delete button (Terracotta red) */
+.btn-danger.small-btn {
+  background: #c85d47;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-danger.small-btn:hover {
+  background: #a64a38;
+}
+
+/* Add School button (Sage Green) */
+.btn.btn-purple {
+  background: #8baa91; /* Sage Green */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn.btn-purple:hover {
+  background: #76977d; /* darker sage */
+}
+
+/* Input box aligned with palette */
+.styled-input {
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 8px;
+  margin-right: 8px;
+  outline: none;
+  background: white;
+  color: #0b3c49;
+}
+
+.styled-input:focus {
+  border-color: #8baa91; /* Sage Green border */
+  box-shadow: 0 0 4px rgba(139, 170, 145, 0.5);
+}
+
+
 /* === Unit/Chapter Manager === */
 .unit-list {
   list-style: none;
@@ -284,8 +385,8 @@
 
 /* Group card style */
 .checkbox-card {
-  display: flex;
-  align-items: center;
+  display: inline-flex;       /* ✅ shrink-wrap width to content */
+  align-items: flex-start;    /* align nicely for multi-line text */
   padding: 12px 14px;
   background: #f8f9fa;
   border: 1px solid #ddd;
@@ -294,6 +395,9 @@
   transition: all 0.2s ease;
   font-weight: 500;
   color: #333;
+  max-width: 100%;            /* ✅ don’t overflow container */
+  white-space: normal;        /* ✅ allow wrapping */
+  word-wrap: break-word;      /* ✅ break very long strings */
 }
 
 /* Checkbox inside card */
