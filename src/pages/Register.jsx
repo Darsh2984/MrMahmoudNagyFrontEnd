@@ -10,16 +10,32 @@ function Register() {
     name: "",
     email: "",
     password: "",
-    role: "student", // ✅ Always student
+    role: "student",
     studentPhone: "",
     parentName: "",
     parentPhone: "",
     parentEmail: "",
+    schoolId: "", // ✅ new
   });
+
+  const [schools, setSchools] = useState([]);
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Apply login-page styling
+  // ✅ Fetch schools
+  useEffect(() => {
+    const fetchSchools = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/school/all`);
+        setSchools(res.data);
+      } catch (err) {
+        console.error("❌ Error fetching schools:", err);
+      }
+    };
+    fetchSchools();
+  }, []);
+
+  // ✅ Page style
   useEffect(() => {
     document.body.classList.add("login-page");
     return () => {
@@ -81,7 +97,23 @@ function Register() {
             />
           </div>
 
-          {/* ✅ Student fields only */}
+          {/* 🔹 School Selection */}
+          <label className="field-label">Select School</label>
+          <select
+            className="styled-select"
+            value={form.schoolId}
+            onChange={(e) => setForm({ ...form, schoolId: e.target.value })}
+            required
+          >
+            <option value="">-- Choose a School --</option>
+            {schools.map((s) => (
+              <option key={s._id} value={s._id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+
+          {/* Student phone */}
           <label className="field-label">Student Phone</label>
           <PhoneInput
             country={"eg"}
@@ -91,6 +123,7 @@ function Register() {
             containerStyle={{ marginBottom: "15px" }}
           />
 
+          {/* Parent Name */}
           <div className="input-group">
             <i className="fas fa-user"></i>
             <input
@@ -102,6 +135,7 @@ function Register() {
             />
           </div>
 
+          {/* Parent Phone */}
           <label className="field-label">Parent Phone</label>
           <PhoneInput
             country={"eg"}
@@ -111,6 +145,7 @@ function Register() {
             containerStyle={{ marginBottom: "15px" }}
           />
 
+          {/* Parent Email */}
           <div className="input-group">
             <i className="fas fa-envelope"></i>
             <input

@@ -6,6 +6,7 @@ import AddStudentForm from "../../components/AddStudentForm";
 import CreateSessionForm from "../../components/CreateSessionForm";
 import SessionAttendance from "../../components/SessionAttendance";
 import GroupSessions from "../../components/GroupSessions";
+import CreateSchool from "../../components/CreateSchool";
 import "../../styles/AppStyles.css"; // ✅ unified global CSS
 
 function TeacherDashboard() {
@@ -82,6 +83,10 @@ function TeacherDashboard() {
             <h3>📂 Create Tasks & Homework</h3>
             <p>Assign tasks and homework to students.</p>
           </div>
+        </div>
+        
+        <div className="section-card">
+          <CreateSchool teacherId={teacherId} />
         </div>
 
         {/* Manage Years & Groups */}
