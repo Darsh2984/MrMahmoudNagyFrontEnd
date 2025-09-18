@@ -95,12 +95,14 @@
 
 /* Image cards */
 .course-card {
-  flex: 1;
-  max-width: 480px;
-  height: 220px;
+  flex: none;               /* 🚀 prevent shrinking in column layout */
+  width: 100%;              /* take full width of parent */
+  max-width: 480px;         /* desktop limit */
+  height: 220px;            /* default height */
   border-radius: 12px;
   background-size: cover;
   background-position: center;
+  background-repeat: no-repeat; /* just in case */
   box-shadow: 0 4px 10px rgba(51, 49, 46, 0.15);
 }
 
