@@ -34,7 +34,7 @@ function CreateSessionForm({ teacherId, years, onSessionCreated }) {
 
   return (
     <div className="section-card">
-      <h3 className="section-title">➕ Create Session</h3>
+      <h3 className="section-title">Create Session</h3>
 
       {/* Year Selector */}
       <label className="field-label">Select Year</label>
@@ -85,7 +85,7 @@ function CreateSessionForm({ teacherId, years, onSessionCreated }) {
       <br />
       {/* Create Button */}
       <button className="btn btn-purple" onClick={createSession}>
-        🚀 Create Session
+        Create Session
       </button>
     </div>
   );
