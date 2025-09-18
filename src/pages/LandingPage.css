@@ -171,7 +171,7 @@
 }
 
 
-@media (max-width: 992px) {
+@media (max-width: 1200px) {
   .landing-hero {
     flex-direction: column;
     text-align: center;
@@ -198,22 +198,48 @@
 
   /* Keep cards side by side */
   .cards-row {
-    flex-direction: row;     /* ✅ keep horizontal */
-    flex-wrap: wrap;         /* ✅ allow wrapping if too small */
-    gap: 20px;               /* smaller gap */
-    justify-content: center; /* center nicely */
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+  } 
+
+   .course-card, .description-row .desc-card {
+    flex: 1 1 30%;      
+    max-width: 30%; 
+    height: 200px;       
   }
 
-  .course-card {
-    flex: 1 1 30%;           /* ✅ make them responsive */
-    max-width: 30%;
-    height: 180px;           /* smaller fixed height for mobile */
+
+  /* Medium phones (iPhone Pro Max ~430px – Samsung portrait ~400–600px) */
+@media (max-width: 768px) {
+  .cards-row {
+    flex-wrap: wrap;
+    gap: 15px;
   }
 
-  .description-row .desc-card {
-    flex: 1 1 30%;
-    max-width: 30%;
+  .course-card, .description-row .desc-card {
+    flex: 1 1 45%;       /* 2 per row */
+    max-width: 45%; 
+    height: 180px;
   }
+}
+
+/* Small phones (iPhone Mini / older small Androids < 430px) */
+@media (max-width: 480px) {
+  .cards-row {
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .course-card, .description-row .desc-card {
+    flex: none;
+    width: 90%;          /* full width card */
+    max-width: 90%;
+    height: 200px;       /* consistent image height */
+  }
+}
+
 }
 
 
