@@ -23,6 +23,8 @@
   opacity: 0.9; /* low intensity */
   z-index: 0;
   background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
 }
 
 
@@ -204,9 +206,14 @@
     align-items: center;
   }
 
-  .course-card, .description-row .desc-card {
-    max-width: 90%;
-    height: auto;
+  .course-card {
+    max-width: 95%;
+    height: 200px;   /* keep visible height */
   }
+
+  .description-row .desc-card {
+    max-width: 95%;
+  }
+
 }
 
