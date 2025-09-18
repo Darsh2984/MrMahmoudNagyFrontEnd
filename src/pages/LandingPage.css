@@ -1,4 +1,4 @@
-/* Container */
+/* ================= Hero Section ================= */
 .landing-hero {
   display: flex;
   justify-content: space-between;
@@ -19,17 +19,14 @@
   left: 0;
   width: 100%;
   height: 100%;
-  background: url("../assets/images/background.png");
-  opacity: 0.9; 
+  background: url("../assets/images/background.png") center/cover no-repeat;
+  opacity: 0.9;
   z-index: 0;
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
 }
 
-
 /* Ensure hero text & image stay above */
-.hero-text, .hero-image {
+.hero-text,
+.hero-image {
   position: relative;
   z-index: 1;
 }
@@ -45,23 +42,22 @@
   font-size: 150px;
   line-height: 0.85;
   margin-bottom: 30px;
-  font-weight: normal; 
+  font-weight: normal;
   letter-spacing: -2px;
   text-transform: uppercase;
   display: inline-block;
 }
 
-/* Subtitle aligned under title */
 .hero-subtitle {
   font-family: "CO Headline Light", sans-serif;
   font-size: 22px;
   line-height: 1.6;
   color: #dbe4e8;
   display: block;
-  max-width: 90%;      
-  margin-left: 130px;    
+  max-width: 90%;
+  margin-left: 130px;
   word-spacing: 4px;
-  text-align: justify; 
+  text-align: justify;
 }
 
 /* Right Image */
@@ -78,8 +74,7 @@
   object-fit: cover;
 }
 
-
-/* === Courses Section === */
+/* ================= Courses Section ================= */
 .courses-section {
   background: #f5f1eb; /* cream */
   padding: 80px;
@@ -89,36 +84,45 @@
 .cards-row {
   display: flex;
   justify-content: center;
-  gap: 100px;
+  gap: 60px;
   margin-bottom: 30px;
+  flex-wrap: wrap;
+}
+
+/* Course block = image + description */
+.course-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 30%;    /* 3 per row on large screens */
+  max-width: 30%;
 }
 
 /* Image cards */
 .course-card {
-  flex: none;               /* 🚀 prevent shrinking in column layout */
-  width: 100%;              /* take full width of parent */
-  max-width: 480px;         /* desktop limit */
-  height: 220px;            /* default height */
+  width: 100%;
+  height: 220px;
   border-radius: 12px;
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat; /* just in case */
+  background-repeat: no-repeat;
   box-shadow: 0 4px 10px rgba(51, 49, 46, 0.15);
+  margin-bottom: 15px; /* spacing before description */
 }
 
 /* Description cards under each image */
-.description-row .desc-card {
+.desc-card {
   background: #fff;
-  flex: 1;
-  max-width: 400px;
+  width: 100%;
   padding: 20px;
   border-radius: 8px;
-  color: #33312e; /* charcoal */
+  color: #33312e;
   font-size: 16px;
   box-shadow: 0 2px 6px rgba(51, 49, 46, 0.1);
+  text-align: center;
 }
 
-/* === Footer Buttons === */
+/* ================= Footer Buttons ================= */
 .footer-actions {
   background: #f5f1eb;
   text-align: center;
@@ -154,8 +158,7 @@
   background: #0b3c49; /* deep teal */
 }
 
-
-/* === Fonts === */
+/* ================= Fonts ================= */
 @font-face {
   font-family: "Bufalino Bold";
   src: url("../assets/fonts/fonnts.com-Bufalino_Extrabold.otf") format("opentype");
@@ -170,7 +173,9 @@
   font-style: normal;
 }
 
+/* ================= Responsive Breakpoints ================= */
 
+/* Tablets & small laptops (≤1200px) */
 @media (max-width: 1200px) {
   .landing-hero {
     flex-direction: column;
@@ -179,7 +184,7 @@
   }
 
   .hero-title {
-    font-size: 60px;
+    font-size: 80px;
     line-height: 1;
     margin-left: 0;
   }
@@ -196,50 +201,48 @@
     height: auto;
   }
 
-  /* Keep cards side by side */
-  .cards-row {
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
-  } 
-
-   .course-card, .description-row .desc-card {
-    flex: 1 1 30%;      
-    max-width: 30%; 
-    height: 200px;       
+  .course-block {
+    flex: 1 1 30%;
+    max-width: 30%;
   }
 
-
-  /* Medium phones (iPhone Pro Max ~430px – Samsung portrait ~400–600px) */
-@media (max-width: 768px) {
-  .cards-row {
-    flex-wrap: wrap;
-    gap: 15px;
-  }
-
-  .course-card, .description-row .desc-card {
-    flex: 1 1 45%;       /* 2 per row */
-    max-width: 45%; 
-    height: 180px;
+  .course-card {
+    height: 200px;
   }
 }
 
-/* Small phones (iPhone Mini / older small Androids < 430px) */
+/* Medium phones (≤768px, Samsung A54 portrait, iPhone Pro Max) */
+@media (max-width: 768px) {
+  .cards-row {
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .course-block {
+    flex: 1 1 45%;
+    max-width: 45%;  /* 2 per row */
+  }
+
+  .course-card {
+    height: 200px;
+  }
+}
+
+/* Small phones (≤480px, iPhone Mini / older Androids) */
 @media (max-width: 480px) {
   .cards-row {
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 30px;
   }
 
-  .course-card, .description-row .desc-card {
+  .course-block {
     flex: none;
-    width: 90%;          /* full width card */
+    width: 90%;   /* full width */
     max-width: 90%;
-    height: 200px;       /* consistent image height */
+  }
+
+  .course-card {
+    height: 200px;
   }
 }
-
-}
-
-

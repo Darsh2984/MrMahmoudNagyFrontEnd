@@ -31,32 +31,41 @@ export default function LandingPage() {
       {/* === Courses Section === */}
       <div className="courses-section">
         <div className="cards-row">
-          <div
-            className="course-card"
-            style={{ backgroundImage: `url(${cambridgeCoreImg})` }}
-          ></div>
-          <div
-            className="course-card"
-            style={{ backgroundImage: `url(${cambridgeOImg})` }}
-          ></div>
-          <div
-            className="course-card"
-            style={{ backgroundImage: `url(${edexcelOImg})` }}
-          ></div>
-        </div>
+          {/* Cambridge Core */}
+          <div className="course-block">
+            <div
+              className="course-card"
+              style={{ backgroundImage: `url(${cambridgeCoreImg})` }}
+            ></div>
+            <div className="desc-card">
+              <p>Physics Cambridge Core Description</p>
+            </div>
+          </div>
 
-        <div className="cards-row description-row">
-          <div className="desc-card">
-            <p>Physics Cambridge Core Description</p>
+          {/* Cambridge O Level */}
+          <div className="course-block">
+            <div
+              className="course-card"
+              style={{ backgroundImage: `url(${cambridgeOImg})` }}
+            ></div>
+            <div className="desc-card">
+              <p>Physics Cambridge O Level Description</p>
+            </div>
           </div>
-          <div className="desc-card">
-            <p>Physics Cambridge O Level Description</p>
-          </div>
-          <div className="desc-card">
-            <p>Physics Edexcel O Level Description</p>
+
+          {/* Edexcel O Level */}
+          <div className="course-block">
+            <div
+              className="course-card"
+              style={{ backgroundImage: `url(${edexcelOImg})` }}
+            ></div>
+            <div className="desc-card">
+              <p>Physics Edexcel O Level Description</p>
+            </div>
           </div>
         </div>
       </div>
+
 
       {/* === Footer Buttons === */}
       <div className="footer-actions">
