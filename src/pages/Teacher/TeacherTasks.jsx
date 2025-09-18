@@ -72,34 +72,42 @@ function TeacherTasks() {
   };
 
   // 🔹 Create task (multi-group)
-  const createTask = async () => {
-    if (!selectedYear || !selectedGroups.length || !title || !deadline || !gradeOutOf) {
-      toast.warn("⚠️ Please fill all fields");
-      return;
-    }
-    try {
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/tasks/task`, {
-        title,
-        description,
-        teacherId: user.id,
-        yearId: selectedYear,
-        groups: selectedGroups, // ✅ multiple groups
-        deadline,
-        gradeOutOf,
-      });
-      toast.success("✅ Task created");
-      setTitle("");
-      setDescription("");
-      setDeadline("");
-      setGradeOutOf("");
-      setSelectedGroups([]);
+const createTask = async () => {
+  if (!selectedYear || !selectedGroups.length || !title || !deadline || !gradeOutOf) {
+    toast.warn("⚠️ Please fill all fields");
+    return;
+  }
+  try {
+    await axios.post(`${process.env.REACT_APP_API_URL}/api/tasks/task`, {
+      title,
+      description,
+      teacherId: user.id,
+      yearId: selectedYear,
+      groups: selectedGroups, // ✅ multiple groups
+      deadline,
+      gradeOutOf,
+    });
+    toast.success("✅ Task created");
+    setTitle("");
+    setDescription("");
+    setDeadline("");
+    setGradeOutOf("");
+    setSelectedGroups([]);
 
-      // refresh tasks for first group
-      fetchTasks(selectedGroups[0]);
-    } catch {
-      toast.error("❌ Failed to create task");
+    // ✅ Refresh tasks for all groups
+    let allTasks = [];
+    for (const gId of selectedGroups) {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/tasks/group/${gId}`
+      );
+      allTasks = [...allTasks, ...res.data];
     }
-  };
+    setTasks(allTasks);
+  } catch {
+    toast.error("❌ Failed to create task");
+  }
+};
+
 
   // 🔹 Grade submission
   const gradeSubmission = async (submissionId) => {
@@ -182,20 +190,21 @@ function TeacherTasks() {
                       selectedGroups.includes(g._id) ? "selected" : ""
                     }`}
                   >
-                    <input
-                      type="checkbox"
-                      value={g._id}
-                      checked={selectedGroups.includes(g._id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedGroups([...selectedGroups, g._id]);
-                        } else {
-                          setSelectedGroups(
-                            selectedGroups.filter((id) => id !== g._id)
-                          );
-                        }
-                      }}
-                    />
+                   <input
+                    type="checkbox"
+                    value={g._id}
+                    checked={selectedGroups.includes(g._id)}
+                    onChange={async (e) => {
+                      if (e.target.checked) {
+                        setSelectedGroups([...selectedGroups, g._id]);
+                        fetchTasks(g._id); // ✅ load tasks for this group
+                      } else {
+                        setSelectedGroups(selectedGroups.filter((id) => id !== g._id));
+                        // optionally remove tasks of this group from state
+                        setTasks(tasks.filter((t) => !t.groups.includes(g._id)));
+                      }
+                    }}
+                  />
                     {g.name}
                   </label>
                 ))}
