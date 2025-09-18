@@ -171,8 +171,6 @@
 }
 
 
-/* Mobile responsiveness */
-/* Mobile responsiveness */
 @media (max-width: 992px) {
   .landing-hero {
     flex-direction: column;
@@ -198,19 +196,23 @@
     height: auto;
   }
 
+  /* Keep cards side by side */
   .cards-row {
-    flex-direction: column;
-    gap: 30px;
-    align-items: center;
+    flex-direction: row;     /* ✅ keep horizontal */
+    flex-wrap: wrap;         /* ✅ allow wrapping if too small */
+    gap: 20px;               /* smaller gap */
+    justify-content: center; /* center nicely */
   }
 
   .course-card {
-    max-width: 95%;
-    height: 200px; /* keep visible */
+    flex: 1 1 30%;           /* ✅ make them responsive */
+    max-width: 30%;
+    height: 180px;           /* smaller fixed height for mobile */
   }
 
   .description-row .desc-card {
-    max-width: 95%;
+    flex: 1 1 30%;
+    max-width: 30%;
   }
 }
 
