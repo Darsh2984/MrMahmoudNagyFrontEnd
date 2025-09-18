@@ -83,7 +83,7 @@ function StudentQuizList() {
                   buttonLabel = "⏳ Opening Soon";
                   buttonClass = "btn-gray";
                   buttonDisabled = true;
-                } else if (endTime && now > endTime) {
+                } else if (now > endTime) {
                   // ❌ Quiz closed
                   buttonLabel = "🚫 Quiz Closed";
                   buttonClass = "btn-red";
