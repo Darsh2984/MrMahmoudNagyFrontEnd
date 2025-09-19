@@ -61,6 +61,7 @@ function QuestionUpload() {
       setSelectedChapter("");
       setCorrectAnswer("");
       setImage(null);
+      document.querySelector('input[type="file"]').value = "";
     } catch (err) {
       console.error("❌ Error uploading question:", err);
       toast.error("❌ Failed to upload question");

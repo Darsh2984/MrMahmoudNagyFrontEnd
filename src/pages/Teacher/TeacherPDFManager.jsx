@@ -281,16 +281,16 @@ export default function TeacherMaterialManager() {
                     {/* PDF Viewer */}
                     <div className="pdf-viewer">
                       <iframe
-                        src={`${process.env.REACT_APP_API_URL}/api/material/stream/${m._id}#toolbar=0&navpanes=0&scrollbar=0`}
-                        title={m.title}
-                        style={{
-                          width: "100%",
-                          height: "500px",
-                          border: "none",
-                          transform: `scale(${zoom})`,
-                          transformOrigin: "0 0",
-                        }}
-                      ></iframe>
+                      src={`${m.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
+                      title={m.title}
+                      style={{
+                        width: "100%",
+                        height: "500px",
+                        border: "none",
+                        transform: `scale(${zoom})`,
+                        transformOrigin: "0 0",
+                      }}
+                    ></iframe>
                     </div>
 
                     <button

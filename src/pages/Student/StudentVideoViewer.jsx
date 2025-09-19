@@ -173,7 +173,7 @@ export default function StudentVideoViewer() {
                     <b>Chapter:</b> {v.chapterId?.name || "—"}
                   </p>
                   <video
-                    src={`${process.env.REACT_APP_API_URL}${v.videoUrl}`}
+                    src={v.videoUrl}
                     controls
                     controlsList="nodownload"
                     disablePictureInPicture

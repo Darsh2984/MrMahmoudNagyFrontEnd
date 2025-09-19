@@ -68,10 +68,11 @@ function QuizResult() {
                 <h4>Q{index + 1}</h4>
                 {a.questionId.imageUrl && (
                   <img
-                    src={`${process.env.REACT_APP_API_URL}${a.questionId.imageUrl}`}
-                    alt="question"
-                    className="answer-image"
-                  />
+                  src={a.questionId.imageUrl}
+                  alt="question"
+                  className="answer-image"
+                />
+
                 )}
                 <p>
                   <b>Your Answer:</b>{" "}

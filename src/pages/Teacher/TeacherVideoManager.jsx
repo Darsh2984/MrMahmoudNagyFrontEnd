@@ -274,12 +274,12 @@ export default function TeacherVideoManager() {
                     <b>Chapter:</b> {v.chapterId?.name}
                   </p>
                   <video
-                    src={`${process.env.REACT_APP_API_URL}${v.videoUrl}`}
-                    controls
-                    controlsList="nodownload"
-                    disablePictureInPicture
-                    style={{ width: "100%", borderRadius: "6px" }}
-                  />
+                      src={v.videoUrl}   // Bunny CDN link directly
+                      controls
+                      controlsList="nodownload"
+                      disablePictureInPicture
+                      style={{ width: "100%", borderRadius: "6px" }}
+                    />
                   <button
                     onClick={() => handleDelete(v._id)}
                     className="btn btn-purple small-btn"

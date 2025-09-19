@@ -225,10 +225,11 @@
                 <div key={i} className="answer-card roomy-answer">
                   {a.questionId?.imageUrl && (
                     <img
-                      src={`${process.env.REACT_APP_API_URL}${a.questionId.imageUrl}`}
-                      alt="question"
-                      className="question-thumb"
-                    />
+                    src={a.questionId.imageUrl}
+                    alt="question"
+                    className="question-thumb"
+                  />
+
                   )}
                   <p><b>Student Answer:</b> {a.answer || "—"}</p>
                   <p><b>Correct Answer:</b> {a.questionId?.correctAnswer}</p>
@@ -254,10 +255,11 @@
                     <h4>Question {i + 1}</h4>
                     {q.imageUrl && (
                       <img
-                        src={`${process.env.REACT_APP_API_URL}${q.imageUrl}`}
-                        alt={`question-${i + 1}`}
-                        className="question-thumb"
-                      />
+                      src={q.imageUrl}
+                      alt={`question-${i + 1}`}
+                      className="question-thumb"
+                    />
+
                     )}
                     {q.text && <p><b>Text:</b> {q.text}</p>}
                     {q.options && (

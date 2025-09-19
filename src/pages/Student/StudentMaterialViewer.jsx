@@ -211,7 +211,7 @@ const fetchMaterials = async (yearId) => {
                     {/* PDF Viewer */}
                     <div style={styles.viewerWrapper}>
                       <iframe
-                        src={`${process.env.REACT_APP_API_URL}/api/material/stream/${m._id}#toolbar=0&navpanes=0&scrollbar=0`}
+                        src={`${m.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
                         title={m.title}
                         style={{
                           width: "100%",

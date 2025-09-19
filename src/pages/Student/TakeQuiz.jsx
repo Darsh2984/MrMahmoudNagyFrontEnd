@@ -103,10 +103,10 @@ function TakeQuiz() {
             <h4>Q{index + 1}</h4>
             {q.imageUrl && (
               <img
-                src={`${process.env.REACT_APP_API_URL}${q.imageUrl}`}
-                alt="question"
-                style={{ maxWidth: "100%", marginBottom: "10px" }}
-              />
+              src={q.imageUrl}
+              alt="question"
+              style={{ maxWidth: "100%", marginBottom: "10px" }}
+            />
             )}
             <div style={{ marginTop: "10px" }}>
               {["A", "B", "C", "D"].map((opt) => (

@@ -133,13 +133,13 @@ function QuestionList() {
                   {/* Image */}
                   {q.imageUrl && (
                     <img
-                      src={`${process.env.REACT_APP_API_URL}${q.imageUrl}`}
-                      alt="question"
-                      className="question-thumb"
-                      onClick={() => setPreviewImage(`${process.env.REACT_APP_API_URL}${q.imageUrl}`)}
-                    />
-                  )}
+                    src={q.imageUrl}
+                    alt="question"
+                    className="question-thumb"
+                    onClick={() => setPreviewImage(q.imageUrl)}
+                  />
 
+                  )}
                   {/* Info */}
                   <div style={{ flex: 1, marginLeft: "15px" }}>
                     <p>
