@@ -5,25 +5,44 @@ import { useNavigate } from "react-router-dom";
 import "../styles/AppStyles.css";
 
 function QuestionUpload() {
+  const [years, setYears] = useState([]);
   const [units, setUnits] = useState([]);
   const [chapters, setChapters] = useState([]);
+
+  const [selectedYear, setSelectedYear] = useState("");
   const [selectedUnit, setSelectedUnit] = useState("");
   const [selectedChapter, setSelectedChapter] = useState("");
   const [image, setImage] = useState(null);
   const [correctAnswer, setCorrectAnswer] = useState("");
+
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
   const teacherId = user?.id;
   const navigate = useNavigate();
 
+  // 🔹 Fetch teacher's years
   useEffect(() => {
-    if (teacherId) fetchUnits();
+    if (teacherId) fetchYears();
   }, [teacherId]);
 
-  const fetchUnits = async () => {
+  const fetchYears = async () => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/unit/${teacherId}`);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/year/${teacherId}`
+      );
+      setYears(res.data);
+    } catch (err) {
+      console.error("❌ Error fetching years:", err);
+      toast.error("❌ Failed to load years");
+    }
+  };
+
+  const fetchUnits = async (yearId) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`
+      );
       setUnits(res.data);
     } catch (err) {
       console.error("❌ Error fetching units:", err);
@@ -31,21 +50,43 @@ function QuestionUpload() {
     }
   };
 
+  const fetchChapters = async (unitId) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`
+      );
+      setChapters(res.data);
+    } catch (err) {
+      console.error("❌ Error fetching chapters:", err);
+      toast.error("❌ Failed to load chapters");
+    }
+  };
+
+  const handleYearChange = (yearId) => {
+    setSelectedYear(yearId);
+    setSelectedUnit("");
+    setSelectedChapter("");
+    setUnits([]);
+    setChapters([]);
+    if (yearId) fetchUnits(yearId);
+  };
+
   const handleUnitChange = (unitId) => {
     setSelectedUnit(unitId);
-    const unit = units.find((u) => u._id === unitId);
-    setChapters(unit ? unit.chapters : []);
     setSelectedChapter("");
+    setChapters([]);
+    if (unitId) fetchChapters(unitId);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedUnit || !selectedChapter || !correctAnswer || !image) {
+    if (!selectedYear || !selectedUnit || !selectedChapter || !correctAnswer || !image) {
       return toast.warn("⚠️ Please fill all fields");
     }
 
     try {
       const formData = new FormData();
+      formData.append("yearId", selectedYear);   // ✅ include year
       formData.append("unitId", selectedUnit);
       formData.append("chapterId", selectedChapter);
       formData.append("teacherId", teacherId);
@@ -57,11 +98,16 @@ function QuestionUpload() {
       });
 
       toast.success("✅ Question uploaded!");
+      // reset fields
+      setSelectedYear("");
       setSelectedUnit("");
       setSelectedChapter("");
       setCorrectAnswer("");
       setImage(null);
-      document.querySelector('input[type="file"]').value = "";
+      setUnits([]);
+      setChapters([]);
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) fileInput.value = "";
     } catch (err) {
       console.error("❌ Error uploading question:", err);
       toast.error("❌ Failed to upload question");
@@ -72,20 +118,23 @@ function QuestionUpload() {
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
       {/* === Sidebar === */}
       <aside className="sidebar">
-        <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
+        <button
+          className="sidebar-toggle"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+        >
           {sidebarOpen ? "«" : "»"}
         </button>
         <h2 className="sidebar-title">📚 Dashboard</h2>
         <ul>
           <li onClick={() => navigate("/teacher-dashboard")}>🏠 Home</li>
           <li onClick={() => navigate("/manage-units")}>📘 Units & Chapters</li>
-          <li onClick={() => navigate("/questions")}>📋 Questions</li>
+          <li className="active">📋 Questions</li>
           <li onClick={() => navigate("/createquiz")}>📝 Create Quiz</li>
           <li onClick={() => navigate("/quizlist")}>📑 Quiz Lists</li>
           <li onClick={() => navigate("/studentsperformance")}>📊 Performance</li>
           <li onClick={() => navigate("/teacher-tasks")}>📂 Tasks & Homework</li>
           <li onClick={() => navigate("/videomanager")}>📽 Upload Videos</li>
-          <li onClick={() => navigate("/PDFManager")}>📃 Upload Course Materials</li>          
+          <li onClick={() => navigate("/PDFManager")}>📃 Upload Course Materials</li>
         </ul>
       </aside>
 
@@ -95,12 +144,28 @@ function QuestionUpload() {
           <h3 className="card-title">📤 Upload MCQ Question</h3>
 
           <form onSubmit={handleSubmit}>
+            {/* Year */}
+            <label className="field-label">Select Year</label>
+            <select
+              value={selectedYear}
+              onChange={(e) => handleYearChange(e.target.value)}
+              className="styled-select"
+            >
+              <option value="">-- Select Year --</option>
+              {years.map((y) => (
+                <option key={y._id} value={y._id}>
+                  {y.name}
+                </option>
+              ))}
+            </select>
+
             {/* Unit */}
             <label className="field-label">Select Unit</label>
             <select
               value={selectedUnit}
               onChange={(e) => handleUnitChange(e.target.value)}
               className="styled-select"
+              disabled={!selectedYear}
             >
               <option value="">-- Select Unit --</option>
               {units.map((u) => (
@@ -149,9 +214,9 @@ function QuestionUpload() {
                 </option>
               ))}
             </select>
+
             <br />
             <br />
-            {/* Submit */}
             <button type="submit" className="btn btn-blue" style={{ width: "100%" }}>
               Upload
             </button>

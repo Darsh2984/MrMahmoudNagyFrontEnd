@@ -6,7 +6,9 @@ import "../styles/AppStyles.css";
 
 function QuestionList() {
   const [questions, setQuestions] = useState([]);
+  const [years, setYears] = useState([]);
   const [units, setUnits] = useState([]);
+  const [filterYear, setFilterYear] = useState("all");
   const [filterUnit, setFilterUnit] = useState("all");
   const [filterChapter, setFilterChapter] = useState("all");
   const [previewImage, setPreviewImage] = useState(null);
@@ -19,13 +21,16 @@ function QuestionList() {
   useEffect(() => {
     if (teacherId) {
       fetchQuestions();
-      fetchUnits();
+      fetchYears(teacherId);
     }
   }, [teacherId]);
 
+  // 🔹 Fetch all questions for teacher
   const fetchQuestions = async () => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/questions/${teacherId}`);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/questions/${teacherId}`
+      );
       setQuestions(res.data);
     } catch (err) {
       console.error("❌ Error fetching questions:", err);
@@ -33,12 +38,29 @@ function QuestionList() {
     }
   };
 
-  const fetchUnits = async () => {
+  // 🔹 Fetch teacher's years
+  const fetchYears = async (teacherId) => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/unit/${teacherId}`);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/year/${teacherId}`
+      );
+      setYears(res.data);
+    } catch (err) {
+      console.error("❌ Error fetching years:", err);
+      toast.error("❌ Failed to load years");
+    }
+  };
+
+  // 🔹 Fetch units for selected year
+  const fetchUnits = async (yearId) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`
+      );
       setUnits(res.data);
     } catch (err) {
       console.error("❌ Error fetching units:", err);
+      toast.error("❌ Failed to load units");
     }
   };
 
@@ -54,8 +76,9 @@ function QuestionList() {
     }
   };
 
-  // 🔹 Filtering
+  // 🔹 Apply filters
   const filteredQuestions = questions.filter((q) => {
+    if (filterYear !== "all" && q.yearId?._id !== filterYear) return false;
     if (filterUnit !== "all" && q.unitId?._id !== filterUnit) return false;
     if (filterChapter !== "all" && q.chapterId?._id !== filterChapter) return false;
     return true;
@@ -72,13 +95,13 @@ function QuestionList() {
         <ul>
           <li onClick={() => navigate("/teacher-dashboard")}>🏠 Home</li>
           <li onClick={() => navigate("/manage-units")}>📘 Units & Chapters</li>
-          <li onClick={() => navigate("/questions")}>📋 Questions</li>
+          <li className="active">📋 Questions</li>
           <li onClick={() => navigate("/createquiz")}>📝 Create Quiz</li>
           <li onClick={() => navigate("/quizlist")}>📑 Quiz Lists</li>
           <li onClick={() => navigate("/studentsperformance")}>📊 Performance</li>
           <li onClick={() => navigate("/teacher-tasks")}>📂 Tasks & Homework</li>
           <li onClick={() => navigate("/videomanager")}>📽 Upload Videos</li>
-          <li onClick={() => navigate("/PDFManager")}>📃 Upload Course Materials</li>          
+          <li onClick={() => navigate("/PDFManager")}>📃 Upload Course Materials</li>
         </ul>
       </aside>
 
@@ -89,6 +112,28 @@ function QuestionList() {
 
           {/* Filters */}
           <div className="form-inline" style={{ justifyContent: "center" }}>
+            {/* Year Filter */}
+            <select
+              value={filterYear}
+              onChange={(e) => {
+                const yearId = e.target.value;
+                setFilterYear(yearId);
+                setFilterUnit("all");
+                setFilterChapter("all");
+                setUnits([]);
+                if (yearId !== "all") fetchUnits(yearId);
+              }}
+              className="styled-select"
+            >
+              <option value="all">All Years</option>
+              {years.map((y) => (
+                <option key={y._id} value={y._id}>
+                  {y.name}
+                </option>
+              ))}
+            </select>
+
+            {/* Unit Filter */}
             <select
               value={filterUnit}
               onChange={(e) => {
@@ -96,6 +141,7 @@ function QuestionList() {
                 setFilterChapter("all");
               }}
               className="styled-select"
+              disabled={filterYear === "all"}
             >
               <option value="all">All Units</option>
               {units.map((u) => (
@@ -105,6 +151,7 @@ function QuestionList() {
               ))}
             </select>
 
+            {/* Chapter Filter */}
             <select
               value={filterChapter}
               onChange={(e) => setFilterChapter(e.target.value)}
@@ -129,29 +176,37 @@ function QuestionList() {
           ) : (
             <ul className="list-unstyled">
               {filteredQuestions.map((q) => (
-                <li key={q._id} className="list-item" style={{ display: "flex", alignItems: "center" }}>
+                <li
+                  key={q._id}
+                  className="list-item"
+                  style={{ display: "flex", alignItems: "center" }}
+                >
                   {/* Image */}
                   {q.imageUrl && (
                     <img
-                    src={q.imageUrl}
-                    alt="question"
-                    className="question-thumb"
-                    onClick={() => setPreviewImage(q.imageUrl)}
-                  />
-
+                      src={q.imageUrl}
+                      alt="question"
+                      className="question-thumb"
+                      onClick={() => setPreviewImage(q.imageUrl)}
+                    />
                   )}
+
                   {/* Info */}
                   <div style={{ flex: 1, marginLeft: "15px" }}>
                     <p>
                       <b>Correct Answer:</b> {q.correctAnswer}
                     </p>
                     <p>
-                      <b>Unit:</b> {q.unitId?.name} | <b>Chapter:</b> {q.chapterId?.name}
+                      <b>Year:</b> {q.yearId?.name} | <b>Unit:</b> {q.unitId?.name} |{" "}
+                      <b>Chapter:</b> {q.chapterId?.name}
                     </p>
                   </div>
 
                   {/* Delete */}
-                  <button onClick={() => deleteQuestion(q._id)} className="btn btn-purple small-btn">
+                  <button
+                    onClick={() => deleteQuestion(q._id)}
+                    className="btn btn-purple small-btn"
+                  >
                     🗑 Delete
                   </button>
                 </li>
@@ -165,8 +220,16 @@ function QuestionList() {
       {previewImage && (
         <div className="modal-overlay" onClick={() => setPreviewImage(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-            <img src={previewImage} alt="preview" style={{ maxWidth: "90vw", maxHeight: "80vh", borderRadius: "8px" }} />
-            <button className="btn btn-blue small-btn" style={{ marginTop: "10px" }} onClick={() => setPreviewImage(null)}>
+            <img
+              src={previewImage}
+              alt="preview"
+              style={{ maxWidth: "90vw", maxHeight: "80vh", borderRadius: "8px" }}
+            />
+            <button
+              className="btn btn-blue small-btn"
+              style={{ marginTop: "10px" }}
+              onClick={() => setPreviewImage(null)}
+            >
               ✖ Close
             </button>
           </div>

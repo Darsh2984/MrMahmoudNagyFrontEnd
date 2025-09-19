@@ -10,13 +10,14 @@ function CreateQuiz() {
   const [years, setYears] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [units, setUnits] = useState([]);
+  const [chapters, setChapters] = useState([]);
 
   const [selectedYear, setSelectedYear] = useState("");
   const [selectedGroups, setSelectedGroups] = useState([]);
+  const [selectedUnit, setSelectedUnit] = useState("");
+  const [selectedChapter, setSelectedChapter] = useState("");
   const [selectedQuestions, setSelectedQuestions] = useState([]);
 
-  const [filterUnit, setFilterUnit] = useState("");
-  const [filterChapter, setFilterChapter] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
@@ -30,14 +31,16 @@ function CreateQuiz() {
   useEffect(() => {
     if (teacherId) {
       fetchYears();
-      fetchQuestions();
-      fetchUnits();
+      fetchQuestionsByYear();
     }
   }, [teacherId]);
 
+  // 🔹 Fetch Years
   const fetchYears = async () => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${teacherId}`);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/year/${teacherId}`
+      );
       setYears(res.data);
     } catch (err) {
       console.error("❌ Error fetching years:", err);
@@ -45,19 +48,25 @@ function CreateQuiz() {
     }
   };
 
-  const fetchQuestions = async () => {
-    try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/questions/${teacherId}`);
-      setQuestions(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching questions:", err);
-      toast.error("❌ Failed to load questions");
-    }
-  };
+    // Fetch Questions when year changes
+    const fetchQuestionsByYear = async (yearId) => {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_URL}/api/questions/${teacherId}/${yearId}`
+        );
+        setQuestions(res.data);
+      } catch (err) {
+        console.error("❌ Error fetching questions:", err);
+        toast.error("❌ Failed to load questions");
+      }
+    };
 
-  const fetchUnits = async () => {
+  // 🔹 Fetch Units for selected year
+  const fetchUnits = async (yearId) => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/unit/${teacherId}`);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`
+      );
       setUnits(res.data);
     } catch (err) {
       console.error("❌ Error fetching units:", err);
@@ -65,6 +74,20 @@ function CreateQuiz() {
     }
   };
 
+  // 🔹 Fetch Chapters for selected unit
+  const fetchChapters = async (unitId) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`
+      );
+      setChapters(res.data);
+    } catch (err) {
+      console.error("❌ Error fetching chapters:", err);
+      toast.error("❌ Failed to load chapters");
+    }
+  };
+
+  // 🔹 Create Quiz
   const createQuiz = async () => {
     if (!title || !selectedYear || !selectedGroups.length || !duration || !selectedQuestions.length) {
       return toast.warn("⚠️ Title, year, groups, duration, and questions are required");
@@ -86,9 +109,11 @@ function CreateQuiz() {
       setDuration(30);
       setSelectedYear("");
       setSelectedGroups([]);
+      setSelectedUnit("");
+      setSelectedChapter("");
       setSelectedQuestions([]);
-      setFilterUnit("");
-      setFilterChapter("");
+      setUnits([]);
+      setChapters([]);
       setStartTime("");
       setEndTime("");
     } catch (err) {
@@ -97,11 +122,11 @@ function CreateQuiz() {
     }
   };
 
-  // 🔹 Filter questions
+  // 🔹 Filter Questions
   const filteredQuestions = questions.filter((q) => {
     return (
-      (!filterUnit || q.unitId?._id === filterUnit) &&
-      (!filterChapter || q.chapterId?._id === filterChapter)
+      (!selectedUnit || q.unitId?._id === selectedUnit) &&
+      (!selectedChapter || q.chapterId?._id === selectedChapter)
     );
   });
 
@@ -117,12 +142,12 @@ function CreateQuiz() {
           <li onClick={() => navigate("/teacher-dashboard")}>🏠 Home</li>
           <li onClick={() => navigate("/manage-units")}>📘 Units & Chapters</li>
           <li onClick={() => navigate("/questions")}>📋 Questions</li>
-          <li onClick={() => navigate("/createquiz")}>📝 Create Quiz</li>
+          <li className="active">📝 Create Quiz</li>
           <li onClick={() => navigate("/quizlist")}>📑 Quiz Lists</li>
           <li onClick={() => navigate("/studentsperformance")}>📊 Performance</li>
           <li onClick={() => navigate("/teacher-tasks")}>📂 Tasks & Homework</li>
           <li onClick={() => navigate("/videomanager")}>📽 Upload Videos</li>
-          <li onClick={() => navigate("/PDFManager")}>📃 Upload Course Materials</li>          
+          <li onClick={() => navigate("/PDFManager")}>📃 Upload Course Materials</li>
         </ul>
       </aside>
 
@@ -152,13 +177,24 @@ function CreateQuiz() {
           {/* Year Selector */}
           <label className="form-label">Select Year</label>
           <select
-            value={selectedYear}
-            onChange={(e) => {
-              setSelectedYear(e.target.value);
-              setSelectedGroups([]);
-            }}
-            className="styled-select"
-          >
+  value={selectedYear}
+  onChange={(e) => {
+    const yearId = e.target.value;
+    setSelectedYear(yearId);
+    setSelectedGroups([]);
+    setUnits([]);
+    setChapters([]);
+    setSelectedUnit("");
+    setSelectedChapter("");
+    setQuestions([]); // clear old
+    if (yearId) {
+      fetchUnits(yearId);
+      fetchQuestionsByYear(yearId); // ✅ only fetch questions for this year
+    }
+  }}
+  className="styled-select"
+>
+
             <option value="">-- Select Year --</option>
             {years.map((y) => (
               <option key={y._id} value={y._id}>
@@ -196,73 +232,94 @@ function CreateQuiz() {
             </div>
           )}
 
-          {/* Filters */}
-          <label className="form-label">Filter by Unit</label>
-          <select
-            value={filterUnit}
-            onChange={(e) => {
-              setFilterUnit(e.target.value);
-              setFilterChapter("");
-            }}
-            className="styled-select"
-          >
-            <option value="">-- All Units --</option>
-            {units.map((u) => (
-              <option key={u._id} value={u._id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
+          {/* Unit Selector */}
+          {units.length > 0 && (
+            <>
+              <label className="form-label">Filter by Unit</label>
+              <select
+                value={selectedUnit}
+                onChange={(e) => {
+                  const unitId = e.target.value;
+                  setSelectedUnit(unitId);
+                  setSelectedChapter("");
+                  setChapters([]);
+                  if (unitId) fetchChapters(unitId);
+                }}
+                className="styled-select"
+              >
+                <option value="">-- All Units --</option>
+                {units.map((u) => (
+                  <option key={u._id} value={u._id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
-          <label className="form-label">Filter by Chapter</label>
-          <select
-            value={filterChapter}
-            onChange={(e) => setFilterChapter(e.target.value)}
-            className="styled-select"
-            disabled={!filterUnit}
-          >
-            <option value="">-- All Chapters --</option>
-            {units
-              .find((u) => u._id === filterUnit)
-              ?.chapters?.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.name}
-                </option>
-              ))}
-          </select>
+          {/* Chapter Selector */}
+          {chapters.length > 0 && (
+            <>
+              <label className="form-label">Filter by Chapter</label>
+              <select
+                value={selectedChapter}
+                onChange={(e) => setSelectedChapter(e.target.value)}
+                className="styled-select"
+              >
+                <option value="">-- All Chapters --</option>
+                {chapters.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
 
           {/* Questions */}
-          <label className="form-label">Select Questions</label>
-          <div className="question-grid">
-            {filteredQuestions.map((q) => (
-              <div
-                key={q._id}
-                className={`question-card ${selectedQuestions.includes(q._id) ? "selected" : ""}`}
-                onClick={() =>
-                  setSelectedQuestions((prev) =>
-                    prev.includes(q._id)
-                      ? prev.filter((id) => id !== q._id)
-                      : [...prev, q._id]
-                  )
-                }
-              >
-                {q.imageUrl && (
-                  <img
-                    src={`${process.env.REACT_APP_API_URL}${q.imageUrl}`}
-                    alt="question"
-                    className="question-thumb"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPreviewImage(`${process.env.REACT_APP_API_URL}${q.imageUrl}`);
-                    }}
-                  />
+          {/* Questions */}
+          {selectedYear && (
+            <>
+              <label className="form-label">Select Questions</label>
+              <div className="question-grid">
+                {filteredQuestions.length === 0 ? (
+                  <p style={{ color: "#666", textAlign: "center", width: "100%" }}>
+                    No questions available for this year/unit/chapter.
+                  </p>
+                ) : (
+                  filteredQuestions.map((q) => (
+                    <div
+                      key={q._id}
+                      className={`question-card ${selectedQuestions.includes(q._id) ? "selected" : ""}`}
+                      onClick={() =>
+                        setSelectedQuestions((prev) =>
+                          prev.includes(q._id)
+                            ? prev.filter((id) => id !== q._id)
+                            : [...prev, q._id]
+                        )
+                      }
+                    >
+                      {q.imageUrl && (
+                        <img
+                          src={q.imageUrl}
+                          alt="question"
+                          className="question-thumb"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImage(q.imageUrl);
+                          }}
+                        />
+                      )}
+                      <p className="question-meta">
+                        {q.unitId?.name} → {q.chapterId?.name}
+                      </p>
+                    </div>
+                  ))
                 )}
-                <p className="question-meta">
-                  {q.unitId?.name} → {q.chapterId?.name}
-                </p>
               </div>
-            ))}
-          </div>
+            </>
+          )}
+
 
           {/* Image Preview */}
           {previewImage && (
