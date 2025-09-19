@@ -32,27 +32,30 @@ export default function StudentMaterialViewer() {
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/student/${studentId}/year`
       );
-      if (res.data?.yearId) {
-        setYearId(res.data.yearId._id);
-        fetchMaterials(res.data.yearId._id);
-        fetchUnits(res.data.teacherId);
-      }
+if (res.data?.yearId) {
+  setYearId(res.data.yearId._id);
+  fetchMaterials(res.data.yearId._id);
+  fetchUnits(studentId, res.data.yearId._id); // ✅ pass studentId + yearId
+}
+
     } catch (err) {
       setError("❌ Failed to load your Year.");
     }
   };
 
-  // Fetch units by teacher
-  const fetchUnits = async (teacherId) => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}`
-      );
-      setUnits(res.data);
-    } catch (err) {
-      setError("❌ Failed to load units.");
-    }
-  };
+// Fetch units for logged-in student
+const fetchUnits = async (studentId, yearId) => {
+  try {
+    const res = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/unit/student/${studentId}/year/${yearId}/units`
+    );
+    setUnits(res.data);
+  } catch (err) {
+    setError("❌ Failed to load units.");
+  }
+};
+
+
 
   // Fetch chapters by unit
   const fetchChapters = async (unitId) => {
@@ -66,20 +69,21 @@ export default function StudentMaterialViewer() {
     }
   };
 
-  // Fetch materials by year
-  const fetchMaterials = async (yearId) => {
-    setLoading(true);
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/material/year/${yearId}`
-      );
-      setMaterials(res.data);
-    } catch (err) {
-      setError("❌ Failed to load materials.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch materials by year (filtered for this student)
+const fetchMaterials = async (yearId) => {
+  setLoading(true);
+  try {
+    const studentId = user?.id; // ✅ use logged-in student's ID
+    const res = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/material/student/${studentId}/year/${yearId}`
+    );
+    setMaterials(res.data);
+  } catch (err) {
+    setError("❌ Failed to load materials.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Zoom controls
   const handleZoom = (id, action) => {
@@ -142,7 +146,8 @@ export default function StudentMaterialViewer() {
                 }}
                 style={styles.select}
               >
-                <option value="">-- All Units --</option>
+                {/* 👇 This "All Units" will only show student’s year units because units[] is already filtered */}
+                <option value="">-- All Units of My Year --</option>
                 {units.map((u) => (
                   <option key={u._id} value={u._id}>
                     {u.name}

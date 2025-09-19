@@ -17,9 +17,8 @@ export default function StudentVideoViewer() {
 
   const navigate = useNavigate();
 
-  // 🔹 Get year & teacher from backend using student ID
+  // 🔹 Get year & fetch videos + units for that year
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
     if (user?.role === "student") {
       fetchStudentYear(user.id);
     }
@@ -31,9 +30,10 @@ export default function StudentVideoViewer() {
         `${process.env.REACT_APP_API_URL}/api/student/${studentId}/year`
       );
       if (res.data?.yearId) {
-        setYearId(res.data.yearId._id);
-        fetchVideos(res.data.yearId._id);
-        fetchUnits(res.data.teacherId);
+        const yrId = res.data.yearId._id;
+        setYearId(yrId);
+        fetchVideos(yrId);
+        fetchUnits(studentId, yrId); // ✅ use new route
       }
     } catch (err) {
       console.error("❌ Error fetching student year:", err);
@@ -41,14 +41,16 @@ export default function StudentVideoViewer() {
     }
   };
 
-  const fetchUnits = async (teacherId) => {
+  // ✅ Fetch only units for this student + year
+  const fetchUnits = async (studentId, yearId) => {
     try {
       const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}`
+        `${process.env.REACT_APP_API_URL}/api/unit/student/${studentId}/year/${yearId}/units`
       );
       setUnits(res.data);
     } catch (err) {
       console.error("❌ Error fetching units:", err);
+      setError("Failed to load units.");
     }
   };
 
