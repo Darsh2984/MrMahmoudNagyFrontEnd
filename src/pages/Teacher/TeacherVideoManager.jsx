@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "../../styles/AppStyles.css";
 
 export default function TeacherVideoManager() {
@@ -31,6 +33,7 @@ export default function TeacherVideoManager() {
     }
   }, []);
 
+  // Fetch teacher's years
   const fetchYears = async (teacherId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${teacherId}`);
@@ -38,19 +41,25 @@ export default function TeacherVideoManager() {
     } catch (err) {
       console.error("❌ Error fetching years:", err);
       setError("Failed to load years.");
+      toast.error("❌ Failed to load years");
     }
   };
 
-  const fetchUnits = async (teacherId) => {
+  // Fetch units for selected year
+  const fetchUnits = async (teacherId, yearId) => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/unit/${teacherId}`);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`
+      );
       setUnits(res.data);
     } catch (err) {
       console.error("❌ Error fetching units:", err);
       setError("Failed to load units.");
+      toast.error("❌ Failed to load units");
     }
   };
 
+  // Fetch chapters for selected unit
   const fetchChapters = async (unitId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`);
@@ -58,9 +67,11 @@ export default function TeacherVideoManager() {
     } catch (err) {
       console.error("❌ Error fetching chapters:", err);
       setError("Failed to load chapters.");
+      toast.error("❌ Failed to load chapters");
     }
   };
 
+  // Fetch videos by year
   const fetchVideos = async (yearId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/video/year/${yearId}`);
@@ -68,6 +79,7 @@ export default function TeacherVideoManager() {
     } catch (err) {
       console.error("❌ Error fetching videos:", err);
       setError("Failed to load videos.");
+      toast.error("❌ Failed to load videos");
     }
   };
 
@@ -83,6 +95,7 @@ export default function TeacherVideoManager() {
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!form.title || !form.yearId || !form.unitId || !form.chapterId || !form.video) {
+      toast.warn("⚠️ All fields are required");
       return setError("⚠️ All fields are required");
     }
 
@@ -102,10 +115,15 @@ export default function TeacherVideoManager() {
       });
 
       setForm({ title: "", yearId: "", unitId: "", chapterId: "", video: null });
+      setUnits([]);
+      setChapters([]);
       fetchVideos(form.yearId);
+
+      toast.success("✅ Video uploaded successfully!");
     } catch (err) {
       console.error("❌ Error uploading video:", err);
       setError("Failed to upload video.");
+      toast.error("❌ Failed to upload video");
     } finally {
       setLoading(false);
     }
@@ -116,9 +134,11 @@ export default function TeacherVideoManager() {
     try {
       await axios.delete(`${process.env.REACT_APP_API_URL}/api/video/${id}`);
       fetchVideos(form.yearId);
+      toast.success("🗑 Video deleted successfully!");
     } catch (err) {
       console.error("❌ Error deleting video:", err);
       setError("Failed to delete video.");
+      toast.error("❌ Failed to delete video");
     }
   };
 
@@ -162,13 +182,19 @@ export default function TeacherVideoManager() {
               className="styled-input"
             />
 
+            {/* Year Dropdown */}
             <select
               name="yearId"
               value={form.yearId}
               onChange={(e) => {
-                handleChange(e);
-                fetchVideos(e.target.value);
-                fetchUnits(teacherId);
+                const yearId = e.target.value;
+                setForm({ ...form, yearId, unitId: "", chapterId: "" }); // ✅ set year + reset unit/chapter
+                setUnits([]);
+                setChapters([]);
+                if (yearId) {
+                  fetchVideos(yearId);
+                  fetchUnits(teacherId, yearId);
+                }
               }}
               className="styled-input"
             >
@@ -180,14 +206,20 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
+            {/* Unit Dropdown */}
             <select
               name="unitId"
               value={form.unitId}
               onChange={(e) => {
-                handleChange(e);
-                fetchChapters(e.target.value);
+                const unitId = e.target.value;
+                setForm({ ...form, unitId, chapterId: "" }); // ✅ set unit + reset chapter
+                setChapters([]);
+                if (unitId) {
+                  fetchChapters(unitId);
+                }
               }}
               className="styled-input"
+              disabled={!form.yearId}
             >
               <option value="">-- Select Unit --</option>
               {units.map((u) => (
@@ -197,11 +229,13 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
+            {/* Chapter Dropdown */}
             <select
               name="chapterId"
               value={form.chapterId}
               onChange={handleChange}
               className="styled-input"
+              disabled={!form.unitId}
             >
               <option value="">-- Select Chapter --</option>
               {chapters.map((c) => (
@@ -246,7 +280,10 @@ export default function TeacherVideoManager() {
                     disablePictureInPicture
                     style={{ width: "100%", borderRadius: "6px" }}
                   />
-                  <button onClick={() => handleDelete(v._id)} className="btn btn-purple small-btn">
+                  <button
+                    onClick={() => handleDelete(v._id)}
+                    className="btn btn-purple small-btn"
+                  >
                     🗑 Delete
                   </button>
                 </div>

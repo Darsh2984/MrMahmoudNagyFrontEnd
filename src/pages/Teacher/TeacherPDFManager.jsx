@@ -41,9 +41,11 @@ export default function TeacherMaterialManager() {
     }
   };
 
-  const fetchUnits = async (teacherId) => {
+  const fetchUnits = async (teacherId, yearId) => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/unit/${teacherId}`);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`
+      );
       setUnits(res.data);
     } catch {
       setError("Failed to load units.");
@@ -91,6 +93,8 @@ export default function TeacherMaterialManager() {
       });
 
       setForm({ title: "", yearId: "", unitId: "", chapterId: "", file: null });
+      setUnits([]);
+      setChapters([]);
       fetchMaterials(form.yearId);
     } catch {
       setError("❌ Failed to upload PDF.");
@@ -158,13 +162,19 @@ export default function TeacherMaterialManager() {
               className="styled-input"
             />
 
+            {/* Year Dropdown */}
             <select
               name="yearId"
               value={form.yearId}
               onChange={(e) => {
-                handleChange(e);
-                fetchMaterials(e.target.value);
-                fetchUnits(teacherId);
+                const yearId = e.target.value;
+                setForm({ ...form, yearId, unitId: "", chapterId: "" });
+                setUnits([]);
+                setChapters([]);
+                if (yearId) {
+                  fetchMaterials(yearId);
+                  fetchUnits(teacherId, yearId);
+                }
               }}
               className="styled-input"
             >
@@ -176,14 +186,20 @@ export default function TeacherMaterialManager() {
               ))}
             </select>
 
+            {/* Unit Dropdown */}
             <select
               name="unitId"
               value={form.unitId}
               onChange={(e) => {
-                handleChange(e);
-                fetchChapters(e.target.value);
+                const unitId = e.target.value;
+                setForm({ ...form, unitId, chapterId: "" });
+                setChapters([]);
+                if (unitId) {
+                  fetchChapters(unitId);
+                }
               }}
               className="styled-input"
+              disabled={!form.yearId}
             >
               <option value="">-- Select Unit --</option>
               {units.map((u) => (
@@ -193,11 +209,13 @@ export default function TeacherMaterialManager() {
               ))}
             </select>
 
+            {/* Chapter Dropdown */}
             <select
               name="chapterId"
               value={form.chapterId}
               onChange={handleChange}
               className="styled-input"
+              disabled={!form.unitId}
             >
               <option value="">-- Select Chapter --</option>
               {chapters.map((c) => (
@@ -240,9 +258,24 @@ export default function TeacherMaterialManager() {
 
                     {/* Zoom Controls */}
                     <div className="form-inline" style={{ justifyContent: "flex-end" }}>
-                      <button onClick={() => handleZoom(m._id, "out")} className="btn btn-grey small-btn">➖</button>
-                      <button onClick={() => handleZoom(m._id, "in")} className="btn btn-grey small-btn">➕</button>
-                      <button onClick={() => handleZoom(m._id, "reset")} className="btn btn-grey small-btn">🔄</button>
+                      <button
+                        onClick={() => handleZoom(m._id, "out")}
+                        className="btn btn-grey small-btn"
+                      >
+                        ➖
+                      </button>
+                      <button
+                        onClick={() => handleZoom(m._id, "in")}
+                        className="btn btn-grey small-btn"
+                      >
+                        ➕
+                      </button>
+                      <button
+                        onClick={() => handleZoom(m._id, "reset")}
+                        className="btn btn-grey small-btn"
+                      >
+                        🔄
+                      </button>
                     </div>
 
                     {/* PDF Viewer */}
@@ -260,7 +293,10 @@ export default function TeacherMaterialManager() {
                       ></iframe>
                     </div>
 
-                    <button onClick={() => handleDelete(m._id)} className="btn btn-purple small-btn">
+                    <button
+                      onClick={() => handleDelete(m._id)}
+                      className="btn btn-purple small-btn"
+                    >
                       🗑 Delete
                     </button>
                   </div>
