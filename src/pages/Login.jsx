@@ -18,40 +18,53 @@ function Login() {
   }, []);
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/auth/login`,
-        { email: email.toLowerCase(), password }
-      );
+  e.preventDefault();
+  try {
+    const res = await axios.post(
+      `${process.env.REACT_APP_API_URL}/api/auth/login`,
+      { email: email.toLowerCase(), password }
+    );
 
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
-      setMessage("✅ Login successful!");
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("user", JSON.stringify(res.data.user));
+    setMessage("✅ Login successful!");
 
-      if (res.data.user.role === "teacher") {
-        navigate("/teacher-dashboard");
-      } else if (res.data.user.role === "student") {
-        // ✅ Check if student is assigned to a group
-        if (!res.data.user.groupId) {
-          navigate("/Accessdenied");
-        } else {
-          navigate("/student-dashboard");
-        }
-      } else if (res.data.user.role === "parent") {
-        navigate("/parent-dashboard");
+    if (res.data.user.role === "teacher") {
+      navigate("/teacher-dashboard");
+    } else if (res.data.user.role === "student") {
+      // ✅ Check if student must complete parent details first
+      if (res.data.parentDetailsRequired) {
+        navigate(`/complete-parent/${res.data.studentId}`);
+      } 
+      // ✅ Check if student is assigned to a group
+      else if (!res.data.user.groupId) {
+        navigate("/Accessdenied");
       } else {
-        navigate("/dashboard");
+        navigate("/student-dashboard");
       }
-    } catch (err) {
-      console.error("❌ Login failed:", err);
-      if (err.response && err.response.data.activationRequired) {
-        navigate("/set-password", { state: { email: err.response.data.email } });
-        return;
-      }
-      setMessage("❌ Login failed! Please check credentials.");
+    } else if (res.data.user.role === "parent") {
+      navigate("/parent-dashboard");
+    } else {
+      navigate("/dashboard");
     }
-  };
+  } catch (err) {
+    console.error("❌ Login failed:", err);
+
+    if (err.response?.data?.activationRequired) {
+      navigate("/set-password", { state: { email: err.response.data.email } });
+      return;
+    }
+
+    // ✅ Handle missing parent details returned as an error
+    if (err.response?.data?.parentDetailsRequired) {
+      navigate(`/complete-parent/${err.response.data.studentId}`);
+      return;
+    }
+
+    setMessage("❌ Login failed! Please check credentials.");
+  }
+};
+
 
   return (
     <div className="login-container">

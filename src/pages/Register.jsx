@@ -131,7 +131,7 @@ function Register() {
               placeholder="Parent Full Name"
               value={form.parentName}
               onChange={(e) => setForm({ ...form, parentName: e.target.value })}
-              required
+              // ❌ removed required
             />
           </div>
 
@@ -153,9 +153,10 @@ function Register() {
               placeholder="Parent Email"
               value={form.parentEmail}
               onChange={(e) => setForm({ ...form, parentEmail: e.target.value })}
-              required
+              // ❌ removed required
             />
           </div>
+
 
           {/* Submit */}
           <button type="submit" className="login-btn">

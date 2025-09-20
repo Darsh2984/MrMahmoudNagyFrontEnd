@@ -27,6 +27,7 @@ import StudentVideoViewer from "./pages/Student/StudentVideoViewer";
 import TeacherPDFManager from "./pages/Teacher/TeacherPDFManager";
 import StudentMaterialViewer from "./pages/Student/StudentMaterialViewer";
 import StudentPerformance from "./pages/Student/StudentPerformance";
+import CompleteParentDetails from "./pages/CompleteParentDetails";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -37,6 +38,7 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/complete-parent/:studentId" element={<CompleteParentDetails />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/set-password" element={<SetPassword />} />
