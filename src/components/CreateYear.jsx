@@ -102,71 +102,74 @@ function CreateYear({ teacherId }) {
         </button>
       </div>
 
-      {/* Years List */}
-      <ul className="list-unstyled">
-        {years.map((y) => (
-          <li key={y._id} className="list-item">
-            <span
-              className={`expand-toggle ${expandedYear === y._id ? "expanded" : ""}`}
-              onClick={() => setExpandedYear(expandedYear === y._id ? null : y._id)}
-            >
-              {y.name} {expandedYear === y._id ? "▼" : "▶"}
-            </span>
+      {/* Years List (scrollable like schools) */}
+      <div className="years-list">
+        <ul className="list-unstyled">
+          {years.map((y) => (
+            <li key={y._id} className="list-item">
+              <span
+                className={`expand-toggle ${expandedYear === y._id ? "expanded" : ""}`}
+                onClick={() => setExpandedYear(expandedYear === y._id ? null : y._id)}
+              >
+                {y.name} {expandedYear === y._id ? "▼" : "▶"}
+              </span>
 
-            {expandedYear === y._id && (
-              <div className="nested-box">
-                {/* Groups */}
-                <ul className="list-unstyled">
-                  {(y.groups || []).map((g) => (
-                    <li key={g._id} className="group-box">
-                      <b>{g.name}</b>
-                      <ul className="list-unstyled nested-students">
-                        {g.students && g.students.length > 0 ? (
-                          g.students.map((s) => (
-                            <li key={s._id} className="student-row">
-                              <span>
-                                {s.name} <small>({s.email})</small>
-                              </span>
-                              <button
-                                className="btn btn-purple btn-small"
-                                onClick={() =>
-                                  confirmRemoveStudent(g._id, s._id, s.name)
-                                }
-                              >
-                                 Remove
-                              </button>
+              {expandedYear === y._id && (
+                <div className="nested-box">
+                  {/* Groups */}
+                  <ul className="list-unstyled">
+                    {(y.groups || []).map((g) => (
+                      <li key={g._id} className="group-box">
+                        <b>{g.name}</b>
+                        <ul className="list-unstyled nested-students">
+                          {g.students && g.students.length > 0 ? (
+                            g.students.map((s) => (
+                              <li key={s._id} className="student-row">
+                                <span>
+                                  {s.name} <small>({s.email})</small>
+                                </span>
+                                <button
+                                  className="btn btn-purple btn-small"
+                                  onClick={() =>
+                                    confirmRemoveStudent(g._id, s._id, s.name)
+                                  }
+                                >
+                                  Remove
+                                </button>
+                              </li>
+                            ))
+                          ) : (
+                            <li>
+                              <i>No students in this group yet</i>
                             </li>
-                          ))
-                        ) : (
-                          <li>
-                            <i>No students in this group yet</i>
-                          </li>
-                        )}
-                      </ul>
-                    </li>
-                  ))}
-                </ul>
+                          )}
+                        </ul>
+                      </li>
+                    ))}
+                  </ul>
 
-                {/* Add Group */}
-                <div className="form-inline">
-                  <input
-                    type="text"
-                    placeholder="New Group Name"
-                    value={newGroup[y._id] || ""}
-                    onChange={(e) =>
-                      setNewGroup({ ...newGroup, [y._id]: e.target.value })
-                    }
-                    className="styled-input"
-                  />
-                  <button onClick={() => addGroup(y._id)} className="btn btn-purple">
-                    Add Group
-                  </button>
+                  {/* Add Group */}
+                  <div className="form-inline">
+                    <input
+                      type="text"
+                      placeholder="New Group Name"
+                      value={newGroup[y._id] || ""}
+                      onChange={(e) =>
+                        setNewGroup({ ...newGroup, [y._id]: e.target.value })
+                      }
+                      className="styled-input"
+                    />
+                    <button onClick={() => addGroup(y._id)} className="btn btn-purple">
+                      Add Group
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
+
 
       {/* Confirmation Modal */}
       {confirmModal.open && (
