@@ -1,10 +1,10 @@
 import React from "react";
-import "./Accessdenied.css";
+import "./AccessDenied.css";
 
 export default function AccessDenied() {
   return (
     <div className="access-denied">
-      <h1 className="denied-title">PENDING  ACCESS</h1>
+      <h1 className="denied-title">Pending  Access</h1>
       <p className="denied-subtitle">
         CONTACT <span className="highlight">ENG Mahmoud's Team</span> <br />
         in order to get access

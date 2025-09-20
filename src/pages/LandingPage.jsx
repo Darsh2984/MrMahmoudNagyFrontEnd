@@ -1,6 +1,8 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import "./LandingPage.css";
+import { Helmet } from "react-helmet-async";
+
 
 const heroImg = require("../assets/images/teacherimg.png");
 const cambridgeCoreImg = require("../assets/images/cambridge-core.jpg");
@@ -12,12 +14,46 @@ const logoImg = require("../assets/images/logo.png");
 export default function LandingPage() {
   const navigate = useNavigate();
 
-  return (
+
+return (
+  <>
+    <Helmet>
+      {/* Page Title */}
+      <title>Mahmoud Nagy Physics | IGCSE & O Level Teacher</title>
+
+      {/* Meta Description */}
+      <meta
+        name="description"
+        content="Learn Physics with Eng. Mahmoud Nagy. Master Cambridge IGCSE, O Level, and Edexcel Physics with clear lessons, quizzes, and real-world explanations."
+      />
+
+      {/* Meta Keywords */}
+      <meta
+        name="keywords"
+        content="Mahmoud Nagy Physics, Layth-EG, Physics IGCSE, Physics O Level, Cambridge Physics, Edexcel Physics, Online Physics Teacher, Year 9 Physics"
+      />
+
+      {/* Open Graph for social sharing */}
+      <meta property="og:title" content="Mahmoud Nagy Physics | IGCSE & O Level Teacher" />
+      <meta
+        property="og:description"
+        content="Physics courses with Eng. Mahmoud Nagy – IGCSE, O Level, and Edexcel. Learn smarter, think bigger."
+      />
+      <meta property="og:image" content={heroImg} />
+      <meta property="og:url" content="https://layth-eg.com" />
+      <meta property="og:type" content="website" />
+
+      {/* Canonical URL */}
+      <link rel="canonical" href="https://your-domain.com" />
+    </Helmet>
+
     <div>
       {/* === Hero Section === */}
       <div className="landing-hero">
         <div className="hero-text">
-          <h1 className="hero-title">LEARN PHYSICS, THINK BIGGER</h1>
+          <h1 className="hero-title">
+            LEARN PHYSICS, THINK BIGGER
+          </h1>
           <p className="hero-subtitle">
             Master IGCSE Physics with real-world clarity, <br />
             plus the mindset to succeed beyond the exam.
@@ -25,20 +61,20 @@ export default function LandingPage() {
         </div>
 
         <div className="hero-image">
-          <img src={heroImg} alt="Hero" />
+          <img src={heroImg} alt="Mahmoud Nagy Physics Teacher" />
         </div>
       </div>
 
       {/* === Courses Section === */}
       <div className="courses-section">
-         {/* ✅ Logo at top */}
+        {/* ✅ Logo at top */}
         <div className="courses-logo">
-          <img src={logoImg} alt="Logo" />
+          <img src={logoImg} alt="Layth-EG Platform Logo" />
         </div>
         <div className="cards-row">
           <div className="course-block">
             <div className="course-card">
-              <img src={cambridgeCoreImg} alt="Cambridge Core" />
+              <img src={cambridgeCoreImg} alt="Cambridge Core Physics Course" />
             </div>
             <div className="desc-card">
               <p>Physics Cambridge Core Description</p>
@@ -47,7 +83,7 @@ export default function LandingPage() {
 
           <div className="course-block">
             <div className="course-card">
-              <img src={cambridgeOImg} alt="Cambridge O Level" />
+              <img src={cambridgeOImg} alt="Cambridge O Level Physics Course" />
             </div>
             <div className="desc-card">
               <p>Physics Cambridge O Level Description</p>
@@ -56,7 +92,7 @@ export default function LandingPage() {
 
           <div className="course-block">
             <div className="course-card">
-              <img src={edexcelOImg} alt="Edexcel O Level" />
+              <img src={edexcelOImg} alt="Edexcel O Level Physics Course" />
             </div>
             <div className="desc-card">
               <p>Physics Edexcel O Level Description</p>
@@ -96,5 +132,7 @@ export default function LandingPage() {
         </div>
       </div>
     </div>
-  );
+  </>
+);
+
 }
