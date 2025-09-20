@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import "./LandingPage.css";
-import { Helmet } from "react-helmet-async";
+import { Head } from "react-head";
 
 
 const heroImg = require("../assets/images/teacherimg.png");
@@ -17,7 +17,7 @@ export default function LandingPage() {
 
 return (
   <>
-    <Helmet>
+     <Head>
       {/* Page Title */}
       <title>Mahmoud Nagy Physics | IGCSE & O Level Teacher</title>
 
@@ -30,7 +30,7 @@ return (
       {/* Meta Keywords */}
       <meta
         name="keywords"
-        content="Mahmoud Nagy Physics, Layth-EG, Physics IGCSE, Physics O Level, Cambridge Physics, Edexcel Physics, Online Physics Teacher, Year 9 Physics"
+        content="Mahmoud Nagy Physics, Layth-EG, Physics IGCSE, Physics O Level, Cambridge Physics, Edexcel Physics, Online Physics Teacher"
       />
 
       {/* Open Graph for social sharing */}
@@ -44,8 +44,8 @@ return (
       <meta property="og:type" content="website" />
 
       {/* Canonical URL */}
-      <link rel="canonical" href="https://your-domain.com" />
-    </Helmet>
+      <link rel="canonical" href="https://layth-eg.com" />
+    </Head>
 
     <div>
       {/* === Hero Section === */}
