@@ -1,5 +1,5 @@
 import React from "react";
-import "./AccessDenied.css";
+import "./Accessdenied.css";
 
 export default function AccessDenied() {
   return (
