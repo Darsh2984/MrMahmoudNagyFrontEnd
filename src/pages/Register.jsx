@@ -51,9 +51,16 @@ function Register() {
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
       console.error("❌ Registration failed:", err);
-      setMessage("❌ Registration failed! Please try again.");
+
+      // ✅ If backend says user already exists
+      if (err.response?.status === 400 && err.response?.data?.msg?.includes("User already exists")) {
+        setMessage("❌ User already exists. Please log in.");
+      } else {
+        setMessage("❌ Registration failed! Please try again.");
+      }
     }
   };
+
 
   return (
     <div className="login-container">
