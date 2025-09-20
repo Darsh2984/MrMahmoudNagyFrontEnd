@@ -1,21 +1,60 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import axios from "axios";
 
 function PrivateRoute({ children, allowedRoles }) {
   const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user"));
+  const storedUser = JSON.parse(localStorage.getItem("user"));
+  const [isValid, setIsValid] = useState(null);
 
-  // ❌ Not logged in → send to login
-  if (!token || !user) {
-    return <Navigate to="/login" />;
-  }
+  useEffect(() => {
+    const validateUser = async () => {
+      if (!token || !storedUser) {
+        setIsValid(false);
+        return;
+      }
 
-  // ❌ Logged in but role not allowed → send to AccessDenied
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/Accessdenied" />;
-  }
+      try {
+        // ask backend for fresh data
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_URL}/api/auth/validate/${storedUser.id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-  // ✅ Logged in + allowed role → render page
+        const latestUser = res.data;
+
+        // update localStorage with latest info
+        localStorage.setItem("user", JSON.stringify(latestUser));
+
+        // role check
+        if (allowedRoles && !allowedRoles.includes(latestUser.role)) {
+          setIsValid(false);
+          return;
+        }
+
+        // student must have groupId
+        if (latestUser.role === "student" && !latestUser.groupId) {
+          setIsValid(false);
+          return;
+        }
+
+        setIsValid(true);
+      } catch (err) {
+        console.error("❌ Validation failed:", err);
+        setIsValid(false);
+      }
+    };
+
+    validateUser();
+
+    // 🔁 auto-refresh every 30s
+    const interval = setInterval(validateUser, 10000);
+    return () => clearInterval(interval);
+  }, [token, storedUser, allowedRoles]);
+
+  if (isValid === null) return <p>🔄 Checking access...</p>;
+  if (!isValid) return <Navigate to="/AccessDenied" />;
+
   return children;
 }
 
