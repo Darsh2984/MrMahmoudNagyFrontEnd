@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import "./LandingPage.css";
-import { Head } from "react-head";
+import { Title, Meta, Link } from "react-head";
 
 
 const heroImg = require("../assets/images/teacherimg.png");
@@ -17,35 +17,28 @@ export default function LandingPage() {
 
 return (
   <>
-     <Head>
-      {/* Page Title */}
-      <title>Mahmoud Nagy Physics | IGCSE & O Level Teacher</title>
+   <>
+  <Title>Mahmoud Nagy Physics | IGCSE & O Level Teacher</Title>
+  <Meta
+    name="description"
+    content="Learn Physics with Eng. Mahmoud Nagy. Master Cambridge IGCSE, O Level, and Edexcel Physics with clear lessons, quizzes, and real-world explanations."
+  />
+  <Meta
+    name="keywords"
+    content="Mahmoud Nagy Physics, Layth-EG, Physics IGCSE, Physics O Level, Cambridge Physics, Edexcel Physics, Online Physics Teacher"
+  />
+  <Meta property="og:title" content="Mahmoud Nagy Physics | IGCSE & O Level Teacher" />
+  <Meta
+    property="og:description"
+    content="Physics courses with Eng. Mahmoud Nagy – IGCSE, O Level, and Edexcel. Learn smarter, think bigger."
+  />
+  <Meta property="og:image" content={heroImg} />
+  <Meta property="og:url" content="https://layth-eg.com" />
+  <Meta property="og:type" content="website" />
+  <Link rel="canonical" href="https://layth-eg.com" />
 
-      {/* Meta Description */}
-      <meta
-        name="description"
-        content="Learn Physics with Eng. Mahmoud Nagy. Master Cambridge IGCSE, O Level, and Edexcel Physics with clear lessons, quizzes, and real-world explanations."
-      />
+</>
 
-      {/* Meta Keywords */}
-      <meta
-        name="keywords"
-        content="Mahmoud Nagy Physics, Layth-EG, Physics IGCSE, Physics O Level, Cambridge Physics, Edexcel Physics, Online Physics Teacher"
-      />
-
-      {/* Open Graph for social sharing */}
-      <meta property="og:title" content="Mahmoud Nagy Physics | IGCSE & O Level Teacher" />
-      <meta
-        property="og:description"
-        content="Physics courses with Eng. Mahmoud Nagy – IGCSE, O Level, and Edexcel. Learn smarter, think bigger."
-      />
-      <meta property="og:image" content={heroImg} />
-      <meta property="og:url" content="https://layth-eg.com" />
-      <meta property="og:type" content="website" />
-
-      {/* Canonical URL */}
-      <link rel="canonical" href="https://layth-eg.com" />
-    </Head>
 
     <div>
       {/* === Hero Section === */}
