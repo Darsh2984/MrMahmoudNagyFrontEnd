@@ -45,20 +45,35 @@ function TeacherTasks() {
   };
 
   // 🔹 Fetch tasks for a group
+  // 🔹 Fetch tasks for a group and merge with current tasks
   const fetchTasks = async (groupId) => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/tasks/group/${groupId}`
       );
-      setTasks(res.data);
 
+      setTasks((prev) => {
+        // merge old + new tasks
+        const merged = [...prev, ...res.data];
+
+        // remove duplicates by task _id
+        const unique = Array.from(new Map(merged.map(t => [t._id, t])).values());
+        return unique;
+      });
+
+      // ✅ fetch group students for submissions display
       const year = years.find((y) => y.groups.some((g) => g._id === groupId));
       const group = year?.groups.find((g) => g._id === groupId);
-      setGroupStudents(group?.students || []);
+      setGroupStudents((prev) => {
+        const merged = [...prev, ...(group?.students || [])];
+        const unique = Array.from(new Map(merged.map(s => [s._id, s])).values());
+        return unique;
+      });
     } catch {
       toast.error("❌ Failed to fetch tasks");
     }
   };
+
 
   // 🔹 Fetch submissions
   const fetchSubmissions = async (taskId) => {
@@ -181,11 +196,34 @@ const createTask = async () => {
                         setSelectedGroups([...selectedGroups, g._id]);
                         fetchTasks(g._id); // ✅ load tasks for this group
                       } else {
-                        setSelectedGroups(selectedGroups.filter((id) => id !== g._id));
-                        // optionally remove tasks of this group from state
-                        setTasks(tasks.filter((t) => !t.groups.includes(g._id)));
+                        const newGroups = selectedGroups.filter((id) => id !== g._id);
+                        setSelectedGroups(newGroups);
+
+                        if (newGroups.length === 0) {
+                          setTasks([]); // no groups → clear tasks
+                          setGroupStudents([]);
+                        } else {
+                          // refetch all remaining groups to rebuild task list
+                          let allTasks = [];
+                          let allStudents = [];
+                          for (const id of newGroups) {
+                            const res = await axios.get(
+                              `${process.env.REACT_APP_API_URL}/api/tasks/group/${id}`
+                            );
+                            allTasks = [...allTasks, ...res.data];
+
+                            const year = years.find((y) => y.groups.some((g) => g._id === id));
+                            const group = year?.groups.find((g) => g._id === id);
+                            allStudents = [...allStudents, ...(group?.students || [])];
+                          }
+
+                          // remove duplicates
+                          setTasks(Array.from(new Map(allTasks.map(t => [t._id, t])).values()));
+                          setGroupStudents(Array.from(new Map(allStudents.map(s => [s._id, s])).values()));
+                        }
                       }
                     }}
+
                   />
                     {g.name}
                   </label>
@@ -235,7 +273,7 @@ const createTask = async () => {
         {/* Tasks List */}
         {tasks.length > 0 && (
           <div className="section-card">
-            <h3 className="card-title">📋 Task List</h3>
+            <h3 className="card-title">📋 Task List</h3> <br />
             <ul className="task-list" style={{ listStyle: "none", padding: 0 }}>
               {tasks.map((t) => (
                 <li key={t._id} className="task-card">
