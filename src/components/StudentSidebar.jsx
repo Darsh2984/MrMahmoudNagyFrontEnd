@@ -6,6 +6,12 @@ function StudentSidebar({ sidebarOpen, setSidebarOpen }) {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
 
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login"); // redirect
+  };
+
   // ✅ Sync with localStorage
   useEffect(() => {
     const updateUser = () => {
@@ -32,7 +38,10 @@ function StudentSidebar({ sidebarOpen, setSidebarOpen }) {
       <div className="sidebar-footer">
         <p>👤 {user?.name || "Loading..."}</p>
       </div>
-
+      <br />
+      <button onClick={handleLogout} className="btn btn-red">
+        Logout
+      </button>
       {/* Menu */}
       <ul>
         <li onClick={() => navigate("/student-dashboard")}>🏠 Dashboard</li>

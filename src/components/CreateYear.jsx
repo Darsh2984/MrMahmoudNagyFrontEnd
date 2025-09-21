@@ -123,21 +123,23 @@ function CreateYear({ teacherId }) {
                         <b>{g.name}</b>
                         <ul className="list-unstyled nested-students">
                           {g.students && g.students.length > 0 ? (
-                            g.students.map((s) => (
-                              <li key={s._id} className="student-row">
-                                <span>
-                                  {s.name} <small>({s.email})</small>
-                                </span>
-                                <button
-                                  className="btn btn-purple btn-small"
-                                  onClick={() =>
-                                    confirmRemoveStudent(g._id, s._id, s.name)
-                                  }
-                                >
-                                  Remove
-                                </button>
-                              </li>
-                            ))
+                            [...g.students] // ✅ clone array to avoid mutating state
+                              .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
+                              .map((s) => (
+                                <li key={s._id} className="student-row">
+                                  <span>
+                                    {s.name} <small>({s.email})</small>
+                                  </span>
+                                  <button
+                                    className="btn btn-purple btn-small"
+                                    onClick={() =>
+                                      confirmRemoveStudent(g._id, s._id, s.name)
+                                    }
+                                  >
+                                    Remove
+                                  </button>
+                                </li>
+                              ))
                           ) : (
                             <li>
                               <i>No students in this group yet</i>
@@ -147,6 +149,7 @@ function CreateYear({ teacherId }) {
                       </li>
                     ))}
                   </ul>
+
 
                   {/* Add Group */}
                   <div className="form-inline">

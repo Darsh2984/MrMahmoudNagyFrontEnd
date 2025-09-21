@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "../../src/styles/AppStyles.css";
 
 function AddStudentForm({ years, onStudentAdded }) {
@@ -11,46 +12,54 @@ function AddStudentForm({ years, onStudentAdded }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // ✅ Extract fetch function
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/students`);
+      setStudents(res.data);
+      setLoading(false);
+    } catch (err) {
+      console.error("❌ Error fetching students:", err);
+      setError("Failed to load students");
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        setLoading(true);
-        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/auth/students`);
-        setStudents(res.data);
-        setLoading(false);
-      } catch (err) {
-        console.error("❌ Error fetching students:", err);
-        setError("Failed to load students");
-        setLoading(false);
-      }
-    };
     fetchStudents();
   }, []);
 
   const addStudentToGroup = async () => {
-  if (!selectedYear || !selectedGroup || selectedStudent.length === 0) {
-    toast.warn("⚠️ Please select a Year, Group, and at least one Student");
-    return;
-  }
+    if (!selectedYear || !selectedGroup || selectedStudent.length === 0) {
+      toast.warn("⚠️ Please select a Year, Group, and at least one Student");
+      return;
+    }
 
-  try {
-    await axios.post(
-      `${process.env.REACT_APP_API_URL}/api/group/${selectedGroup}/add-student`,
-      { studentIds: selectedStudent } // send array now
-    );
+    try {
+      await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/group/${selectedGroup}/add-student`,
+        { studentIds: selectedStudent } // ✅ send array
+      );
 
-    toast.success("✅ Students added successfully");
-    setSelectedStudent([]);
-    if (onStudentAdded) onStudentAdded();
-  } catch (err) {
-    console.error("❌ Error adding students:", err);
-    toast.error("❌ Failed to add students");
-  }
-};
+      toast.success("✅ Students added successfully");
+      setSelectedStudent([]);
+      if (onStudentAdded) onStudentAdded();
+    } catch (err) {
+      console.error("❌ Error adding students:", err);
+      toast.error("❌ Failed to add students");
+    }
+  };
 
   return (
     <div className="section-card">
-      <h3 className="section-title">👨‍🎓 Add Student to Group</h3>
+      <div className="header-flex">
+        <h3 className="section-title">👨‍🎓 Add Student to Group</h3>
+        {/* ✅ Refresh Button */}
+        <button className="btn btn-purple" onClick={fetchStudents}>
+          🔄 Refresh
+        </button>
+      </div>
 
       {/* Year Selector */}
       <label className="field-label">Select Year</label>
@@ -89,41 +98,43 @@ function AddStudentForm({ years, onStudentAdded }) {
         </>
       )}
 
-     {/* Student Selector */}
-<label className="field-label">Select Students</label>
-{loading ? (
-  <p>Loading students...</p>
-) : error ? (
-  <p className="error">{error}</p>
-) : (
-  <div className="checkbox-grid">
-  {students.map((s) => (
-    <label
-      key={s._id}
-      className={`checkbox-card ${selectedStudent.includes(s._id) ? "selected" : ""}`}
-    >
-      <input
-        type="checkbox"
-        value={s._id}
-        checked={selectedStudent.includes(s._id)}
-        onChange={(e) => {
-          if (e.target.checked) {
-            setSelectedStudent([...selectedStudent, s._id]);
-          } else {
-            setSelectedStudent(selectedStudent.filter((id) => id !== s._id));
-          }
-        }}
-      />
-      <div className="checkbox-content">
-        <strong>{s.name}</strong> {/* ✅ student full name */}
-        <p>{s.schoolId?.name || "No School"}</p> {/* ✅ school */}
-      </div>
-    </label>
-  ))}
-</div>
-
-
-)}
+      {/* Student Selector */}
+      <label className="field-label">Select Students</label>
+      {loading ? (
+        <p>Loading students...</p>
+      ) : error ? (
+        <p className="error">{error}</p>
+      ) : (
+        <div className="checkbox-grid">
+          {students.map((s) => (
+            <label
+              key={s._id}
+              className={`checkbox-card ${
+                selectedStudent.includes(s._id) ? "selected" : ""
+              }`}
+            >
+              <input
+                type="checkbox"
+                value={s._id}
+                checked={selectedStudent.includes(s._id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedStudent([...selectedStudent, s._id]);
+                  } else {
+                    setSelectedStudent(
+                      selectedStudent.filter((id) => id !== s._id)
+                    );
+                  }
+                }}
+              />
+              <div className="checkbox-content">
+                <strong>{s.name}</strong>
+                <p>{s.schoolId?.name || "No School"}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+      )}
 
       {/* Add Button */}
       <br />

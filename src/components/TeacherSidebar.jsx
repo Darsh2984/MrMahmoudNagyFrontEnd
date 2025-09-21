@@ -4,6 +4,11 @@ import "../styles/AppStyles.css"; // adjust path if needed
 
 function TeacherSidebar({ sidebarOpen, setSidebarOpen }) {
   const navigate = useNavigate();
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login"); // redirect
+  };
 
   return (
     <aside className="sidebar">
@@ -14,6 +19,10 @@ function TeacherSidebar({ sidebarOpen, setSidebarOpen }) {
         {sidebarOpen ? "«" : "»"}
       </button>
       <h2 className="sidebar-title">📚 Teacher</h2>
+      <br />
+      <button onClick={handleLogout} className="btn btn-red">
+      Logout
+      </button>
       <ul>
         <li onClick={() => navigate("/teacher-dashboard")}>🏠 Home</li>
         <li onClick={() => navigate("/manage-units")}>📘 Units & Chapters</li>
