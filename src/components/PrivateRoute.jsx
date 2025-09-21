@@ -5,7 +5,7 @@ import axios from "axios";
 function PrivateRoute({ children, allowedRoles }) {
   const token = localStorage.getItem("token");
   const storedUser = JSON.parse(localStorage.getItem("user"));
-  const [isValid, setIsValid] = useState(true); // ✅ default true
+  const [isValid, setIsValid] = useState(true);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,7 +23,16 @@ function PrivateRoute({ children, allowedRoles }) {
         );
 
         const latestUser = res.data;
-        localStorage.setItem("user", JSON.stringify(latestUser));
+
+        // ✅ Only update localStorage if something actually changed
+        const currentUser = JSON.parse(localStorage.getItem("user"));
+        if (
+          !currentUser ||
+          currentUser.id !== latestUser.id ||
+          currentUser.role !== latestUser.role
+        ) {
+          localStorage.setItem("user", JSON.stringify(latestUser));
+        }
 
         if (allowedRoles && !allowedRoles.includes(latestUser.role)) {
           setIsValid(false);
@@ -45,7 +54,6 @@ function PrivateRoute({ children, allowedRoles }) {
     return () => clearInterval(interval);
   }, [token, storedUser, allowedRoles]);
 
-  // ✅ while loading, keep rendering children
   if (!isValid && !loading) return <Navigate to="/AccessDenied" />;
   return children;
 }

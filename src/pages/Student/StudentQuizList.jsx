@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "../../styles/AppStyles.css";
+import StudentSidebar from "../../components/StudentSidebar"; // import new sidebar
+
 
 function StudentQuizList() {
   const [quizzes, setQuizzes] = useState([]);
@@ -32,25 +34,7 @@ function StudentQuizList() {
   return (
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
       {/* Sidebar */}
-      <aside className="sidebar">
-        <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          {sidebarOpen ? "«" : "»"}
-        </button>
-        <h2 className="sidebar-title">🎓 Student</h2>
-        <div className="sidebar-footer">
-          <p>👤 {user?.name}</p>
-        </div>
-        <ul>
-          <li onClick={() => navigate("/student-dashboard")}>🏠 Dashboard</li>
-          <li onClick={() => navigate("/student-tasks")}>📋 My Tasks</li>
-          <li onClick={() => navigate("/student-quizzes")}>📝 My Quizzes</li>
-          <li onClick={() => navigate("/student-attendance")}>📊 My Attendance</li>
-          <li onClick={() => navigate("/student-performance")}>📈 My Performance</li>
-          <li onClick={() => navigate("/StudentVideoViewer")}>🎥 Course Videos</li>
-          <li onClick={() => navigate("/MaterialViewer")}>📚 Course Materials</li>
-
-        </ul>
-      </aside>
+      <StudentSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* Main */}
       <main className="page-container">
