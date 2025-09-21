@@ -68,6 +68,12 @@ function TeacherDashboard() {
             <h3>📂 Create Tasks & Homework</h3>
             <p>Assign tasks and homework to students.</p>
           </div>
+          <button
+            className="btn btn-purple"
+            onClick={() => window.open(`${process.env.REACT_APP_API_URL}/api/admin/export-users`, "_blank")}
+          >
+            📥 Export Users to Excel
+          </button>
         </div>
         
         <div className="section-card">
