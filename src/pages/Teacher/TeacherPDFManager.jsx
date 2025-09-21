@@ -16,8 +16,10 @@ export default function TeacherMaterialManager() {
     unitId: "",
     chapterId: "",
     file: null,
+    fileUrl: "",
   });
 
+  const [uploadType, setUploadType] = useState("file"); // "file" or "url"
   const [zoomLevels, setZoomLevels] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -78,21 +80,47 @@ export default function TeacherMaterialManager() {
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!form.title || !form.yearId || !form.unitId || !form.chapterId || !form.file) {
+    if (!form.title || !form.yearId || !form.unitId || !form.chapterId) {
       return setError("⚠️ All fields are required");
     }
     setLoading(true);
     setError("");
+
     try {
-      const formData = new FormData();
-      Object.entries(form).forEach(([key, value]) => formData.append(key, value));
-      formData.append("teacherId", teacherId);
+      if (uploadType === "url") {
+        // Save by URL
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/material/url`, {
+          title: form.title,
+          fileUrl: form.fileUrl,
+          yearId: form.yearId,
+          unitId: form.unitId,
+          chapterId: form.chapterId,
+          teacherId,
+        });
+      } else {
+        // Upload file
+        if (!form.file) return setError("⚠️ Please choose a file");
+        const formData = new FormData();
+        formData.append("title", form.title);
+        formData.append("yearId", form.yearId);
+        formData.append("unitId", form.unitId);
+        formData.append("chapterId", form.chapterId);
+        formData.append("teacherId", teacherId);
+        formData.append("file", form.file);
 
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/material`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/material`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      }
+
+      setForm({
+        title: "",
+        yearId: "",
+        unitId: "",
+        chapterId: "",
+        file: null,
+        fileUrl: "",
       });
-
-      setForm({ title: "", yearId: "", unitId: "", chapterId: "", file: null });
       setUnits([]);
       setChapters([]);
       fetchMaterials(form.yearId);
@@ -225,16 +253,49 @@ export default function TeacherMaterialManager() {
               ))}
             </select>
 
-            <input
-              type="file"
-              name="file"
-              accept="application/pdf"
-              onChange={handleChange}
-              className="styled-input"
-            />
+            {/* Upload Type Toggle */}
+            <div className="form-toggle">
+              <label>
+                <input
+                  type="radio"
+                  value="file"
+                  checked={uploadType === "file"}
+                  onChange={() => setUploadType("file")}
+                />{" "}
+                Upload File
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="url"
+                  checked={uploadType === "url"}
+                  onChange={() => setUploadType("url")}
+                />{" "}
+                Use URL
+              </label>
+            </div>
+
+            {uploadType === "file" ? (
+              <input
+                type="file"
+                name="file"
+                accept="application/pdf"
+                onChange={handleChange}
+                className="styled-input"
+              />
+            ) : (
+              <input
+                type="text"
+                name="fileUrl"
+                placeholder="Paste Bunny CDN PDF URL"
+                value={form.fileUrl}
+                onChange={handleChange}
+                className="styled-input"
+              />
+            )}
 
             <button type="submit" disabled={loading} className="btn btn-purple">
-              {loading ? "⏳ Uploading..." : "📤 Upload PDF"}
+              {loading ? "⏳ Uploading..." : "📤 Save PDF"}
             </button>
           </form>
         </div>
@@ -281,16 +342,16 @@ export default function TeacherMaterialManager() {
                     {/* PDF Viewer */}
                     <div className="pdf-viewer">
                       <iframe
-                      src={`${m.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
-                      title={m.title}
-                      style={{
-                        width: "100%",
-                        height: "500px",
-                        border: "none",
-                        transform: `scale(${zoom})`,
-                        transformOrigin: "0 0",
-                      }}
-                    ></iframe>
+                        src={`${m.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                        title={m.title}
+                        style={{
+                          width: "100%",
+                          height: "500px",
+                          border: "none",
+                          transform: `scale(${zoom})`,
+                          transformOrigin: "0 0",
+                        }}
+                      ></iframe>
                     </div>
 
                     <button
