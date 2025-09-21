@@ -113,19 +113,21 @@ function CreateYear({ teacherId }) {
               >
                 {y.name} {expandedYear === y._id ? "▼" : "▶"}
               </span>
-
               {expandedYear === y._id && (
                 <div className="nested-box">
                   {/* Groups */}
+                  <br />
                   <ul className="list-unstyled">
                     {(y.groups || []).map((g) => (
                       <li key={g._id} className="group-box">
                         <b>{g.name}</b>
+                        <br />
                         <ul className="list-unstyled nested-students">
                           {g.students && g.students.length > 0 ? (
                             [...g.students] // ✅ clone array to avoid mutating state
                               .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
                               .map((s) => (
+                                
                                 <li key={s._id} className="student-row">
                                   <span>
                                     {s.name} <small>({s.email})</small>
