@@ -5,56 +5,48 @@ import axios from "axios";
 function PrivateRoute({ children, allowedRoles }) {
   const token = localStorage.getItem("token");
   const storedUser = JSON.parse(localStorage.getItem("user"));
-  const [isValid, setIsValid] = useState(null);
+  const [isValid, setIsValid] = useState(true); // ✅ default true
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const validateUser = async () => {
       if (!token || !storedUser) {
         setIsValid(false);
+        setLoading(false);
         return;
       }
 
       try {
-        // ask backend for fresh data
         const res = await axios.get(
           `${process.env.REACT_APP_API_URL}/api/auth/validate/${storedUser.id}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
         const latestUser = res.data;
-
-        // update localStorage with latest info
         localStorage.setItem("user", JSON.stringify(latestUser));
 
-        // role check
         if (allowedRoles && !allowedRoles.includes(latestUser.role)) {
           setIsValid(false);
-          return;
-        }
-
-        // student must have groupId
-        if (latestUser.role === "student" && !latestUser.groupId) {
+        } else if (latestUser.role === "student" && !latestUser.groupId) {
           setIsValid(false);
-          return;
+        } else {
+          setIsValid(true);
         }
-
-        setIsValid(true);
       } catch (err) {
         console.error("❌ Validation failed:", err);
         setIsValid(false);
+      } finally {
+        setLoading(false);
       }
     };
 
     validateUser();
-
-    // 🔁 auto-refresh every 30s
-    const interval = setInterval(validateUser, 10000);
+    const interval = setInterval(validateUser, 30000); // 🔁 every 30s
     return () => clearInterval(interval);
   }, [token, storedUser, allowedRoles]);
 
-  if (isValid === null) return <p>🔄 Checking access...</p>;
-  if (!isValid) return <Navigate to="/AccessDenied" />;
-
+  // ✅ while loading, keep rendering children
+  if (!isValid && !loading) return <Navigate to="/AccessDenied" />;
   return children;
 }
 

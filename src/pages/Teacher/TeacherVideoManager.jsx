@@ -21,6 +21,7 @@ export default function TeacherVideoManager() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
@@ -101,6 +102,8 @@ export default function TeacherVideoManager() {
 
     setLoading(true);
     setError("");
+    setUploadProgress(0);
+
     try {
       const formData = new FormData();
       formData.append("title", form.title);
@@ -112,6 +115,12 @@ export default function TeacherVideoManager() {
 
       await axios.post(`${process.env.REACT_APP_API_URL}/api/video`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percent);
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
       });
 
       setForm({ title: "", yearId: "", unitId: "", chapterId: "", video: null });
@@ -126,6 +135,7 @@ export default function TeacherVideoManager() {
       toast.error("❌ Failed to upload video");
     } finally {
       setLoading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -182,13 +192,12 @@ export default function TeacherVideoManager() {
               className="styled-input"
             />
 
-            {/* Year Dropdown */}
             <select
               name="yearId"
               value={form.yearId}
               onChange={(e) => {
                 const yearId = e.target.value;
-                setForm({ ...form, yearId, unitId: "", chapterId: "" }); // ✅ set year + reset unit/chapter
+                setForm({ ...form, yearId, unitId: "", chapterId: "" });
                 setUnits([]);
                 setChapters([]);
                 if (yearId) {
@@ -206,13 +215,12 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
-            {/* Unit Dropdown */}
             <select
               name="unitId"
               value={form.unitId}
               onChange={(e) => {
                 const unitId = e.target.value;
-                setForm({ ...form, unitId, chapterId: "" }); // ✅ set unit + reset chapter
+                setForm({ ...form, unitId, chapterId: "" });
                 setChapters([]);
                 if (unitId) {
                   fetchChapters(unitId);
@@ -229,7 +237,6 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
-            {/* Chapter Dropdown */}
             <select
               name="chapterId"
               value={form.chapterId}
@@ -253,10 +260,23 @@ export default function TeacherVideoManager() {
               className="styled-input"
             />
 
-            <button type="submit" disabled={loading} className="btn btn-purple">
+            <button type="submit" disabled={loading} className="btn btn-orange">
               {loading ? "⏳ Uploading..." : "📤 Upload Video"}
             </button>
           </form>
+
+          {/* Upload Progress Bar */}
+          {loading && (
+            <div className="upload-progress">
+              <p>Uploading... {uploadProgress}%</p>
+              <div className="progress-bar">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Video List */}
@@ -274,15 +294,15 @@ export default function TeacherVideoManager() {
                     <b>Chapter:</b> {v.chapterId?.name}
                   </p>
                   <video
-                      src={v.videoUrl}   // Bunny CDN link directly
-                      controls
-                      controlsList="nodownload"
-                      disablePictureInPicture
-                      style={{ width: "100%", borderRadius: "6px" }}
-                    />
+                    src={v.videoUrl}
+                    controls
+                    controlsList="nodownload"
+                    disablePictureInPicture
+                    style={{ width: "100%", borderRadius: "6px" }}
+                  />
                   <button
                     onClick={() => handleDelete(v._id)}
-                    className="btn btn-purple small-btn"
+                    className="btn btn-red small-btn"
                   >
                     🗑 Delete
                   </button>
