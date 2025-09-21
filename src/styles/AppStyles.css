@@ -83,6 +83,29 @@
   background: #f1f1f1;
 }
 
+.scrollable-students {
+  max-height: 200px;   /* ✅ adjust as needed */
+  overflow-y: auto;    /* ✅ vertical scroll only */
+  margin-top: 8px;
+  padding-right: 6px;  /* space so text doesn't overlap scrollbar */
+}
+
+/* ✅ Scrollbar styling */
+.scrollable-students::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollable-students::-webkit-scrollbar-thumb {
+  background: #0b3c49; /* deep teal */
+  border-radius: 6px;
+}
+
+.scrollable-students::-webkit-scrollbar-track {
+  background: #f5f1eb; /* cream white to match palette */
+}
+
+
+
 /* Each row (Cream background, teal text) */
 .school-row {
   display: flex;

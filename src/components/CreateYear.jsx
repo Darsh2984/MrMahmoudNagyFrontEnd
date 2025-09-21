@@ -122,32 +122,34 @@ function CreateYear({ teacherId }) {
                       <li key={g._id} className="group-box">
                         <b>{g.name}</b>
                         <br />
-                        <ul className="list-unstyled nested-students">
-                          {g.students && g.students.length > 0 ? (
-                            [...g.students] // ✅ clone array to avoid mutating state
-                              .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
-                              .map((s) => (
-                                
-                                <li key={s._id} className="student-row">
-                                  <span>
-                                    {s.name} <small>({s.email})</small>
-                                  </span>
-                                  <button
-                                    className="btn btn-purple btn-small"
-                                    onClick={() =>
-                                      confirmRemoveStudent(g._id, s._id, s.name)
-                                    }
-                                  >
-                                    Remove
-                                  </button>
-                                </li>
-                              ))
-                          ) : (
-                            <li>
-                              <i>No students in this group yet</i>
-                            </li>
-                          )}
-                        </ul>
+                        <ul className="list-unstyled nested-students scrollable-students">
+                        {g.students && g.students.length > 0 ? (
+                          [...g.students]
+                            .sort((a, b) =>
+                              a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+                            )
+                            .map((s) => (
+                              <li key={s._id} className="student-row">
+                                <span>
+                                  {s.name} <small>({s.email})</small>
+                                </span>
+                                <button
+                                  className="btn btn-red btn-small"
+                                  onClick={() =>
+                                    confirmRemoveStudent(g._id, s._id, s.name)
+                                  }
+                                >
+                                  Remove
+                                </button>
+                              </li>
+                            ))
+                        ) : (
+                          <li>
+                            <i>No students in this group yet</i>
+                          </li>
+                        )}
+                      </ul>
+
                       </li>
                     ))}
                   </ul>
