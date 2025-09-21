@@ -214,7 +214,7 @@ const createTask = async () => {
               rows="3"
             />
             <input
-              type="date"
+              type="datetime-local"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
               className="styled-input"

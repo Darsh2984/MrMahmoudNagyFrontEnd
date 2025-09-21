@@ -136,16 +136,25 @@ function StudentTasks() {
 
                     {/* Upload Form */}
                     {!submitted && (
-                      <div className="upload-box" style={{ marginTop: "12px" }}>
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          className="styled-input"
-                          onChange={(e) => uploadSubmission(t._id, e.target.files[0])}
-                        />
-                        {uploading[t._id] && <p style={{ marginTop: "6px", color: "#555" }}>⏳ Uploading...</p>}
-                      </div>
+                      new Date(t.deadline) > new Date() ? (
+                        <div className="upload-box" style={{ marginTop: "12px" }}>
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            className="styled-input"
+                            onChange={(e) => uploadSubmission(t._id, e.target.files[0])}
+                          />
+                          {uploading[t._id] && (
+                            <p style={{ marginTop: "6px", color: "#555" }}>⏳ Uploading...</p>
+                          )}
+                        </div>
+                      ) : (
+                        <p style={{ color: "gray", marginTop: "10px" }}>
+                          ⏰ Deadline has passed. You can no longer submit.
+                        </p>
+                      )
                     )}
+
                   </li>
                 );
               })}
