@@ -18,8 +18,10 @@ export default function TeacherVideoManager() {
     unitId: "",
     chapterId: "",
     video: null,
+    videoUrl: "",
   });
 
+  const [uploadType, setUploadType] = useState("file"); // "file" or "url"
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
@@ -46,7 +48,6 @@ export default function TeacherVideoManager() {
     }
   };
 
-  // Fetch units for selected year
   const fetchUnits = async (teacherId, yearId) => {
     try {
       const res = await axios.get(
@@ -60,7 +61,6 @@ export default function TeacherVideoManager() {
     }
   };
 
-  // Fetch chapters for selected unit
   const fetchChapters = async (unitId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`);
@@ -72,7 +72,6 @@ export default function TeacherVideoManager() {
     }
   };
 
-  // Fetch videos by year
   const fetchVideos = async (yearId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/video/year/${yearId}`);
@@ -95,7 +94,7 @@ export default function TeacherVideoManager() {
 
   const handleUpload = async (e) => {
     e.preventDefault();
-    if (!form.title || !form.yearId || !form.unitId || !form.chapterId || !form.video) {
+    if (!form.title || !form.yearId || !form.unitId || !form.chapterId) {
       toast.warn("⚠️ All fields are required");
       return setError("⚠️ All fields are required");
     }
@@ -105,37 +104,67 @@ export default function TeacherVideoManager() {
     setUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append("title", form.title);
-      formData.append("yearId", form.yearId);
-      formData.append("unitId", form.unitId);
-      formData.append("chapterId", form.chapterId);
-      formData.append("teacherId", teacherId);
-      formData.append("video", form.video);
+      if (uploadType === "url") {
+        // ✅ Directly save URL
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/video/url`, {
+          title: form.title,
+          videoUrl: form.videoUrl,
+          yearId: form.yearId,
+          unitId: form.unitId,
+          chapterId: form.chapterId,
+          teacherId,
+        });
+      } else {
+        // ✅ Upload file
+        const uploadId = Date.now().toString();
+        const formData = new FormData();
+        formData.append("title", form.title);
+        formData.append("yearId", form.yearId);
+        formData.append("unitId", form.unitId);
+        formData.append("chapterId", form.chapterId);
+        formData.append("teacherId", teacherId);
+        formData.append("video", form.video);
+        formData.append("uploadId", uploadId);
 
-      await axios.post(`${process.env.REACT_APP_API_URL}/api/video`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        onUploadProgress: (progressEvent) => {
-          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          setUploadProgress(percent);
-        },
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
+        // Start SSE listener
+        const evtSource = new EventSource(
+          `${process.env.REACT_APP_API_URL}/api/video/progress/${uploadId}`
+        );
+        evtSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          setUploadProgress(data.progress);
+          if (data.progress >= 100) {
+            evtSource.close();
+          }
+        };
+
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/video`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+        });
+      }
+
+      setForm({
+        title: "",
+        yearId: "",
+        unitId: "",
+        chapterId: "",
+        video: null,
+        videoUrl: "",
       });
-
-      setForm({ title: "", yearId: "", unitId: "", chapterId: "", video: null });
       setUnits([]);
       setChapters([]);
       fetchVideos(form.yearId);
 
-      toast.success("✅ Video uploaded successfully!");
+      toast.success("✅ Video added successfully!");
     } catch (err) {
-      console.error("❌ Error uploading video:", err);
-      setError("Failed to upload video.");
-      toast.error("❌ Failed to upload video");
+      console.error("❌ Error:", err);
+      setError("Failed to add video.");
+      toast.error("❌ Failed to add video");
     } finally {
       setLoading(false);
-      setUploadProgress(0);
+      setTimeout(() => setUploadProgress(0), 3000);
     }
   };
 
@@ -154,7 +183,7 @@ export default function TeacherVideoManager() {
 
   return (
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* === Sidebar === */}
+      {/* Sidebar */}
       <aside className="sidebar">
         <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
           {sidebarOpen ? "«" : "»"}
@@ -173,7 +202,7 @@ export default function TeacherVideoManager() {
         </ul>
       </aside>
 
-      {/* === Main Content === */}
+      {/* Main Content */}
       <main className="page-container">
         <div className="section-card">
           <h3 className="card-title">🎥 Manage Course Videos</h3>
@@ -181,7 +210,6 @@ export default function TeacherVideoManager() {
 
           {error && <p className="error-text">{error}</p>}
 
-          {/* Upload Form */}
           <form onSubmit={handleUpload} className="form-grid">
             <input
               type="text"
@@ -192,6 +220,7 @@ export default function TeacherVideoManager() {
               className="styled-input"
             />
 
+            {/* Year Dropdown */}
             <select
               name="yearId"
               value={form.yearId}
@@ -215,6 +244,7 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
+            {/* Unit Dropdown */}
             <select
               name="unitId"
               value={form.unitId}
@@ -237,6 +267,7 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
+            {/* Chapter Dropdown */}
             <select
               name="chapterId"
               value={form.chapterId}
@@ -252,21 +283,54 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
-            <input
-              type="file"
-              name="video"
-              accept="video/*"
-              onChange={handleChange}
-              className="styled-input"
-            />
+            {/* Upload Type Toggle */}
+            <div className="form-toggle">
+              <label>
+                <input
+                  type="radio"
+                  value="file"
+                  checked={uploadType === "file"}
+                  onChange={() => setUploadType("file")}
+                />{" "}
+                Upload File
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  value="url"
+                  checked={uploadType === "url"}
+                  onChange={() => setUploadType("url")}
+                />{" "}
+                Use URL
+              </label>
+            </div>
+
+            {uploadType === "file" ? (
+              <input
+                type="file"
+                name="video"
+                accept="video/*"
+                onChange={handleChange}
+                className="styled-input"
+              />
+            ) : (
+              <input
+                type="text"
+                name="videoUrl"
+                placeholder="Paste Bunny CDN URL"
+                value={form.videoUrl}
+                onChange={handleChange}
+                className="styled-input"
+              />
+            )}
 
             <button type="submit" disabled={loading} className="btn btn-orange">
-              {loading ? "⏳ Uploading..." : "📤 Upload Video"}
+              {loading ? "⏳ Uploading..." : "📤 Save Video"}
             </button>
           </form>
 
-          {/* Upload Progress Bar */}
-          {loading && (
+          {/* Progress Bar */}
+          {loading && uploadType === "file" && (
             <div className="upload-progress">
               <p>Uploading... {uploadProgress}%</p>
               <div className="progress-bar">
