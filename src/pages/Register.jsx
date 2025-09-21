@@ -22,12 +22,15 @@ function Register() {
   const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Fetch schools
+// ✅ Fetch schools
   useEffect(() => {
     const fetchSchools = async () => {
       try {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/school/all`);
-        setSchools(res.data);
+        const sortedSchools = res.data.sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+        );
+        setSchools(sortedSchools);
       } catch (err) {
         console.error("❌ Error fetching schools:", err);
       }
