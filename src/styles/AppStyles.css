@@ -960,6 +960,53 @@ body.login-page {
   margin-top: 10px;
 }
 
+.submission-table {
+  background: #f5f1eb; /* cream white */
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.submission-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 100px;
+  background: #0b3c49; /* deep teal */
+  color: white;
+  font-weight: bold;
+  padding: 10px;
+}
+
+.submission-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 100px;
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+  align-items: center;
+  color: #33312e; /* charcoal */
+}
+
+.submission-row:nth-child(even) {
+  background: #faf8f6;
+}
+
+
+.btn-view:hover {
+  background: #d77e42; /* warm orange */
+}
+
+.grading-box {
+  grid-column: 1 / -1;
+  padding: 15px;
+  background: #eef6f9;
+  border-top: 1px solid #ccc;
+}
+
+.graded-info {
+  background: #e8f5e9;
+  padding: 10px;
+  border-left: 4px solid #8baa91;
+  margin-top: 10px;
+}
+
 .graded-info {
   background: #fff;
   padding: 10px;

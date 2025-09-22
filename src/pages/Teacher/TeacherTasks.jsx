@@ -17,6 +17,7 @@ function TeacherTasks() {
 
   const [tasks, setTasks] = useState([]);
   const [expandedTask, setExpandedTask] = useState(null);
+  const [expandedStudent, setExpandedStudent] = useState(null); 
   const [submissions, setSubmissions] = useState({});
   const [groupStudents, setGroupStudents] = useState([]);
 
@@ -272,123 +273,165 @@ const createTask = async () => {
 
         {/* Tasks List */}
         {tasks.length > 0 && (
-          <div className="section-card">
-            <h3 className="card-title">📋 Task List</h3> <br />
-            <ul className="task-list" style={{ listStyle: "none", padding: 0 }}>
-              {tasks.map((t) => (
-                <li key={t._id} className="task-card">
-                  <div className="task-header">
-                    <div>
-                      <h4>{t.title}</h4>
-                      <p>{t.description}</p>
-                      <small>Due: {new Date(t.deadline).toLocaleDateString()}</small>
-                    </div>
-                    <button
-                      onClick={() => {
-                        if (expandedTask === t._id) setExpandedTask(null);
-                        else {
-                          setExpandedTask(t._id);
-                          fetchSubmissions(t._id);
-                        }
-                      }}
-                      className={`btn ${
-                        expandedTask === t._id ? "btn-purple" : "btn-green"
-                      }`}
-                    >
-                      {expandedTask === t._id ? "Close" : "View Submissions"}
-                    </button>
+        <div className="section-card">
+          <h3 className="card-title">📋 Task List</h3> <br />
+          <ul className="task-list" style={{ listStyle: "none", padding: 0 }}>
+            {tasks.map((t) => (
+              <li key={t._id} className="task-card">
+                <div className="task-header">
+                  <div>
+                    <h4>{t.title}</h4>
+                    <p>{t.description}</p>
+                    <small>Due: {new Date(t.deadline).toLocaleDateString()}</small>
                   </div>
+                  <button
+                    onClick={() => {
+                      if (expandedTask === t._id) {
+                        setExpandedTask(null);
+                        setExpandedStudent(null); // ✅ reset student view
+                      } else {
+                        setExpandedTask(t._id);
+                        setExpandedStudent(null); // ✅ reset student view
+                        fetchSubmissions(t._id);
+                      }
+                    }}
+                    className={`btn ${expandedTask === t._id ? "btn-purple" : "btn-green"}`}
+                  >
+                    {expandedTask === t._id ? "Close" : "View Submissions"}
+                  </button>
+                </div>
 
-                  {/* Submissions */}
-                  {expandedTask === t._id && (
-                    <div className="submissions">
-                      <h4>📥 Submissions</h4>
-                      <ul className="submission-list">
-                        {groupStudents.map((s) => {
-                          const sub = submissions[t._id]?.find(
-                            (sub) => sub.studentId?._id === s._id
-                          );
-                          return (
-                            <li key={s._id} className="submission-card">
-                              <strong>{s.name}</strong> ({s.email})
-                              {sub ? (
-                                <div className="submission-content">
-                                  ✅ Submitted{" "}
+                {/* Submissions */}
+                {expandedTask === t._id && (
+                  <div className="submissions">
+                    <h4 style={{ marginBottom: "10px", color: "#0b3c49" }}>📥 Submissions</h4>
+
+                    <div className="submission-table">
+                      <div className="submission-header">
+                        <span>Name</span>
+                        <span>Email</span>
+                        <span>Status</span>
+                        <span>Actions</span>
+                      </div>
+
+                      {groupStudents.map((s) => {
+                        const sub = submissions[t._id]?.find(
+                          (sub) => sub.studentId?._id === s._id
+                        );
+
+                        return (
+                          <div key={s._id} className="submission-row">
+                            <span>{s.name}</span>
+                            <span>{s.email}</span>
+                            <span
+                              style={{
+                                color: sub ? "#8baa91" : "#c85d47",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              {sub ? "Submitted" : "Not Submitted"}
+                            </span>
+                            <span>
+                              {sub && (
+                                <button
+                                  className="btn btn-purple"
+                                  onClick={() =>
+                                    setExpandedStudent(
+                                      expandedStudent === s._id ? null : s._id
+                                    )
+                                  }
+                                >
+                                  {expandedStudent === s._id ? "Hide" : "View"}
+                                </button>
+                              )}
+                            </span>
+
+                            {/* Expanded grading row */}
+                            {sub && expandedStudent === s._id && (
+                              <div className="grading-box">
+                                <p>
+                                  📄{" "}
                                   <a
                                     href={sub.fileUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="link"
                                   >
-                                    📄 View File
+                                    View Submitted File
                                   </a>
-                                  {sub.grade !== undefined ? (
-                                    <div className="graded-info">
+                                </p>
+
+                                {sub.grade !== undefined ? (
+                                  <div className="graded-info">
+                                    <p>
+                                      <b>Grade:</b> {sub.grade} / {t.gradeOutOf}
+                                    </p>
+                                    {sub.comments && <p>{sub.comments}</p>}
+                                    {sub.correctedFileUrl && (
                                       <p>
-                                        <b>Grade:</b> {sub.grade} / {t.gradeOutOf}
+                                        📄{" "}
+                                        <a
+                                          href={sub.correctedFileUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          Download Corrected File
+                                        </a>
                                       </p>
-                                      {sub.comments && <p>{sub.comments}</p>}
-                                    </div>
-                                  ) : (
-                                    <div className="grading-form">
-                                      <input
-                                        type="number"
-                                        placeholder={`Grade /${t.gradeOutOf}`}
-                                        value={grades[sub._id] || ""}
-                                        onChange={(e) =>
-                                          setGrades({
-                                            ...grades,
-                                            [sub._id]: e.target.value,
-                                          })
-                                        }
-                                        className="styled-input"
-                                      />
-                                      <input
-                                        type="text"
-                                        placeholder="Comments"
-                                        value={comments[sub._id] || ""}
-                                        onChange={(e) =>
-                                          setComments({
-                                            ...comments,
-                                            [sub._id]: e.target.value,
-                                          })
-                                        }
-                                        className="styled-input"
-                                      />
-                                      <input
-                                        type="file"
-                                        accept="application/pdf"
-                                        onChange={(e) =>
-                                          setCorrectedFiles({
-                                            ...correctedFiles,
-                                            [sub._id]: e.target.files[0],
-                                          })
-                                        }
-                                        className="styled-input"
-                                      />
-                                      <button
-                                        onClick={() => gradeSubmission(sub._id)}
-                                        className="btn btn-green"
-                                      >
-                                        Submit Grade
-                                      </button>
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <span style={{ color: "red" }}>❌ Not Submitted</span>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="grading-form">
+                                    <input
+                                      type="number"
+                                      placeholder={`Grade /${t.gradeOutOf}`}
+                                      value={grades[sub._id] || ""}
+                                      onChange={(e) =>
+                                        setGrades({ ...grades, [sub._id]: e.target.value })
+                                      }
+                                      className="styled-input"
+                                    />
+                                    <input
+                                      type="text"
+                                      placeholder="Comments"
+                                      value={comments[sub._id] || ""}
+                                      onChange={(e) =>
+                                        setComments({ ...comments, [sub._id]: e.target.value })
+                                      }
+                                      className="styled-input"
+                                    />
+                                    <input
+                                      type="file"
+                                      accept="application/pdf"
+                                      onChange={(e) =>
+                                        setCorrectedFiles({
+                                          ...correctedFiles,
+                                          [sub._id]: e.target.files[0],
+                                        })
+                                      }
+                                      className="styled-input"
+                                    />
+                                    <button
+                                      onClick={() => gradeSubmission(sub._id)}
+                                      className="btn btn-green"
+                                    >
+                                      Submit Grade
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       </main>
     </div>
   );
