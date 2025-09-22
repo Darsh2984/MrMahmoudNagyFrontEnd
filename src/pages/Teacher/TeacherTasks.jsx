@@ -356,7 +356,15 @@ const createTask = async () => {
                   <div>
                     <h4>{t.title}</h4>
                     <p>{t.description}</p>
-                    <small>Due: {new Date(t.deadline).toLocaleDateString()}</small>
+                    <small>
+                      Due: {new Date(t.deadline).toLocaleString([], { 
+                        year: "numeric", 
+                        month: "short", 
+                        day: "numeric", 
+                        hour: "2-digit", 
+                        minute: "2-digit" 
+                      })}
+                    </small>
                   </div>
                   <button
                     onClick={() => {

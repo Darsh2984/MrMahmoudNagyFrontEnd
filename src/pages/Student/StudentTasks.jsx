@@ -93,8 +93,16 @@ function StudentTasks() {
                     <h3 style={{ marginBottom: "8px", color: "#2c3e50" }}>{t.title}</h3>
                     <p className="task-desc" style={{ marginBottom: "8px" }}>{t.description}</p>
                     <p style={{ marginBottom: "12px" }}>
-                      <b>Deadline:</b> {new Date(t.deadline).toLocaleDateString()}
+                      <b>Deadline:</b>{" "}
+                      {new Date(t.deadline).toLocaleString([], {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
+
 
                     {/* Submission Status */}
                     {submitted ? (
