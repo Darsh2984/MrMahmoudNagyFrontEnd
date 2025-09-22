@@ -130,6 +130,7 @@ function Register() {
             value={form.studentPhone}
             onChange={(phone) => setForm({ ...form, studentPhone: phone })}
             inputStyle={{ width: "100%" }}
+            disableCountryCode={true}     // ❌ locks the +20 (code part)
             containerStyle={{ marginBottom: "15px" }}
             required
           />
@@ -150,10 +151,13 @@ function Register() {
           <label className="field-label">Parent Phone</label>
           <PhoneInput
             country={"eg"}
-            value={form.parentPhone}
-            onChange={(phone) => setForm({ ...form, parentPhone: phone })}
+            value={form.studentPhone}
+            onChange={(phone) => setForm({ ...form, studentPhone: phone })}
             inputStyle={{ width: "100%" }}
             containerStyle={{ marginBottom: "15px" }}
+            disableCountryCode={true}   // 🔒 lock the +XX prefix
+            enableSearch={true}         // 🔍 allow searching countries
+            required
           />
 
           {/* Parent Email */}

@@ -16,6 +16,8 @@ function TeacherTasks() {
   const [gradeOutOf, setGradeOutOf] = useState("");
 
   const [tasks, setTasks] = useState([]);
+  const [editingTask, setEditingTask] = useState(null);
+
   const [expandedTask, setExpandedTask] = useState(null);
   const [expandedStudent, setExpandedStudent] = useState(null); 
   const [submissions, setSubmissions] = useState({});
@@ -74,6 +76,37 @@ function TeacherTasks() {
       toast.error("❌ Failed to fetch tasks");
     }
   };
+
+  const updateTask = async () => {
+  if (!editingTask) return;
+  try {
+    await axios.put(
+      `${process.env.REACT_APP_API_URL}/api/tasks/task/${editingTask._id}`,
+      editingTask
+    );
+    toast.success("✅ Task updated");
+
+    setTasks((prev) =>
+      prev.map((t) => (t._id === editingTask._id ? editingTask : t))
+    );
+    setEditingTask(null);
+  } catch {
+    toast.error("❌ Failed to update task");
+  }
+};
+
+const deleteTask = async (taskId) => {
+  if (!window.confirm("⚠️ Are you sure you want to delete this task?")) return;
+  try {
+    await axios.delete(
+      `${process.env.REACT_APP_API_URL}/api/tasks/task/${taskId}`
+    );
+    toast.success("✅ Task deleted");
+    setTasks((prev) => prev.filter((t) => t._id !== taskId));
+  } catch {
+    toast.error("❌ Failed to delete task");
+  }
+};
 
 
   // 🔹 Fetch submissions
@@ -271,6 +304,50 @@ const createTask = async () => {
           </div>
         )}
 
+        {editingTask && (
+        <div className="section-card">
+          <h3 className="card-title">✏️ Edit Task</h3>
+          <input
+            type="text"
+            value={editingTask.title}
+            onChange={(e) =>
+              setEditingTask({ ...editingTask, title: e.target.value })
+            }
+            className="styled-input"
+          />
+          <textarea
+            value={editingTask.description}
+            onChange={(e) =>
+              setEditingTask({ ...editingTask, description: e.target.value })
+            }
+            className="styled-input"
+          />
+          <input
+            type="datetime-local"
+            value={
+              editingTask.deadline
+                ? new Date(editingTask.deadline).toISOString().slice(0, 16)
+                : ""
+            }
+            onChange={(e) =>
+              setEditingTask({ ...editingTask, deadline: e.target.value })
+            }
+            className="styled-input"
+          />
+          <input
+            type="number"
+            value={editingTask.gradeOutOf}
+            onChange={(e) =>
+              setEditingTask({ ...editingTask, gradeOutOf: e.target.value })
+            }
+            className="styled-input"
+          />
+          <button onClick={updateTask} className="btn btn-green">💾 Save</button>
+          <button onClick={() => setEditingTask(null)} className="btn btn-red">Cancel</button>
+        </div>
+      )}
+
+
         {/* Tasks List */}
         {tasks.length > 0 && (
         <div className="section-card">
@@ -300,6 +377,21 @@ const createTask = async () => {
                     {expandedTask === t._id ? "Close" : "View Submissions"}
                   </button>
                 </div>
+                <div className="task-actions">
+                  <button
+                    className="btn btn-blue"
+                    onClick={() => setEditingTask(t)}
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    className="btn btn-red"
+                    onClick={() => deleteTask(t._id)}
+                  >
+                    🗑 Delete
+                  </button>
+                </div>
+
 
                 {/* Submissions */}
                 {expandedTask === t._id && (
