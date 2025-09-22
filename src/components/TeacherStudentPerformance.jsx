@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import "../styles/AppStyles.css";
 import TeacherSidebar from "./TeacherSidebar"; // ✅ import new sidebar
 
-
 export default function TeacherStudentPerformance() {
   const [teacherId, setTeacherId] = useState("");
   const [years, setYears] = useState([]);
@@ -65,7 +64,7 @@ export default function TeacherStudentPerformance() {
     }
   };
 
-  // fetch performance
+  // fetch performance for one student
   const fetchPerformance = async () => {
     if (!groupId || !studentId) return;
     setLoading(true);
@@ -81,9 +80,35 @@ export default function TeacherStudentPerformance() {
     }
   };
 
+  // 🔹 Export all students in year
+  const exportYearPerformance = async () => {
+    if (!year) {
+      alert("⚠️ Please select a year first");
+      return;
+    }
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/performance/export/${year}`,
+        { responseType: "blob" } // important for Excel download
+      );
+
+      // trigger download
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "students_performance.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("❌ Export failed:", err);
+      alert("❌ Failed to export performance data");
+    }
+  };
+
   return (
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-       {/* ✅ Sidebar extracted */}
+      {/* ✅ Sidebar extracted */}
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       {/* === Main Content === */}
@@ -157,6 +182,13 @@ export default function TeacherStudentPerformance() {
                 🔍 View
               </button>
             )}
+
+            {/* 🔹 Export Button (Year-level) */}
+            {year && (
+              <button className="btn btn-green" onClick={exportYearPerformance}>
+                📥 Export Year Performance
+              </button>
+            )}
           </div>
         </div>
 
@@ -225,7 +257,6 @@ export default function TeacherStudentPerformance() {
             </div>
           </div>
         )}
-
       </main>
     </div>
   );
