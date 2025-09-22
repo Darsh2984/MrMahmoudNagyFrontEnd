@@ -324,11 +324,7 @@ const createTask = async () => {
           />
           <input
             type="datetime-local"
-            value={
-              editingTask.deadline
-                ? new Date(editingTask.deadline).toISOString().slice(0, 16)
-                : ""
-            }
+            value={editingTask.deadline || ""}
             onChange={(e) =>
               setEditingTask({ ...editingTask, deadline: e.target.value })
             }
@@ -346,6 +342,7 @@ const createTask = async () => {
           <button onClick={() => setEditingTask(null)} className="btn btn-red">Cancel</button>
         </div>
       )}
+
 
 
         {/* Tasks List */}
