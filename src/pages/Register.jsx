@@ -126,14 +126,15 @@ function Register() {
           {/* Student phone */}
           <label className="field-label">Student Phone</label>
           <PhoneInput
-            country={"eg"}
-            value={form.studentPhone}
-            onChange={(phone) => setForm({ ...form, studentPhone: phone })}
-            inputStyle={{ width: "100%" }}
-            disableCountryCode={true}     // ❌ locks the +20 (code part)
-            containerStyle={{ marginBottom: "15px" }}
-            required
-          />
+              country={"eg"}                 // 🌍 default country (Egypt)
+              value={form.studentPhone}      // 🔗 bind value
+              onChange={(phone) => setForm({ ...form, studentPhone: phone })}
+              inputStyle={{ width: "100%" }}
+              containerStyle={{ marginBottom: "15px" }}
+              enableSearch={true}            // 🔍 allow searching countries
+              countryCodeEditable={false}    // 🔒 keeps +20 visible & locked
+              required
+            />
 
           {/* Parent Name */}
           <div className="input-group">
@@ -151,13 +152,12 @@ function Register() {
           <label className="field-label">Parent Phone</label>
           <PhoneInput
             country={"eg"}
-            value={form.studentPhone}
-            onChange={(phone) => setForm({ ...form, studentPhone: phone })}
+            value={form.parentPhone}
+            onChange={(phone) => setForm({ ...form, parentPhone: phone })}
+            enableSearch={true}            // 🔍 allow searching countries
+            countryCodeEditable={false}    // 🔒 keeps +20 visible & locked
             inputStyle={{ width: "100%" }}
             containerStyle={{ marginBottom: "15px" }}
-            disableCountryCode={true}   // 🔒 lock the +XX prefix
-            enableSearch={true}         // 🔍 allow searching countries
-            required
           />
 
           {/* Parent Email */}
