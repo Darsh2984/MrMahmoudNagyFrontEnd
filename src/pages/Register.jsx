@@ -131,6 +131,7 @@ function Register() {
             onChange={(phone) => setForm({ ...form, studentPhone: phone })}
             inputStyle={{ width: "100%" }}
             containerStyle={{ marginBottom: "15px" }}
+            required
           />
 
           {/* Parent Name */}
