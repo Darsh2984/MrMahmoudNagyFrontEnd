@@ -72,6 +72,42 @@ function StudentTasks() {
     }
   };
 
+  function formatDeadline(isoDate) {
+  const date = new Date(isoDate);
+  return date.toLocaleString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+
+  // Delete submission
+  const deleteSubmission = async (submissionId, task) => {
+    // Check deadline
+    if (new Date(task.deadline) <= new Date()) {
+      return toast.error("⏰ Deadline has passed. You cannot delete this submission.");
+    }
+
+    // Check graded
+    if (submissions[task._id]?.grade !== undefined) {
+      return toast.error("❌ This submission has already been graded. You cannot delete it.");
+    }
+
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_URL}/api/tasks/submission/${submissionId}`);
+      toast.success("🗑️ Submission deleted. You can re-upload before the deadline.");
+      fetchSubmission(task._id); // refresh
+    } catch (err) {
+      console.error("❌ Error deleting submission:", err);
+      toast.error("❌ Failed to delete submission");
+    }
+  };
+
+
   return (
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
       {/* Sidebar */}
@@ -93,14 +129,7 @@ function StudentTasks() {
                     <h3 style={{ marginBottom: "8px", color: "#2c3e50" }}>{t.title}</h3>
                     <p className="task-desc" style={{ marginBottom: "8px" }}>{t.description}</p>
                     <p style={{ marginBottom: "12px" }}>
-                      <b>Deadline:</b>{" "}
-                      {new Date(t.deadline).toLocaleString([], {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      <b>Deadline:</b> {formatDeadline(t.deadline)}
                     </p>
 
 
@@ -119,6 +148,8 @@ function StudentTasks() {
                           </a>
                           )
                         </p>
+
+                        {/* Grading Info */}
                         {submitted.grade !== undefined && (
                           <div className="graded-info" style={{ padding: "10px", background: "#eef6f9", borderRadius: "6px" }}>
                             <p><b>Grade:</b> {submitted.grade} / {t.gradeOutOf}</p>
@@ -137,10 +168,22 @@ function StudentTasks() {
                             )}
                           </div>
                         )}
+
+                        {/* Delete Button (only if deadline not passed & not graded) */}
+                        {new Date(t.deadline) > new Date() && submitted.grade === undefined && (
+                          <button
+                            className="btn btn-red"
+                            style={{ marginTop: "10px" }}
+                            onClick={() => deleteSubmission(submitted._id, t)}
+                          >
+                            🗑️ Cancel Submission
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <p style={{ color: "red", marginBottom: "10px" }}>❌ Not Submitted</p>
                     )}
+
 
                     {/* Upload Form */}
                     {!submitted && (
