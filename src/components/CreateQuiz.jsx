@@ -25,7 +25,7 @@ function CreateQuiz() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const teacherId = user?.id;
+  const teacherId = user.realTeacherId || user.id;
   const navigate = useNavigate();
 
   useEffect(() => {

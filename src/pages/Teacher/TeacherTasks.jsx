@@ -47,35 +47,41 @@ function TeacherTasks() {
     }
   };
 
+  function toLocalDatetimeString(isoDate) {
+  const d = new Date(isoDate);
+  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+}
+
   // 🔹 Fetch tasks for a group
   // 🔹 Fetch tasks for a group and merge with current tasks
-  const fetchTasks = async (groupId) => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/tasks/group/${groupId}`
-      );
+    const fetchTasks = async (groupId) => {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_URL}/api/tasks/group/${groupId}`
+        );
 
-      setTasks((prev) => {
-        // merge old + new tasks
-        const merged = [...prev, ...res.data];
+        setTasks((prev) => {
+          // merge old + new tasks
+          const merged = [...prev, ...res.data];
 
-        // remove duplicates by task _id
-        const unique = Array.from(new Map(merged.map(t => [t._id, t])).values());
-        return unique;
-      });
+          // remove duplicates by task _id
+          const unique = Array.from(new Map(merged.map(t => [t._id, t])).values());
+          return unique;
+        });
 
-      // ✅ fetch group students for submissions display
-      const year = years.find((y) => y.groups.some((g) => g._id === groupId));
-      const group = year?.groups.find((g) => g._id === groupId);
-      setGroupStudents((prev) => {
-        const merged = [...prev, ...(group?.students || [])];
-        const unique = Array.from(new Map(merged.map(s => [s._id, s])).values());
-        return unique;
-      });
-    } catch {
-      toast.error("❌ Failed to fetch tasks");
-    }
-  };
+        // ✅ fetch group students for submissions display
+        const year = years.find((y) => y.groups.some((g) => g._id === groupId));
+        const group = year?.groups.find((g) => g._id === groupId);
+        setGroupStudents((prev) => {
+          const merged = [...prev, ...(group?.students || [])];
+          const unique = Array.from(new Map(merged.map(s => [s._id, s])).values());
+          return unique;
+        });
+      } catch {
+        toast.error("❌ Failed to fetch tasks");
+      }
+    };
 
   const updateTask = async () => {
   if (!editingTask) return;
@@ -346,13 +352,13 @@ const createTask = async () => {
             className="styled-input"
           />
           <input
-            type="datetime-local"
-            value={editingTask.deadline || ""}
-            onChange={(e) =>
-              setEditingTask({ ...editingTask, deadline: e.target.value })
-            }
-            className="styled-input"
-          />
+              type="datetime-local"
+              value={toLocalDatetimeString(editingTask.deadline)}
+              onChange={(e) =>
+                setEditingTask({ ...editingTask, deadline: e.target.value })
+              }
+              className="styled-input"
+            />
           <input
             type="number"
             value={editingTask.gradeOutOf}
