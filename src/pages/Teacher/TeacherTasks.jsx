@@ -47,11 +47,19 @@ function TeacherTasks() {
     }
   };
 
-  function toLocalDatetimeString(isoDate) {
+  function formatDeadline(isoDate) {
   const d = new Date(isoDate);
   const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:mm"
+  return local.toLocaleString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
 }
+
 
   // 🔹 Fetch tasks for a group
   // 🔹 Fetch tasks for a group and merge with current tasks
@@ -352,13 +360,19 @@ const createTask = async () => {
             className="styled-input"
           />
           <input
-              type="datetime-local"
-              value={toLocalDatetimeString(editingTask.deadline)}
-              onChange={(e) =>
-                setEditingTask({ ...editingTask, deadline: e.target.value })
-              }
-              className="styled-input"
-            />
+            type="datetime-local"
+            value={
+              editingTask.deadline
+                ? new Date(editingTask.deadline)
+                    .toISOString()
+                    .slice(0, 16) // convert UTC → "YYYY-MM-DDTHH:mm" local
+                : ""
+            }
+            onChange={(e) =>
+              setEditingTask({ ...editingTask, deadline: e.target.value })
+            }
+            className="styled-input"
+          />
           <input
             type="number"
             value={editingTask.gradeOutOf}
@@ -386,12 +400,14 @@ const createTask = async () => {
                     <h4>{t.title}</h4>
                     <p>{t.description}</p>
                     <small>
-                      Due: {new Date(t.deadline).toLocaleString([], { 
-                        year: "numeric", 
-                        month: "short", 
-                        day: "numeric", 
-                        hour: "2-digit", 
-                        minute: "2-digit" 
+                      Due:{" "}
+                      {new Date(t.deadline).toLocaleString("en-GB", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: false,
                       })}
                     </small>
                   </div>
