@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import "../styles/AppStyles.css"; // adjust path if needed
 
 function TeacherSidebar({ sidebarOpen, setSidebarOpen }) {
@@ -33,6 +33,7 @@ function TeacherSidebar({ sidebarOpen, setSidebarOpen }) {
         <li onClick={() => navigate("/teacher-tasks")}>📂 Tasks & Homework</li>
         <li onClick={() => navigate("/videomanager")}>📽 Upload Videos</li>
         <li onClick={() => navigate("/PDFManager")}>📃 Upload Course Materials</li>
+        <li onClick={() => navigate("/teacher/add-assistant")}>👥 Add Assistant </li>
       </ul>
     </aside>
   );

@@ -29,6 +29,7 @@ import TeacherPDFManager from "./pages/Teacher/TeacherPDFManager";
 import StudentMaterialViewer from "./pages/Student/StudentMaterialViewer";
 import StudentPerformance from "./pages/Student/StudentPerformance";
 import CompleteParentDetails from "./pages/CompleteParentDetails";
+import TeacherAddAssistant from "./pages/Teacher/TeacherAddAssistant";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -44,6 +45,8 @@ function App() {
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/set-password" element={<SetPassword />} />
         <Route path="/AccessDenied" element={<AccessDenied />} />
+        <Route path="/teacher/add-assistant" element={<TeacherAddAssistant />} />
+
 
 {/* =================== Student Only Routes =================== */}
         <Route path="/complete-parent/:studentId" element={<CompleteParentDetails />}/>
