@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "../styles/AppStyles.css";
+
 import TeacherSidebar from "./TeacherSidebar"; // ✅ import new sidebar
 
 export default function TeacherStudentPerformance() {
@@ -68,9 +69,12 @@ export default function TeacherStudentPerformance() {
   const fetchPerformance = async () => {
     if (!groupId || !studentId) return;
     setLoading(true);
+
+    const user = JSON.parse(localStorage.getItem("user")); // ✅ now defined here
+
     try {
       const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/performance/${groupId}/${studentId}`
+        `${process.env.REACT_APP_API_URL}/api/performance/${groupId}/${studentId}/teacher/${user.id}`
       );
       setData(res.data);
     } catch (err) {
@@ -79,31 +83,36 @@ export default function TeacherStudentPerformance() {
       setLoading(false);
     }
   };
-
   // 🔹 Export group performance
-  const exportGroupPerformance = async () => {
+const exportGroupPerformance = async () => {
   if (!groupId) {
     alert("⚠️ Please select a group first");
     return;
   }
+
+  const user = JSON.parse(localStorage.getItem("user"));
+
   try {
     const res = await axios.get(
-      `${process.env.REACT_APP_API_URL}/api/performance/export/${groupId}`,
+      `${process.env.REACT_APP_API_URL}/api/performance/export/${groupId}/teacher/${user.id}`,
       { responseType: "blob" }
     );
 
     const url = window.URL.createObjectURL(new Blob([res.data]));
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", "group_performance.xlsx");
+    link.setAttribute("download", `${groupId}_performance.xlsx`);
     document.body.appendChild(link);
     link.click();
     link.remove();
   } catch (err) {
-    console.error("❌ Export failed:", err);
+    console.error("❌ Export failed:", err.response?.data || err.message);
     alert("❌ Failed to export group performance data");
   }
 };
+
+
+
 
 
   return (
