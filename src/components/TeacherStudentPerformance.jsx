@@ -80,31 +80,31 @@ export default function TeacherStudentPerformance() {
     }
   };
 
-  // 🔹 Export all students in year
-  const exportYearPerformance = async () => {
-    if (!year) {
-      alert("⚠️ Please select a year first");
-      return;
-    }
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/performance/export/${year}`,
-        { responseType: "blob" } // important for Excel download
-      );
+  // 🔹 Export group performance
+  const exportGroupPerformance = async () => {
+  if (!groupId) {
+    alert("⚠️ Please select a group first");
+    return;
+  }
+  try {
+    const res = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/performance/export/${groupId}`,
+      { responseType: "blob" }
+    );
 
-      // trigger download
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", "students_performance.xlsx");
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (err) {
-      console.error("❌ Export failed:", err);
-      alert("❌ Failed to export performance data");
-    }
-  };
+    const url = window.URL.createObjectURL(new Blob([res.data]));
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "group_performance.xlsx");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (err) {
+    console.error("❌ Export failed:", err);
+    alert("❌ Failed to export group performance data");
+  }
+};
+
 
   return (
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
@@ -183,10 +183,9 @@ export default function TeacherStudentPerformance() {
               </button>
             )}
 
-            {/* 🔹 Export Button (Year-level) */}
-            {year && (
-              <button className="btn btn-green" onClick={exportYearPerformance}>
-                📥 Export Year Performance
+            {groupId && (
+              <button className="btn btn-green" onClick={exportGroupPerformance}>
+                📥 Export Group Performance
               </button>
             )}
           </div>

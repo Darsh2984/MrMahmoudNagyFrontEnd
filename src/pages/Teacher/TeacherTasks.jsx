@@ -211,60 +211,83 @@ const createTask = async () => {
 
           {/* Group Selection (checkbox grid) */}
           {selectedYear && (
-            <div>
-              <label className="form-label">Assign to Groups</label>
-              <div className="checkbox-grid">
-                {years.find((y) => y._id === selectedYear)?.groups?.map((g) => (
-                  <label
-                    key={g._id}
-                    className={`checkbox-card ${
-                      selectedGroups.includes(g._id) ? "selected" : ""
-                    }`}
-                  >
-                   <input
-                    type="checkbox"
-                    value={g._id}
-                    checked={selectedGroups.includes(g._id)}
-                    onChange={async (e) => {
-                      if (e.target.checked) {
-                        setSelectedGroups([...selectedGroups, g._id]);
-                        fetchTasks(g._id); // ✅ load tasks for this group
-                      } else {
-                        const newGroups = selectedGroups.filter((id) => id !== g._id);
-                        setSelectedGroups(newGroups);
+  <div>
+    <label className="form-label">Assign to Groups</label>
+    <div className="checkbox-grid">
+      {years.find((y) => y._id === selectedYear)?.groups?.map((g) => (
+        <label
+          key={g._id}
+          className={`checkbox-card ${
+            selectedGroups.includes(g._id) ? "selected" : ""
+          }`}
+        >
+          <input
+            type="checkbox"
+            value={g._id}
+            checked={selectedGroups.includes(g._id)}
+            onChange={async (e) => {
+              if (e.target.checked) {
+                setSelectedGroups([...selectedGroups, g._id]);
+                fetchTasks(g._id); // ✅ load tasks for this group
+              } else {
+                const newGroups = selectedGroups.filter((id) => id !== g._id);
+                setSelectedGroups(newGroups);
 
-                        if (newGroups.length === 0) {
-                          setTasks([]); // no groups → clear tasks
-                          setGroupStudents([]);
-                        } else {
-                          // refetch all remaining groups to rebuild task list
-                          let allTasks = [];
-                          let allStudents = [];
-                          for (const id of newGroups) {
-                            const res = await axios.get(
-                              `${process.env.REACT_APP_API_URL}/api/tasks/group/${id}`
-                            );
-                            allTasks = [...allTasks, ...res.data];
+                if (newGroups.length === 0) {
+                  setTasks([]); // no groups → clear tasks
+                  setGroupStudents([]);
+                } else {
+                  // refetch all remaining groups to rebuild task list
+                  let allTasks = [];
+                  let allStudents = [];
+                  for (const id of newGroups) {
+                    const res = await axios.get(
+                      `${process.env.REACT_APP_API_URL}/api/tasks/group/${id}`
+                    );
+                    allTasks = [...allTasks, ...res.data];
 
-                            const year = years.find((y) => y.groups.some((g) => g._id === id));
-                            const group = year?.groups.find((g) => g._id === id);
-                            allStudents = [...allStudents, ...(group?.students || [])];
-                          }
+                    const year = years.find((y) => y.groups.some((g) => g._id === id));
+                    const group = year?.groups.find((g) => g._id === id);
+                    allStudents = [...allStudents, ...(group?.students || [])];
+                  }
 
-                          // remove duplicates
-                          setTasks(Array.from(new Map(allTasks.map(t => [t._id, t])).values()));
-                          setGroupStudents(Array.from(new Map(allStudents.map(s => [s._id, s])).values()));
-                        }
-                      }
-                    }}
+                  // remove duplicates
+                  setTasks(Array.from(new Map(allTasks.map(t => [t._id, t])).values()));
+                  setGroupStudents(Array.from(new Map(allStudents.map(s => [s._id, s])).values()));
+                }
+              }
+            }}
+          />
+          {g.name}
+        </label>
+      ))}
+    </div>
 
-                  />
-                    {g.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
+    {/* 🔹 Export Homework & Tasks Report button */}
+    {selectedGroups.length > 0 && (
+      <div style={{ marginTop: "15px" }}>
+        <button
+          className="btn btn-purple"
+          onClick={() => {
+            if (selectedGroups.length === 0) {
+              toast.error("❌ Please select a group");
+              return;
+            }
+
+            const groupId = selectedGroups[0];
+            window.open(
+              `${process.env.REACT_APP_API_URL}/api/tasks/export-homework-report/${groupId}`,
+              "_blank"
+            );
+          }}
+        >
+          📊 Export Homework & Tasks Report
+        </button>
+      </div>
+    )}
+  </div>
+)}
+
         </div>
 
         {/* Create Task */}
