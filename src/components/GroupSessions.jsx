@@ -7,22 +7,23 @@ import "../../src/styles/AppStyles.css";
 function GroupSessions({ groupId }) {
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState(null);
+  const user = JSON.parse(localStorage.getItem("user"));
 
   useEffect(() => {
     if (groupId) fetchSessions(groupId);
   }, [groupId]);
 
   const fetchSessions = async (gid) => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/session/group/${gid}`
-      );
-      setSessions(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching sessions:", err);
-      toast.error("❌ Failed to fetch sessions");
-    }
-  };
+  try {
+    const res = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/session/group/${gid}/${user.id}`
+    );
+    setSessions(res.data);
+  } catch (err) {
+    console.error("❌ Error fetching sessions:", err);
+    toast.error("❌ Failed to fetch sessions");
+  }
+};
 
   return (
     <div className="section-card">
