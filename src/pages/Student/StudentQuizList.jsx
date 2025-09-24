@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import "../../styles/AppStyles.css";
 import StudentSidebar from "../../components/StudentSidebar"; // import new sidebar
 
-
 function StudentQuizList() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +28,19 @@ function StudentQuizList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ✅ Helper: format to local timezone
+  const formatLocalDate = (dateString) => {
+    if (!dateString) return "—";
+    return new Date(dateString).toLocaleString("en-GB", {
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   return (
@@ -67,7 +79,7 @@ function StudentQuizList() {
                   buttonLabel = "⏳ Opening Soon";
                   buttonClass = "btn-gray";
                   buttonDisabled = true;
-                } else if (now > endTime) {
+                } else if (endTime && now > endTime) {
                   // ❌ Quiz closed
                   buttonLabel = "🚫 Quiz Closed";
                   buttonClass = "btn-red";
@@ -85,10 +97,10 @@ function StudentQuizList() {
                     <p>⏳ Duration: {quiz.duration} minutes</p>
 
                     {quiz.startTime && (
-                      <p>📅 Starts: {new Date(quiz.startTime).toLocaleString()}</p>
+                      <p>📅 Starts: {formatLocalDate(quiz.startTime)}</p>
                     )}
                     {quiz.endTime && (
-                      <p>📅 Ends: {new Date(quiz.endTime).toLocaleString()}</p>
+                      <p>📅 Ends: {formatLocalDate(quiz.endTime)}</p>
                     )}
 
                     {/* Show score if already submitted */}
@@ -110,7 +122,6 @@ function StudentQuizList() {
                 );
               })}
             </ul>
-
           )}
         </div>
       </main>

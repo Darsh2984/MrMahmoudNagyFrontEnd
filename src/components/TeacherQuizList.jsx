@@ -131,15 +131,38 @@
             </p>
           ) : (
             <div className="quiz-list">
-              {quizzes.map((quiz) => (
+            {quizzes.map((quiz) => {
+              const localStart = quiz.startTime
+                ? new Date(quiz.startTime).toLocaleString("en-GB", {
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—";
+
+              const localEnd = quiz.endTime
+                ? new Date(quiz.endTime).toLocaleString("en-GB", {
+                    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—";
+
+              return (
                 <div key={quiz._id} className="quiz-card">
                   <div className="quiz-info">
                     <h3>{quiz.title}</h3>
                     <div className="quiz-meta">
                       <p><b>Duration:</b> {quiz.duration} mins</p>
                       <p><b>Groups:</b> {quiz.groups.map((g) => g.name).join(", ") || "—"}</p>
-                      <p><b>Start:</b> {quiz.startTime ? new Date(quiz.startTime).toLocaleString() : "—"}</p>
-                      <p><b>End:</b> {quiz.endTime ? new Date(quiz.endTime).toLocaleString() : "—"}</p>
+                      <p><b>Start:</b> {localStart}</p>
+                      <p><b>End:</b> {localEnd}</p>
                       <p><b>Questions:</b> {quiz.questions.length}</p>
                     </div>
                   </div>
@@ -149,8 +172,10 @@
                     <button onClick={() => deleteQuiz(quiz._id)} className="btn btn-purple">🗑 Delete</button>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+
           )}
         </div>
       </main>

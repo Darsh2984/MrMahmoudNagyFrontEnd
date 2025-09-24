@@ -16,27 +16,29 @@ export default function StudentPerformance() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user?.role === "student" && user.groupId) {
-      fetchPerformance(user.groupId, user.id);
-    } else {
-      setError("❌ Unauthorized. Please log in as a student.");
-      setLoading(false);
-    }
-  }, []);
+  if (user?.role === "student") {
+    fetchPerformance(user.id);
+  } else {
+    setError("❌ Unauthorized. Please log in as a student.");
+    setLoading(false);
+  }
+}, []);
 
-  const fetchPerformance = async (groupId, studentId) => {
-    try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/performance/${groupId}/${studentId}`
-      );
-      setPerformance(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching performance:", err);
-      setError("❌ Could not load performance data.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchPerformance = async (studentId) => {
+  try {
+    const res = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/performance/student/${studentId}`
+    );
+    setPerformance(res.data);
+  } catch (err) {
+    console.error("❌ Error fetching performance:", err);
+    setError("❌ Could not load performance data.");
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   return (
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
