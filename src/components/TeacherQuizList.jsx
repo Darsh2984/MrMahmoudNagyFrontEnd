@@ -45,7 +45,7 @@
               <button
                 onClick={async () => {
                   try {
-                    await axios.delete(`${process.env.REACT_APP_API_URL}/api/quiz/${quizId}`);
+                    await axios.delete(`${process.env.REACT_APP_API_URL}/api/quiz/${quizId}/${user.id}`);
                     toast.dismiss(); // close confirm toast
                     toast.success("✅ Quiz deleted");
                     fetchQuizzes();
