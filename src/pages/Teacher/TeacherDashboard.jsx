@@ -68,6 +68,10 @@ function TeacherDashboard() {
             <h3>📂 Create Tasks & Homework</h3>
             <p>Assign tasks and homework to students.</p>
           </div>
+          <div className="dashboard-card" onClick={() => navigate("/all-students")}>
+            <h3>👨‍🎓 All Registered Student Data</h3>
+            <p>View and manage all student & parent records.</p>
+          </div>
           <button
             className="btn btn-purple"
             onClick={() => window.open(`${process.env.REACT_APP_API_URL}/api/admin/export-users`, "_blank")}

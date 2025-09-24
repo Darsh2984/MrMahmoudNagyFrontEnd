@@ -197,6 +197,7 @@
 }
 
 
+
 /* === Unit/Chapter Manager === */
 .unit-list {
   list-style: none;
@@ -261,6 +262,15 @@
   border: 1px solid #ccc;
   font-size: 14px;
   background: #fff;
+}
+
+.styled-table tbody tr {
+  transition: background-color 0.2s ease;
+  cursor: pointer;
+}
+
+.styled-table tbody tr:hover {
+  background-color: #f1f5f9; /* light gray-blue highlight */
 }
 
 .list-unstyled {

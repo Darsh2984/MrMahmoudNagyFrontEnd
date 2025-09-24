@@ -30,6 +30,7 @@ import StudentMaterialViewer from "./pages/Student/StudentMaterialViewer";
 import StudentPerformance from "./pages/Student/StudentPerformance";
 import CompleteParentDetails from "./pages/CompleteParentDetails";
 import TeacherAddAssistant from "./pages/Teacher/TeacherAddAssistant";
+import AllStudentsData from "./pages/AllStudentsData";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -46,6 +47,8 @@ function App() {
         <Route path="/set-password" element={<SetPassword />} />
         <Route path="/AccessDenied" element={<AccessDenied />} />
         <Route path="/teacher/add-assistant" element={<TeacherAddAssistant />} />
+        <Route path="/all-students" element={<AllStudentsData />} />
+
 
 
 {/* =================== Student Only Routes =================== */}
