@@ -15,7 +15,11 @@ export default function AllStudentsData() {
   const [students, setStudents] = useState([]);
   const [unassigned, setUnassigned] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [editing, setEditing] = useState(null);
+
+  // Editing state
+  const [editing, setEditing] = useState(null); // studentId being edited
+  const [editForm, setEditForm] = useState({}); // temp form values
+
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -98,12 +102,28 @@ export default function AllStudentsData() {
     }
   };
 
+  // ✅ Start editing
+  const startEditing = (student) => {
+    setEditing(student._id);
+    setEditForm({
+      ...student,
+      parentEmail: student.parentId?.email || "", // extract parent email into its own field
+    });
+  };
+
+  // ✅ Cancel editing
+  const cancelEditing = () => {
+    setEditing(null);
+    setEditForm({});
+  };
+
   // ✅ Update student + parent
-  const handleUpdate = async (student) => {
+  const handleUpdate = async () => {
     try {
-      await axios.put(`${process.env.REACT_APP_API_URL}/api/students/${student._id}`, student);
+      await axios.put(`${process.env.REACT_APP_API_URL}/api/students/${editing}`, editForm);
       toast.success("✅ Student updated");
       setEditing(null);
+      setEditForm({});
       if (groupId) fetchStudents(yearId, groupId);
       fetchUnassigned();
     } catch {
@@ -187,24 +207,12 @@ export default function AllStudentsData() {
             <table className="styled-table">
               <thead>
                 <tr>
-                  <th onClick={() => handleSort("name")}>
-                    Name {sortConfig.key === "name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => handleSort("email")}>
-                    Email {sortConfig.key === "email" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => handleSort("studentPhone")}>
-                    Phone {sortConfig.key === "studentPhone" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => handleSort("parentName")}>
-                    Parent Name {sortConfig.key === "parentName" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => handleSort("parentPhone")}>
-                    Parent Phone {sortConfig.key === "parentPhone" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
-                  <th onClick={() => handleSort("parentEmail")}>
-                    Parent Email {sortConfig.key === "parentEmail" && (sortConfig.direction === "asc" ? "↑" : "↓")}
-                  </th>
+                  <th onClick={() => handleSort("name")}>Name</th>
+                  <th onClick={() => handleSort("email")}>Email</th>
+                  <th onClick={() => handleSort("studentPhone")}>Phone</th>
+                  <th onClick={() => handleSort("parentName")}>Parent Name</th>
+                  <th onClick={() => handleSort("parentPhone")}>Parent Phone</th>
+                  <th onClick={() => handleSort("parentEmail")}>Parent Email</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -215,36 +223,22 @@ export default function AllStudentsData() {
                       <td>
                         <input
                           className="styled-input"
-                          value={s.name}
-                          onChange={(e) =>
-                            setStudents((prev) =>
-                              prev.map((x) => (x._id === s._id ? { ...x, name: e.target.value } : x))
-                            )
-                          }
+                          value={editForm.name}
+                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                         />
                       </td>
                       <td>
                         <input
                           className="styled-input"
-                          value={s.email}
-                          onChange={(e) =>
-                            setStudents((prev) =>
-                              prev.map((x) => (x._id === s._id ? { ...x, email: e.target.value } : x))
-                            )
-                          }
+                          value={editForm.email}
+                          onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                         />
                       </td>
                       <td>
                         <PhoneInput
                           country={"eg"}
-                          value={s.studentPhone || ""}
-                          onChange={(phone) =>
-                            setStudents((prev) =>
-                              prev.map((x) =>
-                                x._id === s._id ? { ...x, studentPhone: phone } : x
-                              )
-                            )
-                          }
+                          value={editForm.studentPhone || ""}
+                          onChange={(phone) => setEditForm({ ...editForm, studentPhone: phone })}
                           inputStyle={{ width: "100%" }}
                           enableSearch={true}
                           countryCodeEditable={false}
@@ -253,27 +247,15 @@ export default function AllStudentsData() {
                       <td>
                         <input
                           className="styled-input"
-                          value={s.parentName || ""}
-                          onChange={(e) =>
-                            setStudents((prev) =>
-                              prev.map((x) =>
-                                x._id === s._id ? { ...x, parentName: e.target.value } : x
-                              )
-                            )
-                          }
+                          value={editForm.parentName || ""}
+                          onChange={(e) => setEditForm({ ...editForm, parentName: e.target.value })}
                         />
                       </td>
                       <td>
                         <PhoneInput
                           country={"eg"}
-                          value={s.parentPhone || ""}
-                          onChange={(phone) =>
-                            setStudents((prev) =>
-                              prev.map((x) =>
-                                x._id === s._id ? { ...x, parentPhone: phone } : x
-                              )
-                            )
-                          }
+                          value={editForm.parentPhone || ""}
+                          onChange={(phone) => setEditForm({ ...editForm, parentPhone: phone })}
                           inputStyle={{ width: "100%" }}
                           enableSearch={true}
                           countryCodeEditable={false}
@@ -282,23 +264,15 @@ export default function AllStudentsData() {
                       <td>
                         <input
                           className="styled-input"
-                          value={s.parentId?.email || ""}
-                          onChange={(e) =>
-                            setStudents((prev) =>
-                              prev.map((x) =>
-                                x._id === s._id
-                                  ? { ...x, parentId: { ...x.parentId, email: e.target.value } }
-                                  : x
-                              )
-                            )
-                          }
+                          value={editForm.parentEmail || ""}
+                          onChange={(e) => setEditForm({ ...editForm, parentEmail: e.target.value })}
                         />
                       </td>
                       <td>
-                        <button className="btn btn-green" onClick={() => handleUpdate(s)}>
+                        <button className="btn btn-green" onClick={handleUpdate}>
                           💾 Save
                         </button>
-                        <button className="btn btn-red" onClick={() => setEditing(null)}>
+                        <button className="btn btn-red" onClick={cancelEditing}>
                           Cancel
                         </button>
                       </td>
@@ -312,15 +286,15 @@ export default function AllStudentsData() {
                       <td>{s.parentPhone ? `+${s.parentPhone}` : "-"}</td>
                       <td>{s.parentId?.email || "-"}</td>
                       <td>
-                    <div className="action-buttons">
-                        <button className="btn btn-blue" onClick={() => setEditing(s._id)}>
-                        ✏️ Edit
-                        </button>
-                        <button className="btn btn-red" onClick={() => handleDelete(s._id)}>
-                        🗑️ Delete
-                        </button>
-                    </div>
-                    </td>
+                        <div className="action-buttons">
+                          <button className="btn btn-blue" onClick={() => startEditing(s)}>
+                            ✏️ Edit
+                          </button>
+                          <button className="btn btn-red" onClick={() => handleDelete(s._id)}>
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )
                 )}
@@ -355,12 +329,12 @@ export default function AllStudentsData() {
                     <td>{s.parentPhone ? `+${s.parentPhone}` : "-"}</td>
                     <td>{s.parentId?.email || "-"}</td>
                     <td>
-                        <div className="action-buttons">
-                            <button className="btn btn-red" onClick={() => handleDelete(s._id)}>
-                            🗑️ Delete
-                            </button>
-                        </div>
-                        </td>
+                      <div className="action-buttons">
+                        <button className="btn btn-red" onClick={() => handleDelete(s._id)}>
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
