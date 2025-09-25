@@ -35,6 +35,25 @@ function CreateQuiz() {
     }
   }, [teacherId]);
 
+  // Convert datetime-local string → UTC ISO string
+function toUTCString(localDateTime) {
+  if (!localDateTime) return null;
+  const [datePart, timePart] = localDateTime.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  const localDate = new Date(year, month - 1, day, hour, minute);
+  return localDate.toISOString();
+}
+
+// Convert UTC ISO string → datetime-local (local timezone)
+function toLocalInputValue(isoDate) {
+  if (!isoDate) return "";
+  const d = new Date(isoDate);
+  const pad = (n) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+
   // 🔹 Fetch Years
   const fetchYears = async () => {
     try {
@@ -100,8 +119,8 @@ function CreateQuiz() {
         groups: selectedGroups,
         duration,
         questions: selectedQuestions,
-        startTime: startTime || null,
-        endTime: endTime || null,
+        startTime: toUTCString(startTime), // ✅ convert before sending
+        endTime: toUTCString(endTime),     // ✅ convert before sending   
       });
 
       toast.success("✅ Quiz created!");

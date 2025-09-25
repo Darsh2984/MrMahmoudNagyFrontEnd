@@ -35,6 +35,39 @@ function TeacherTasks() {
     if (user?.id) fetchYears(user.id);
   }, [user?.id]);
 
+// ✅ Convert datetime-local string to UTC ISO string correctly
+function toUTCString(localDateTime) {
+  if (!localDateTime) return null;
+
+  const [datePart, timePart] = localDateTime.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+
+  // This builds a date in LOCAL time (Cairo = UTC+2/+3)
+  const localDate = new Date(year, month - 1, day, hour, minute);
+
+  // Convert to UTC ISO string
+  return localDate.toISOString();
+}
+
+// Convert UTC from DB → datetime-local string (local)
+function toLocalInputValue(isoDate) {
+  if (!isoDate) return "";
+  const d = new Date(isoDate);
+
+  // Pad values for datetime-local format
+  const pad = (n) => n.toString().padStart(2, "0");
+
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const minutes = pad(d.getMinutes());
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+  
   // 🔹 Fetch years + groups
   const fetchYears = async (teacherId) => {
     try {
@@ -47,21 +80,6 @@ function TeacherTasks() {
     }
   };
 
-  function formatDeadline(isoDate) {
-  const d = new Date(isoDate);
-  const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
-  return local.toLocaleString("en-GB", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-
-  // 🔹 Fetch tasks for a group
   // 🔹 Fetch tasks for a group and merge with current tasks
     const fetchTasks = async (groupId) => {
       try {
@@ -96,7 +114,7 @@ function TeacherTasks() {
   try {
     await axios.put(
       `${process.env.REACT_APP_API_URL}/api/tasks/task/${editingTask._id}`,
-      editingTask
+      editingTask,
     );
     toast.success("✅ Task updated");
 
@@ -148,7 +166,7 @@ const createTask = async () => {
       teacherId: user.id,
       yearId: selectedYear,
       groups: selectedGroups, // ✅ multiple groups
-      deadline,
+      deadline: toUTCString(deadline), // send as UTC
       gradeOutOf,
     });
     toast.success("✅ Task created");
@@ -360,19 +378,13 @@ const createTask = async () => {
             className="styled-input"
           />
           <input
-            type="datetime-local"
-            value={
-              editingTask.deadline
-                ? new Date(editingTask.deadline)
-                    .toISOString()
-                    .slice(0, 16) // convert UTC → "YYYY-MM-DDTHH:mm" local
-                : ""
-            }
-            onChange={(e) =>
-              setEditingTask({ ...editingTask, deadline: e.target.value })
-            }
-            className="styled-input"
-          />
+              type="datetime-local"
+              value={editingTask.deadline ? toLocalInputValue(editingTask.deadline) : ""}
+              onChange={(e) =>
+                setEditingTask({ ...editingTask, deadline: e.target.value })
+              }
+              className="styled-input"
+            />
           <input
             type="number"
             value={editingTask.gradeOutOf}
