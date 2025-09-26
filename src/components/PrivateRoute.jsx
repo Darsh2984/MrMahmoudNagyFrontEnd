@@ -23,16 +23,7 @@ function PrivateRoute({ children, allowedRoles }) {
         );
 
         const latestUser = res.data;
-
-        // ✅ Only update localStorage if something actually changed
-        const currentUser = JSON.parse(localStorage.getItem("user"));
-        if (
-          !currentUser ||
-          currentUser.id !== latestUser.id ||
-          currentUser.role !== latestUser.role
-        ) {
-          localStorage.setItem("user", JSON.stringify(latestUser));
-        }
+        localStorage.setItem("user", JSON.stringify(latestUser));
 
         if (allowedRoles && !allowedRoles.includes(latestUser.role)) {
           setIsValid(false);
@@ -43,10 +34,17 @@ function PrivateRoute({ children, allowedRoles }) {
         }
       } catch (err) {
         console.error("❌ Validation failed:", err);
-        setIsValid(false);
-      } finally {
-        setLoading(false);
+
+        // Only log out on 401, not on any random error
+        if (err.response?.status === 401) {
+          setIsValid(false);
+        } else {
+          setIsValid(true); // keep user
+        }
       }
+
+
+      
     };
 
     validateUser();
