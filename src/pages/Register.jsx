@@ -4,6 +4,8 @@ import PhoneInput from "react-phone-input-2";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
 import "../styles/AppStyles.css";
+import { toast } from "react-toastify"; 
+
 
 function Register() {
   const [form, setForm] = useState({
@@ -48,6 +50,13 @@ function Register() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+
+    // 🚨 Validation: student email cannot equal parent email
+    if (form.email.trim() && form.parentEmail.trim() && form.email === form.parentEmail) {
+      toast.error("❌ Student email cannot be the same as parent email.");
+      return; // ⛔ stop submission
+    }
+
     try {
       await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, form);
       setMessage("✅ Registration successful! Redirecting to login...");
@@ -55,7 +64,6 @@ function Register() {
     } catch (err) {
       console.error("❌ Registration failed:", err);
 
-      // ✅ If backend says user already exists
       if (err.response?.status === 400 && err.response?.data?.msg?.includes("User already exists")) {
         setMessage("❌ User already exists. Please log in.");
       } else {
