@@ -814,6 +814,27 @@ body.login-page {
   background: #fff;
 }
 
+/* Remember Me alignment */
+.input-group.remember-me {
+  display: flex;
+  align-items: center;   /* ✅ vertically align checkbox & text */
+  gap: 8px;              /* space between checkbox and label */
+  margin-top: 10px;
+}
+
+.input-group.remember-me input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;            /* remove weird default spacing */
+  cursor: pointer;
+}
+
+.input-group.remember-me label {
+  margin: 0;
+  font-size: 14px;
+  cursor: pointer;      /* clicking label also toggles checkbox */
+}
+
 .login-btn {
   width: 100%;
   padding: 14px;
