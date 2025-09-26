@@ -294,34 +294,10 @@ const createTask = async () => {
         </label>
       ))}
     </div>
-
-    {/* 🔹 Export Homework & Tasks Report button */}
-    {selectedGroups.length > 0 && (
-      <div style={{ marginTop: "15px" }}>
-        <button
-          className="btn btn-purple"
-          onClick={() => {
-            if (selectedGroups.length === 0) {
-              toast.error("❌ Please select a group");
-              return;
-            }
-
-            const groupId = selectedGroups[0];
-            window.open(
-              `${process.env.REACT_APP_API_URL}/api/tasks/export-homework-report/${groupId}`,
-              "_blank"
-            );
-          }}
-        >
-          📊 Export Homework & Tasks Report
-        </button>
-      </div>
-    )}
   </div>
 )}
 
         </div>
-
         {/* Create Task */}
         {selectedGroups.length > 0 && (
           <div className="section-card">
