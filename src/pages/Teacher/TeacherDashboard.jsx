@@ -17,6 +17,8 @@ function TeacherDashboard() {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [zoomLinks, setZoomLinks] = useState({}); // ✅ per yearId
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -28,13 +30,42 @@ function TeacherDashboard() {
   }, []);
 
   const fetchYears = async (id) => {
+  try {
+    const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${id}`);
+    setYears(res.data);
+
+    // fetch zoom links for each year
+    res.data.forEach(async (y) => {
+      try {
+        const linkRes = await axios.get(
+          `${process.env.REACT_APP_API_URL}/api/year/${y._id}/zoom`
+        );
+        setZoomLinks((prev) => ({
+          ...prev,
+          [y._id]: linkRes.data.zoomLinks || [],
+        }));
+      } catch (err) {
+        console.error("❌ Error fetching zoom links for", y.name, err);
+      }
+    });
+  } catch (err) {
+    console.error("❌ Error fetching years:", err);
+  }
+};
+
+
+  const saveZoomLinks = async (yearId) => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${id}`);
-      setYears(res.data);
+      await axios.put(`${process.env.REACT_APP_API_URL}/api/year/${yearId}/zoom`, {
+        zoomLinks: zoomLinks[yearId],
+      });
+      alert("✅ Zoom links saved!");
     } catch (err) {
-      console.error("❌ Error fetching years:", err);
+      console.error("❌ Error saving Zoom links:", err);
     }
   };
+
+  
 
   return (
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
@@ -88,6 +119,76 @@ function TeacherDashboard() {
         <div className="section-card">
           <CreateYear teacherId={teacherId} years={years} fetchYears={fetchYears} />
         </div>
+        <div className="section-card">
+  <h3>🔗 Manage Zoom Links</h3>
+  {years.map((y) => (
+    <div key={y._id} style={{ marginBottom: "20px" }}>
+      <strong>{y.name}</strong>
+
+      {/* Existing links loaded from DB */}
+      {(zoomLinks[y._id] || []).map((z, idx) => (
+        <div key={idx} style={{ display: "flex", marginBottom: "6px" }}>
+          <input
+            type="text"
+            className="styled-input"
+            placeholder="Title (e.g. Math Class)"
+            value={z.title}
+            onChange={(e) => {
+              const updated = [...zoomLinks[y._id]];
+              updated[idx].title = e.target.value;
+              setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+            }}
+          />
+          <input
+            type="text"
+            className="styled-input"
+            placeholder="Zoom link"
+            value={z.link}
+            onChange={(e) => {
+              const updated = [...zoomLinks[y._id]];
+              updated[idx].link = e.target.value;
+              setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+            }}
+          />
+          <button
+            className="btn btn-red"
+            onClick={() => {
+              const updated = [...zoomLinks[y._id]];
+              updated.splice(idx, 1);
+              setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      ))}
+
+      {/* Add new link */}
+      <button
+        className="btn btn-green"
+        onClick={() =>
+          setZoomLinks((prev) => ({
+            ...prev,
+            [y._id]: [...(prev[y._id] || []), { title: "", link: "" }],
+          }))
+        }
+      >
+        Add Zoom Link
+      </button>
+
+      {/* Save to backend */}
+      <button
+        className="btn btn-purple"
+        style={{ marginLeft: "8px" }}
+        onClick={() => saveZoomLinks(y._id)}
+      >
+        💾 Save All
+      </button>
+    </div>
+  ))}
+</div>
+
+
 
         <div className="section-card">
           <CreateSessionForm

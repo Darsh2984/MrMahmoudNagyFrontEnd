@@ -66,13 +66,19 @@ export default function TeacherMaterialManager() {
   };
 
   const fetchMaterials = async (yearId) => {
-    try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/material/year/${yearId}`);
-      setMaterials(res.data);
-    } catch {
-      setError("Failed to load materials.");
-    }
-  };
+  try {
+    const user = JSON.parse(localStorage.getItem("user")); // ✅ get logged in user
+    const teacherId = user?.id; // or user?._id depending on schema
+
+    const res = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/material/year/${yearId}/teacher/${teacherId}`
+    );
+
+    setMaterials(res.data);
+  } catch {
+    setError("Failed to load materials.");
+  }
+};
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -133,15 +139,23 @@ export default function TeacherMaterialManager() {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Delete this material?")) return;
-    try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/api/material/${id}`);
-      fetchMaterials(form.yearId);
-    } catch {
-      setError("❌ Failed to delete PDF.");
-    }
-  };
+ const handleDelete = async (id) => {
+  if (!window.confirm("Delete this material?")) return;
+
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const teacherId = user?.id; // or user?._id depending on your schema
+
+    await axios.delete(
+      `${process.env.REACT_APP_API_URL}/api/material/${id}/teacher/${teacherId}`
+    );
+
+    fetchMaterials(form.yearId);
+  } catch {
+    setError("❌ Failed to delete PDF.");
+  }
+};
+
 
   const handleZoom = (id, action) => {
     setZoomLevels((prev) => {

@@ -51,6 +51,9 @@ function StudentSidebar({ sidebarOpen, setSidebarOpen }) {
         <li onClick={() => navigate("/student-performance")}>📈 My Performance</li>
         <li onClick={() => navigate("/StudentVideoViewer")}>🎥 Course Videos</li>
         <li onClick={() => navigate("/MaterialViewer")}>📚 Course Materials</li>
+        <li onClick={() => window.open("https://chatgpt.com/g/g-68daa005e46081919fe3515f32c48f72-ask-mahmoud-nagys-mind-3-0", "_blank")}>
+          🧠Mahmoud Nagy's Mind
+        </li>
       </ul>
     </aside>
   );
