@@ -67,16 +67,24 @@ function QuestionList() {
   };
 
   const deleteQuestion = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this question?")) return;
-    try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/api/question/${id}`);
-      toast.success("✅ Question deleted");
-      fetchQuestions();
-    } catch (err) {
-      console.error("❌ Error deleting question:", err);
-      toast.error("❌ Failed to delete question");
-    }
-  };
+  if (!window.confirm("Are you sure you want to delete this question?")) return;
+
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const teacherId = user?.id; // or user?._id depending on how you store it
+
+    await axios.delete(
+      `${process.env.REACT_APP_API_URL}/api/question/${id}/${teacherId}`
+    );
+
+    toast.success("✅ Question deleted");
+    fetchQuestions();
+  } catch (err) {
+    console.error("❌ Error deleting question:", err);
+    toast.error("❌ Failed to delete question");
+  }
+};
+
 
   // 🔹 Apply filters
   const filteredQuestions = questions.filter((q) => {
