@@ -66,12 +66,12 @@ function QuestionList() {
     }
   };
 
-  const deleteQuestion = async (id) => {
+const deleteQuestion = async (id) => {
   if (!window.confirm("Are you sure you want to delete this question?")) return;
 
   try {
     const user = JSON.parse(localStorage.getItem("user"));
-    const teacherId = user?.id; // or user?._id depending on how you store it
+    const teacherId = user?._id || user?.id; // depending on how you stored it
 
     await axios.delete(
       `${process.env.REACT_APP_API_URL}/api/question/${id}/${teacherId}`
