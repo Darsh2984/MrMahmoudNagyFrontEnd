@@ -58,28 +58,34 @@ function SessionAttendance({ sessionId }) {
       <p className="text-muted">Group: {session.groupId.name}</p>
 
       <ul className="list-unstyled">
-        {attendance.map((a) => (
-          <li key={a.studentId._id} className="list-item student-row">
-            <label>
-              <input
-                type="checkbox"
-                checked={a.status === "Present"}
-                onChange={() => toggleAttendance(a.studentId._id)}
-                className="attendance-checkbox"
-              />
-              {a.studentId.name}{" "}
-              <small style={{ color: "#666" }}>({a.studentId.email})</small>
-            </label>
-            <span
-              className={`status-tag ${
-                a.status === "Present" ? "tag-green" : "tag-red"
-              }`}
-            >
-              {a.status}
-            </span>
-          </li>
-        ))}
+  {attendance.map((a, index) => (
+    <li key={a.studentId?._id || index} className="list-item student-row">
+      {a.studentId ? (
+        <label>
+          <input
+            type="checkbox"
+            checked={a.status === "Present"}
+            onChange={() => toggleAttendance(a.studentId._id)}
+            className="attendance-checkbox"
+          />
+          {a.studentId.name}{" "}
+          <small style={{ color: "#666" }}>({a.studentId.email})</small>
+        </label>
+      ) : (
+        <span style={{ color: "red" }}>⚠️ Missing student data</span>
+      )}
+
+      <span
+        className={`status-tag ${
+          a.status === "Present" ? "tag-green" : "tag-red"
+        }`}
+      >
+        {a.status}
+      </span>
+    </li>
+  ))}
       </ul>
+
 
       <button onClick={saveAttendance} className="btn btn-purple">
         💾 Save Attendance
