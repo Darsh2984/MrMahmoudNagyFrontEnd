@@ -9,6 +9,18 @@ import GroupSessions from "../../components/GroupSessions";
 import CreateSchool from "../../components/CreateSchool";
 import "../../styles/AppStyles.css"; // ✅ unified global CSS
 import TeacherSidebar from "../../components/TeacherSidebar"; // ✅ import new sidebar
+import {
+  BookOpen,
+  PencilSimple,
+  PlusCircle,
+  ClipboardText,
+  FolderSimple,
+  Student,
+  FileArrowDown,
+  VideoCamera,
+  ChartBar,
+  FileText,
+} from "phosphor-react";
 
 
 function TeacherDashboard() {
@@ -53,7 +65,6 @@ function TeacherDashboard() {
   }
 };
 
-
   const saveZoomLinks = async (yearId) => {
     try {
       await axios.put(`${process.env.REACT_APP_API_URL}/api/year/${yearId}/zoom`, {
@@ -76,96 +87,103 @@ function TeacherDashboard() {
         {/* 🔹 Action Cards */}
         <div className="card-grid">
           <div className="dashboard-card" onClick={() => navigate("/manage-units")}>
-            <h3>📘 Manage Units & Chapters</h3>
+            <h3><BookOpen size={22} weight="duotone" /> Manage Units & Chapters</h3>
             <p>Create, edit and manage units and chapters.</p>
           </div>
 
           <div className="dashboard-card" onClick={() => navigate("/upload-question")}>
-            <h3>📝 Upload MCQ Questions</h3>
+            <h3><PencilSimple size={22} weight="duotone" /> Upload MCQ Questions</h3>
             <p>Upload and organize your MCQ questions.</p>
           </div>
 
           <div className="dashboard-card" onClick={() => navigate("/createquiz")}>
-            <h3>➕ Create Quiz</h3>
+            <h3><PlusCircle size={22} weight="duotone" /> Create Quiz</h3>
             <p>Generate quizzes from your uploaded questions.</p>
           </div>
 
           <div className="dashboard-card" onClick={() => navigate("/quizlist")}>
-            <h3>📑 Quiz Lists</h3>
+            <h3><ClipboardText size={22} weight="duotone" /> Quiz Lists</h3>
             <p>View and manage your created quizzes.</p>
           </div>
 
           <div className="dashboard-card" onClick={() => navigate("/teacher-tasks")}>
-            <h3>📂 Create Tasks & Homework</h3>
+            <h3><FolderSimple size={22} weight="duotone" /> Create Tasks & Homework</h3>
             <p>Assign tasks and homework to students.</p>
           </div>
+
           <div className="dashboard-card" onClick={() => navigate("/all-students")}>
-            <h3>👨‍🎓 All Registered Student Data</h3>
+            <h3><Student size={22} weight="duotone" /> All Registered Student Data</h3>
             <p>View and manage all student & parent records.</p>
           </div>
+
           <button
             className="btn btn-purple"
-            onClick={() => window.open(`${process.env.REACT_APP_API_URL}/api/admin/export-users`, "_blank")}
+            onClick={() =>
+              window.open(
+                `${process.env.REACT_APP_API_URL}/api/admin/export-users`,
+                "_blank"
+              )
+            }
           >
-            📥 Export Users to Excel
+            <FileArrowDown size={20} weight="duotone" /> Export Users to Excel
           </button>
         </div>
         
         <div className="section-card">
           <CreateSchool teacherId={teacherId} />
         </div>
-
         {/* Manage Years & Groups */}
         <div className="section-card">
           <CreateYear teacherId={teacherId} years={years} fetchYears={fetchYears} />
         </div>
         <div className="section-card">
-  <h3>🔗 Manage Zoom Links</h3>
-  {years.map((y) => (
-    <div key={y._id} style={{ marginBottom: "20px" }}>
-      <strong>{y.name}</strong>
-
-      {/* Existing links loaded from DB */}
-      {(zoomLinks[y._id] || []).map((z, idx) => (
-        <div key={idx} style={{ display: "flex", marginBottom: "6px" }}>
-          <input
-            type="text"
-            className="styled-input"
-            placeholder="Title (e.g. Math Class)"
-            value={z.title}
-            onChange={(e) => {
-              const updated = [...zoomLinks[y._id]];
-              updated[idx].title = e.target.value;
-              setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
-            }}
-          />
-          <input
-            type="text"
-            className="styled-input"
-            placeholder="Zoom link"
-            value={z.link}
-            onChange={(e) => {
-              const updated = [...zoomLinks[y._id]];
-              updated[idx].link = e.target.value;
-              setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
-            }}
-          />
-          <button
-            className="btn btn-red"
-            onClick={() => {
-              const updated = [...zoomLinks[y._id]];
-              updated.splice(idx, 1);
-              setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
-            }}
-          >
-            Delete
-          </button>
-        </div>
+          <h3>🔗 Manage Zoom Links</h3>
+          {years.map((y) => (
+            <div key={y._id} style={{ marginBottom: "20px" }}>
+              <strong>{y.name}</strong>
+              <br />
+              {/* Existing links loaded from DB */}
+              {(zoomLinks[y._id] || []).map((z, idx) => (
+                <div key={idx} style={{ display: "flex", marginBottom: "6px" }}>
+                  <input
+                    type="text"
+                    className="styled-input"
+                    placeholder="Title (e.g. Math Class)"
+                    value={z.title}
+                    onChange={(e) => {
+                      const updated = [...zoomLinks[y._id]];
+                      updated[idx].title = e.target.value;
+                      setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+                    }}
+                  />
+                  <input
+                    type="text"
+                    className="styled-input"
+                    placeholder="Zoom link"
+                    value={z.link}
+                    onChange={(e) => {
+                      const updated = [...zoomLinks[y._id]];
+                      updated[idx].link = e.target.value;
+                      setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+                    }}
+                  />
+                  <button
+                    className="btn btn-red"
+                    onClick={() => {
+                      const updated = [...zoomLinks[y._id]];
+                      updated.splice(idx, 1);
+                      setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+                    }}
+                  >
+                    Delete
+                  </button>
+          </div>
       ))}
 
       {/* Add new link */}
+      <br />
       <button
-        className="btn btn-green"
+        className="btn btn-purple"
         onClick={() =>
           setZoomLinks((prev) => ({
             ...prev,
@@ -186,55 +204,8 @@ function TeacherDashboard() {
       </button>
     </div>
   ))}
-</div>
-
-
-
-        <div className="section-card">
-          <CreateSessionForm
-            teacherId={teacherId}
-            years={years}
-            onSessionCreated={(groupId, session) => {
-              setSelectedGroup(groupId);
-              setActiveSessionId(session._id);
-            }}
-          />
         </div>
-
-        {/* Group Sessions */}
-        <div className="section-card" style={{ textAlign: "center" }}>
-          <h3>👥 View Group Sessions</h3>
-          <select
-            className="styled-select"
-            value={selectedGroup}
-            onChange={(e) => {
-              setSelectedGroup(e.target.value);
-              setActiveSessionId(null);
-            }}
-          >
-            <option value="">-- Select Group --</option>
-            {years.flatMap((y) =>
-              y.groups?.map((g) => (
-                <option key={g._id} value={g._id}>
-                  {y.name} - {g.name}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
-        {selectedGroup && (
-          <div className="section-card">
-            <GroupSessions groupId={selectedGroup} onSelectSession={(sessionId) => setActiveSessionId(sessionId)} />
-          </div>
-        )}
-
-        {activeSessionId && (
-          <div className="section-card" style={{ textAlign: "center" }}>
-            <SessionAttendance sessionId={activeSessionId} />
-          </div>
-        )}
-
+        
          <div className="section-card">
           <AddStudentForm years={years} onStudentAdded={() => fetchYears(teacherId)} />
         </div>

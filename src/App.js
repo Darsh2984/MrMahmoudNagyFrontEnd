@@ -31,6 +31,9 @@ import StudentPerformance from "./pages/Student/StudentPerformance";
 import CompleteParentDetails from "./pages/CompleteParentDetails";
 import TeacherAddAssistant from "./pages/Teacher/TeacherAddAssistant";
 import AllStudentsData from "./pages/AllStudentsData";
+import TeacherAttendancePage from "./pages/Teacher/TeacherAttendancePage";
+import TeacherInClassQuizzes from "./pages/Teacher/TeacherInClassQuizzes";
+
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -161,10 +164,26 @@ function App() {
           }
         />
         <Route
+          path="/teacher/inclassquizzes"
+          element={
+            <PrivateRoute allowedRoles={["teacher"]}>
+              <TeacherInClassQuizzes />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/studentsperformance"
           element={
             <PrivateRoute allowedRoles={["teacher"]}>
               <TeacherStudentPerformance />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/teacher/attendance"
+          element={
+            <PrivateRoute allowedRoles={["teacher"]}>
+              <TeacherAttendancePage />
             </PrivateRoute>
           }
         />

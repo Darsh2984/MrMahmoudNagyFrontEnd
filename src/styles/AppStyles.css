@@ -264,6 +264,58 @@
   background: #fff;
 }
 
+/* 🔹 Make table span full width */
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  font-size: 15px;
+  text-align: left;
+}
+
+/* 🔹 Add nice spacing & dividers */
+.styled-table th,
+.styled-table td {
+  padding: 12px 15px;
+  text-align: center; /* keeps text and button aligned */
+  vertical-align: middle; /* ✅ aligns content vertically */
+}
+
+/* 🔹 Distribute columns evenly */
+.styled-table thead tr {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 equal columns */
+  text-align: center;
+  background-color: #f6f6f6;
+}
+
+
+
+.styled-table tbody tr {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;;
+  text-align: center;
+  align-items: center;
+}
+
+/* 🔹 Optional hover effect */
+.styled-table tbody tr:hover {
+  background-color: #f3f3f3;
+}
+
+/* 🔹 Center action buttons neatly */
+.styled-table button {
+  padding: -10px 12px;          /* ✅ smaller padding */
+  padding-top: 10px;
+  font-size: 14px;
+  line-height: 0;
+  height: 30px;               /* ✅ consistent height */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  border-radius: 6px;
+}
 .styled-table tbody tr {
   transition: background-color 0.2s ease;
   cursor: pointer;
@@ -375,6 +427,9 @@
   box-shadow: 2px 0 10px rgba(0,0,0,0.2);
   transition: width 0.3s ease;
   overflow: hidden;
+  overflow-y: auto;         /* ✅ makes it scrollable */
+  scrollbar-width: thin;    /* ✅ Firefox scrollbar */
+  scrollbar-color: #f1f1f1 #0b3c49; /* ✅ scrollbar color */
 }
 
 .sidebar-closed .sidebar {
@@ -541,7 +596,15 @@
 .dashboard-card h3 {
   color: #0b3c49; /* deep teal */
   margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
+
+.dashboard-card h3 svg {
+  flex-shrink: 0;
+}
+
 .dashboard-card p {
   font-size: 14px;
   color: #555;
