@@ -1,14 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import CreateYear from "../../components/CreateYear";
 import AddStudentForm from "../../components/AddStudentForm";
-import CreateSessionForm from "../../components/CreateSessionForm";
-import SessionAttendance from "../../components/SessionAttendance";
-import GroupSessions from "../../components/GroupSessions";
 import CreateSchool from "../../components/CreateSchool";
-import "../../styles/AppStyles.css"; // ✅ unified global CSS
-import TeacherSidebar from "../../components/TeacherSidebar"; // ✅ import new sidebar
+import TeacherSidebar from "../../components/TeacherSidebar";
 import {
   BookOpen,
   PencilSimple,
@@ -17,20 +14,16 @@ import {
   FolderSimple,
   Student,
   FileArrowDown,
-  VideoCamera,
-  ChartBar,
-  FileText,
+  LinkSimple,
 } from "phosphor-react";
-
+import "react-toastify/dist/ReactToastify.css";
+import "./TeacherDashboard.css";
 
 function TeacherDashboard() {
   const [teacherId, setTeacherId] = useState("");
   const [years, setYears] = useState([]);
-  const [selectedGroup, setSelectedGroup] = useState("");
-  const [activeSessionId, setActiveSessionId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [zoomLinks, setZoomLinks] = useState({}); // ✅ per yearId
-
+  const [zoomLinks, setZoomLinks] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,129 +35,107 @@ function TeacherDashboard() {
   }, []);
 
   const fetchYears = async (id) => {
-  try {
-    const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${id}`);
-    setYears(res.data);
-
-    // fetch zoom links for each year
-    res.data.forEach(async (y) => {
-      try {
-        const linkRes = await axios.get(
-          `${process.env.REACT_APP_API_URL}/api/year/${y._id}/zoom`
-        );
-        setZoomLinks((prev) => ({
-          ...prev,
-          [y._id]: linkRes.data.zoomLinks || [],
-        }));
-      } catch (err) {
-        console.error("❌ Error fetching zoom links for", y.name, err);
-      }
-    });
-  } catch (err) {
-    console.error("❌ Error fetching years:", err);
-  }
-};
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${id}`);
+      setYears(res.data);
+      res.data.forEach(async (y) => {
+        try {
+          const linkRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${y._id}/zoom`);
+          setZoomLinks((prev) => ({
+            ...prev,
+            [y._id]: linkRes.data.zoomLinks || [],
+          }));
+        } catch {}
+      });
+    } catch {
+      toast.error("❌ Failed to load years");
+    }
+  };
 
   const saveZoomLinks = async (yearId) => {
     try {
       await axios.put(`${process.env.REACT_APP_API_URL}/api/year/${yearId}/zoom`, {
         zoomLinks: zoomLinks[yearId],
       });
-      alert("✅ Zoom links saved!");
-    } catch (err) {
-      console.error("❌ Error saving Zoom links:", err);
+      toast.success("✅ Zoom links saved!");
+    } catch {
+      toast.error("❌ Failed to save Zoom links");
     }
   };
 
-  
-
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* ✅ Sidebar extracted */}
+    <div className="teacher-layout">
+      {/* SIDEBAR */}
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      {/* === Main Content === */}
-      <main className="page-container">
-        {/* 🔹 Action Cards */}
-        <div className="card-grid">
-          <div className="dashboard-card" onClick={() => navigate("/manage-units")}>
-            <h3><BookOpen size={22} weight="duotone" /> Manage Units & Chapters</h3>
-            <p>Create, edit and manage units and chapters.</p>
-          </div>
 
-          <div className="dashboard-card" onClick={() => navigate("/upload-question")}>
-            <h3><PencilSimple size={22} weight="duotone" /> Upload MCQ Questions</h3>
-            <p>Upload and organize your MCQ questions.</p>
-          </div>
+      {/* MAIN CONTENT */}
+      <main className={`teacher-main ${sidebarOpen ? "expanded" : "collapsed"}`}>
+        <header className="dashboard-header">
+          <h2>Teacher Dashboard</h2>
+          <p>Manage your classes, quizzes, and students</p>
+        </header>
 
-          <div className="dashboard-card" onClick={() => navigate("/createquiz")}>
-            <h3><PlusCircle size={22} weight="duotone" /> Create Quiz</h3>
-            <p>Generate quizzes from your uploaded questions.</p>
-          </div>
+        {/* QUICK ACTIONS */}
+        <section className="card-grid">
+          {[
+            { icon: <BookOpen size={24} />, title: "Manage Units", path: "/manage-units" },
+            { icon: <PencilSimple size={24} />, title: "Upload MCQs", path: "/upload-question" },
+            { icon: <PlusCircle size={24} />, title: "Create Quiz", path: "/createquiz" },
+            { icon: <ClipboardText size={24} />, title: "Quiz Lists", path: "/quizlist" },
+            { icon: <FolderSimple size={24} />, title: "Tasks & Homework", path: "/teacher-tasks" },
+            { icon: <Student size={24} />, title: "Student Data", path: "/all-students" },
+          ].map((card, i) => (
+            <div key={i} className="dashboard-card" onClick={() => navigate(card.path)}>
+              {card.icon}
+              <h4>{card.title}</h4>
+            </div>
+          ))}
+        </section>
 
-          <div className="dashboard-card" onClick={() => navigate("/quizlist")}>
-            <h3><ClipboardText size={22} weight="duotone" /> Quiz Lists</h3>
-            <p>View and manage your created quizzes.</p>
-          </div>
-
-          <div className="dashboard-card" onClick={() => navigate("/teacher-tasks")}>
-            <h3><FolderSimple size={22} weight="duotone" /> Create Tasks & Homework</h3>
-            <p>Assign tasks and homework to students.</p>
-          </div>
-
-          <div className="dashboard-card" onClick={() => navigate("/all-students")}>
-            <h3><Student size={22} weight="duotone" /> All Registered Student Data</h3>
-            <p>View and manage all student & parent records.</p>
-          </div>
-
+        {/* EXPORT BUTTON */}
+        <div className="export-container">
           <button
-            className="btn btn-purple"
+            className="btn-export"
             onClick={() =>
-              window.open(
-                `${process.env.REACT_APP_API_URL}/api/admin/export-users`,
-                "_blank"
-              )
+              window.open(`${process.env.REACT_APP_API_URL}/api/admin/export-users`, "_blank")
             }
           >
-            <FileArrowDown size={20} weight="duotone" /> Export Users to Excel
+            <FileArrowDown size={20} /> Export Users
           </button>
         </div>
-        
-        <div className="section-card">
-          <CreateSchool teacherId={teacherId} />
-        </div>
-        {/* Manage Years & Groups */}
-        <div className="section-card">
-          <CreateYear teacherId={teacherId} years={years} fetchYears={fetchYears} />
-        </div>
-        <div className="section-card">
-          <h3>🔗 Manage Zoom Links</h3>
+
+        {/* MAIN CONTENT SECTIONS */}
+        <section className="section-card"><CreateSchool teacherId={teacherId} /></section>
+        <section className="section-card"><CreateYear teacherId={teacherId} years={years} fetchYears={fetchYears} /></section>
+
+        {/* ZOOM LINKS */}
+        <section className="section-card">
+          <h3><LinkSimple size={20} /> Manage Zoom Links</h3>
           {years.map((y) => (
-            <div key={y._id} style={{ marginBottom: "20px" }}>
-              <strong>{y.name}</strong>
-              <br />
-              {/* Existing links loaded from DB */}
+            <div key={y._id} className="zoom-block">
+              <h4>{y.name}</h4>
               {(zoomLinks[y._id] || []).map((z, idx) => (
-                <div key={idx} style={{ display: "flex", marginBottom: "6px" }}>
+                <div key={idx} className="zoom-row">
                   <input
                     type="text"
+                    placeholder="Title"
                     className="styled-input"
-                    placeholder="Title (e.g. Math Class)"
                     value={z.title}
                     onChange={(e) => {
                       const updated = [...zoomLinks[y._id]];
                       updated[idx].title = e.target.value;
-                      setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+                      setZoomLinks((p) => ({ ...p, [y._id]: updated }));
                     }}
                   />
                   <input
                     type="text"
+                    placeholder="Zoom Link"
                     className="styled-input"
-                    placeholder="Zoom link"
                     value={z.link}
                     onChange={(e) => {
                       const updated = [...zoomLinks[y._id]];
                       updated[idx].link = e.target.value;
-                      setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+                      setZoomLinks((p) => ({ ...p, [y._id]: updated }));
                     }}
                   />
                   <button
@@ -172,44 +143,37 @@ function TeacherDashboard() {
                     onClick={() => {
                       const updated = [...zoomLinks[y._id]];
                       updated.splice(idx, 1);
-                      setZoomLinks((prev) => ({ ...prev, [y._id]: updated }));
+                      setZoomLinks((p) => ({ ...p, [y._id]: updated }));
+                      toast.info("🗑 Deleted link");
                     }}
                   >
                     Delete
                   </button>
-          </div>
-      ))}
+                </div>
+              ))}
+              <div className="zoom-actions">
+                <button
+                  className="btn btn-green"
+                  onClick={() =>
+                    setZoomLinks((p) => ({
+                      ...p,
+                      [y._id]: [...(p[y._id] || []), { title: "", link: "" }],
+                    }))
+                  }
+                >
+                  + Add Link
+                </button>
+                <button className="btn btn-purple" onClick={() => saveZoomLinks(y._id)}>
+                  💾 Save
+                </button>
+              </div>
+            </div>
+          ))}
+        </section>
 
-      {/* Add new link */}
-      <br />
-      <button
-        className="btn btn-purple"
-        onClick={() =>
-          setZoomLinks((prev) => ({
-            ...prev,
-            [y._id]: [...(prev[y._id] || []), { title: "", link: "" }],
-          }))
-        }
-      >
-        Add Zoom Link
-      </button>
-
-      {/* Save to backend */}
-      <button
-        className="btn btn-purple"
-        style={{ marginLeft: "8px" }}
-        onClick={() => saveZoomLinks(y._id)}
-      >
-        💾 Save All
-      </button>
-    </div>
-  ))}
-        </div>
-        
-         <div className="section-card">
+        <section className="section-card">
           <AddStudentForm years={years} onStudentAdded={() => fetchYears(teacherId)} />
-        </div>
-        
+        </section>
       </main>
     </div>
   );

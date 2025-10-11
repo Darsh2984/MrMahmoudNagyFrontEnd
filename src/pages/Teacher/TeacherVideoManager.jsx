@@ -3,9 +3,16 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import "../../styles/AppStyles.css";
-import TeacherSidebar from "../../components/TeacherSidebar"; // ✅ import new sidebar
-
+import TeacherSidebar from "../../components/TeacherSidebar";
+import {
+  VideoCamera,
+  UploadSimple,
+  Trash,
+  FilmStrip,
+  FilmSlate,
+  FileArrowUp,
+} from "phosphor-react";
+import "./TeacherVideoManager.css";
 
 export default function TeacherVideoManager() {
   const [teacherId, setTeacherId] = useState("");
@@ -13,7 +20,6 @@ export default function TeacherVideoManager() {
   const [units, setUnits] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [videos, setVideos] = useState([]);
-
   const [form, setForm] = useState({
     title: "",
     yearId: "",
@@ -22,11 +28,9 @@ export default function TeacherVideoManager() {
     video: null,
     videoUrl: "",
   });
-
-  const [uploadType, setUploadType] = useState("file"); // "file" or "url"
+  const [uploadType, setUploadType] = useState("file");
   const [loading, setLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
 
@@ -38,27 +42,20 @@ export default function TeacherVideoManager() {
     }
   }, []);
 
-  // Fetch teacher's years
   const fetchYears = async (teacherId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${teacherId}`);
       setYears(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching years:", err);
-      setError("Failed to load years.");
+    } catch {
       toast.error("❌ Failed to load years");
     }
   };
 
   const fetchUnits = async (teacherId, yearId) => {
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`
-      );
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`);
       setUnits(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching units:", err);
-      setError("Failed to load units.");
+    } catch {
       toast.error("❌ Failed to load units");
     }
   };
@@ -67,9 +64,7 @@ export default function TeacherVideoManager() {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`);
       setChapters(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching chapters:", err);
-      setError("Failed to load chapters.");
+    } catch {
       toast.error("❌ Failed to load chapters");
     }
   };
@@ -78,36 +73,29 @@ export default function TeacherVideoManager() {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/video/year/${yearId}`);
       setVideos(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching videos:", err);
-      setError("Failed to load videos.");
+    } catch {
       toast.error("❌ Failed to load videos");
     }
   };
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
-    if (name === "video") {
-      setForm({ ...form, video: files[0] });
-    } else {
-      setForm({ ...form, [name]: value });
-    }
+    if (name === "video") setForm({ ...form, video: files[0] });
+    else setForm({ ...form, [name]: value });
   };
 
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!form.title || !form.yearId || !form.unitId || !form.chapterId) {
-      toast.warn("⚠️ All fields are required");
-      return setError("⚠️ All fields are required");
+      toast.warning("⚠️ All fields are required");
+      return;
     }
 
     setLoading(true);
-    setError("");
     setUploadProgress(0);
 
     try {
       if (uploadType === "url") {
-        // ✅ Directly save URL
         await axios.post(`${process.env.REACT_APP_API_URL}/api/video/url`, {
           title: form.title,
           videoUrl: form.videoUrl,
@@ -117,36 +105,37 @@ export default function TeacherVideoManager() {
           teacherId,
         });
       } else {
-        // ✅ Upload file
-        const uploadId = Date.now().toString();
-        const formData = new FormData();
-        formData.append("title", form.title);
-        formData.append("yearId", form.yearId);
-        formData.append("unitId", form.unitId);
-        formData.append("chapterId", form.chapterId);
-        formData.append("teacherId", teacherId);
-        formData.append("video", form.video);
-        formData.append("uploadId", uploadId);
+        if (!form.video) {
+          toast.warning("⚠️ Please select a video file");
+          setLoading(false);
+          return;
+        }
 
-        // Start SSE listener
+        const uploadId = Date.now().toString();
+        const fd = new FormData();
+        fd.append("title", form.title);
+        fd.append("yearId", form.yearId);
+        fd.append("unitId", form.unitId);
+        fd.append("chapterId", form.chapterId);
+        fd.append("teacherId", teacherId);
+        fd.append("video", form.video);
+        fd.append("uploadId", uploadId);
+
         const evtSource = new EventSource(
           `${process.env.REACT_APP_API_URL}/api/video/progress/${uploadId}`
         );
         evtSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
           setUploadProgress(data.progress);
-          if (data.progress >= 100) {
-            evtSource.close();
-          }
+          if (data.progress >= 100) evtSource.close();
         };
 
-        await axios.post(`${process.env.REACT_APP_API_URL}/api/video`, formData, {
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/video`, fd, {
           headers: { "Content-Type": "multipart/form-data" },
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
         });
       }
 
+      toast.success("✅ Video uploaded successfully!");
       setForm({
         title: "",
         yearId: "",
@@ -158,55 +147,65 @@ export default function TeacherVideoManager() {
       setUnits([]);
       setChapters([]);
       fetchVideos(form.yearId);
-
-      toast.success("✅ Video added successfully!");
-    } catch (err) {
-      console.error("❌ Error:", err);
-      setError("Failed to add video.");
-      toast.error("❌ Failed to add video");
+    } catch {
+      toast.error("❌ Failed to upload video");
     } finally {
       setLoading(false);
       setTimeout(() => setUploadProgress(0), 3000);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this video?")) return;
-    try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/api/video/${id}`);
-      fetchVideos(form.yearId);
-      toast.success("🗑 Video deleted successfully!");
-    } catch (err) {
-      console.error("❌ Error deleting video:", err);
-      setError("Failed to delete video.");
-      toast.error("❌ Failed to delete video");
-    }
+  const handleDelete = (id) => {
+    toast.info(
+      <div>
+        <p>🗑 Are you sure you want to delete this video?</p>
+        <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+          <button
+            className="video-toast-btn-confirm"
+            onClick={async () => {
+              try {
+                await axios.delete(`${process.env.REACT_APP_API_URL}/api/video/${id}`);
+                toast.dismiss();
+                fetchVideos(form.yearId);
+                toast.success("✅ Video deleted successfully");
+              } catch {
+                toast.dismiss();
+                toast.error("❌ Failed to delete video");
+              }
+            }}
+          >
+            Confirm
+          </button>
+          <button className="video-toast-btn-cancel" onClick={() => toast.dismiss()}>
+            Cancel
+          </button>
+        </div>
+      </div>,
+      { autoClose: false, closeOnClick: false, draggable: false, position: "top-center" }
+    );
   };
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-       {/* ✅ Sidebar extracted */}
+    <div className={`video-layout ${sidebarOpen ? "with-sidebar" : "full-width"}`}>
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* Main Content */}
-      <main className="page-container">
-        <div className="section-card">
-          <h3 className="card-title">🎥 Manage Course Videos</h3>
-          <br />
+      <main className="video-container">
+        {/* Upload Section */}
+        <div className="video-section-card">
+          <h2 className="video-title">
+            <VideoCamera size={22} color="#0b3c49" weight="fill" /> Manage Course Videos
+          </h2>
 
-          {error && <p className="error-text">{error}</p>}
-
-          <form onSubmit={handleUpload} className="form-grid">
+          <form onSubmit={handleUpload} className="video-form-grid">
             <input
               type="text"
               name="title"
               placeholder="Video Title"
               value={form.title}
               onChange={handleChange}
-              className="styled-input"
+              className="video-input"
             />
 
-            {/* Year Dropdown */}
             <select
               name="yearId"
               value={form.yearId}
@@ -220,7 +219,7 @@ export default function TeacherVideoManager() {
                   fetchUnits(teacherId, yearId);
                 }
               }}
-              className="styled-input"
+              className="video-input"
             >
               <option value="">-- Select Year --</option>
               {years.map((y) => (
@@ -230,7 +229,6 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
-            {/* Unit Dropdown */}
             <select
               name="unitId"
               value={form.unitId}
@@ -238,11 +236,9 @@ export default function TeacherVideoManager() {
                 const unitId = e.target.value;
                 setForm({ ...form, unitId, chapterId: "" });
                 setChapters([]);
-                if (unitId) {
-                  fetchChapters(unitId);
-                }
+                if (unitId) fetchChapters(unitId);
               }}
-              className="styled-input"
+              className="video-input"
               disabled={!form.yearId}
             >
               <option value="">-- Select Unit --</option>
@@ -253,12 +249,11 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
-            {/* Chapter Dropdown */}
             <select
               name="chapterId"
               value={form.chapterId}
               onChange={handleChange}
-              className="styled-input"
+              className="video-input"
               disabled={!form.unitId}
             >
               <option value="">-- Select Chapter --</option>
@@ -269,8 +264,7 @@ export default function TeacherVideoManager() {
               ))}
             </select>
 
-            {/* Upload Type Toggle */}
-            <div className="form-toggle">
+            <div className="video-toggle">
               <label>
                 <input
                   type="radio"
@@ -297,43 +291,41 @@ export default function TeacherVideoManager() {
                 name="video"
                 accept="video/*"
                 onChange={handleChange}
-                className="styled-input"
+                className="video-input"
               />
             ) : (
               <input
                 type="text"
                 name="videoUrl"
-                placeholder="Paste Bunny CDN URL"
+                placeholder="Paste Bunny CDN Video URL"
                 value={form.videoUrl}
                 onChange={handleChange}
-                className="styled-input"
+                className="video-input"
               />
             )}
 
-            <button type="submit" disabled={loading} className="btn btn-orange">
-              {loading ? "⏳ Uploading..." : "📤 Save Video"}
+            <button type="submit" disabled={loading} className="video-btn video-btn-blue">
+              {loading ? "Uploading..." : <><UploadSimple size={18} /> Save Video</>}
             </button>
           </form>
 
-          {/* Progress Bar */}
           {loading && uploadType === "file" && (
-            <div className="upload-progress">
+            <div className="video-progress">
               <p>Uploading... {uploadProgress}%</p>
               <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
+                <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
               </div>
             </div>
           )}
         </div>
 
         {/* Video List */}
-        <div className="section-card">
-          <h3 className="card-title">📚 Uploaded Videos</h3>
+        <div className="video-section-card">
+          <h2 className="video-title">
+            <FilmStrip size={22} weight="fill" color="#8baa91" /> Uploaded Videos
+          </h2>
           {videos.length === 0 ? (
-            <p>No videos uploaded yet.</p>
+            <p className="video-empty">No videos uploaded yet.</p>
           ) : (
             <div className="video-grid">
               {videos.map((v) => (
@@ -350,11 +342,8 @@ export default function TeacherVideoManager() {
                     disablePictureInPicture
                     style={{ width: "100%", borderRadius: "6px" }}
                   />
-                  <button
-                    onClick={() => handleDelete(v._id)}
-                    className="btn btn-red small-btn"
-                  >
-                    🗑 Delete
+                  <button onClick={() => handleDelete(v._id)} className="video-btn video-btn-red">
+                    <Trash size={16} /> Delete
                   </button>
                 </div>
               ))}

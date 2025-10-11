@@ -1,0 +1,156 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* ==== CARD CONTAINER ==== */
+.addstudent-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);
+  margin-top: 1.5rem;
+}
+
+/* ==== HEADER ==== */
+.addstudent-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+}
+
+.title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title-area h3 {
+  color: var(--teal);
+  margin: 0;
+}
+
+.btn-refresh {
+  background: var(--teal);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-refresh:hover {
+  background: var(--green);
+}
+
+/* ==== FORMS ==== */
+.form-section {
+  margin-bottom: 1rem;
+}
+
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--charcoal);
+  margin-bottom: 6px;
+}
+
+.styled-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  background: var(--cream);
+  color: var(--charcoal);
+  font-weight: 500;
+}
+
+/* ==== STUDENT GRID ==== */
+.student-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.student-card {
+  background: #fafafa;
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  transition: 0.3s;
+  cursor: pointer;
+}
+
+.student-card:hover {
+  background: #eef6f1;
+}
+
+.student-card.selected {
+  background: var(--green);
+  color: #fff;
+  border-color: var(--green);
+}
+
+.student-card input {
+  margin-top: 6px;
+}
+
+.student-info strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.student-info p {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* ==== BUTTON ==== */
+.add-btn-wrapper {
+  margin-top: 1.5rem;
+  text-align: right;
+}
+
+.btn {
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-purple {
+  background: var(--teal);
+  color: #fff;
+}
+
+.btn-purple:hover {
+  background: var(--green);
+}
+
+/* ==== RESPONSIVE ==== */
+@media (max-width: 768px) {
+  .student-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .add-btn-wrapper {
+    text-align: center;
+  }
+}

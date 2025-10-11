@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "../styles/AppStyles.css";
+import "./ForgotPassword.css"; // ✅ new CSS file
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Envelope, PaperPlaneRight } from "phosphor-react"; // ✅ icons
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
-  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ Add login-page class to body for background + centering
   useEffect(() => {
     document.body.classList.add("login-page");
     return () => {
@@ -18,50 +19,60 @@ export default function ForgotPassword() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setMsg("");
+
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_URL}/api/auth/forgot-password`,
         { email }
       );
-      setMsg(res.data.msg || "✅ Reset link sent to your email.");
+
+      toast.success(res.data.msg || "✅ Reset link sent to your email.", {
+        position: "top-center",
+        autoClose: 2500,
+      });
+
+      setEmail("");
     } catch (err) {
-      setMsg("❌ Error sending reset link. Please try again.");
+      console.error("❌ Error sending reset link:", err);
+      toast.error("❌ Error sending reset link. Please try again.", {
+        position: "top-center",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h2 className="login-title">🔑 Forgot Password</h2>
-        <p style={{ textAlign: "center", marginBottom: "15px", color: "#555" }}>
-          Enter your email address and we’ll send you a reset link.
+    <div className="forgot-page-layout">
+      <div className="forgot-form-card">
+        {/* ✅ Title with icon */}
+        <h2 className="forgot-title">
+          <Envelope size={28} weight="bold" color="#0b3c49" />
+          <span>Forgot Password</span>
+        </h2>
+
+        <p className="forgot-subtext">
+          Enter your email address and we’ll send you a password reset link.
         </p>
 
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <i className="fas fa-envelope"></i>
+        <form onSubmit={handleSubmit} className="forgot-form">
+          <div className="form-group">
+            <label>Email</label>
             <input
               type="email"
-              placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
               required
             />
           </div>
 
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? "⏳ Sending..." : "📧 Send Reset Link"}
+          {/* ✅ Button with icon */}
+          <button type="submit" className="forgot-btn" disabled={loading}>
+            <PaperPlaneRight size={20} weight="fill" color="#fff" />
+            <span>{loading ? "Sending..." : "Send Reset Link"}</span>
           </button>
         </form>
-
-        {msg && (
-          <p className={`message ${msg.includes("✅") ? "success" : "error"}`}>
-            {msg}
-          </p>
-        )}
       </div>
     </div>
   );

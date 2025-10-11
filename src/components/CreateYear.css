@@ -1,0 +1,257 @@
+/* ====== COLOR PALETTE ====== */
+:root {
+  --cream-white: #f5f1eb;
+  --terracotta: #c85d47;
+  --deep-teal: #0b3c49;
+  --sage-green: #8baa91;
+  --warm-orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* ====== CONTAINER ====== */
+.create-year-container {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(51, 49, 46, 0.1);
+  margin-bottom: 2rem;
+}
+
+/* ====== HEADER ====== */
+.year-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--sage-green);
+  padding-bottom: 10px;
+  margin-bottom: 1rem;
+}
+
+.year-header .title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--deep-teal);
+}
+
+.btn-refresh {
+  background: transparent;
+  color: var(--deep-teal);
+  border: 1px solid var(--sage-green);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: 0.3s;
+}
+
+.btn-refresh:hover {
+  background: var(--sage-green);
+  color: #fff;
+}
+
+/* ====== YEAR FORM ====== */
+.year-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 1.2rem;
+}
+
+.styled-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--sage-green);
+  background: var(--cream-white);
+  font-size: 14px;
+  color: var(--charcoal);
+  transition: all 0.2s ease;
+}
+
+.styled-input:focus {
+  outline: none;
+  border-color: var(--deep-teal);
+  box-shadow: 0 0 0 2px rgba(11, 60, 73, 0.15);
+}
+
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: 0.3s ease;
+}
+
+/* ====== BUTTON COLORS ====== */
+.btn-add {
+  background: var(--deep-teal);
+  color: #fff;
+}
+
+.btn-add:hover {
+  background: var(--warm-orange);
+}
+
+.btn-green {
+  background: var(--sage-green);
+  color: #fff;
+}
+
+.btn-green:hover {
+  background: #769b80;
+}
+
+.btn-red {
+  background: var(--terracotta);
+  color: #fff;
+}
+
+.btn-red:hover {
+  background: #a84b39;
+}
+
+/* ====== YEAR BOX ====== */
+.year-box {
+  border: 1px solid var(--sage-green);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  background: var(--cream-white);
+  padding: 10px;
+}
+
+.year-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--deep-teal);
+}
+
+.year-toggle:hover {
+  color: var(--warm-orange);
+}
+
+/* ====== GROUPS ====== */
+.groups-container {
+  margin-top: 10px;
+  padding-left: 20px;
+}
+
+.group-card {
+  background: #fff;
+  border: 1px solid var(--sage-green);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  padding: 10px 15px;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--deep-teal);
+  font-weight: 600;
+}
+
+/* ====== STUDENTS ====== */
+.student-list {
+  margin-top: 8px;
+  list-style: none;
+  padding: 0;
+}
+
+.student-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--cream-white);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 5px;
+  transition: 0.2s ease;
+}
+
+.student-row:hover {
+  background: var(--sage-green);
+  color: #fff;
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ====== ADD GROUP ====== */
+.add-group-form {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+/* ====== MODAL ====== */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: 10px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+}
+
+.modal-card h4 {
+  color: var(--deep-teal);
+}
+
+.modal-actions {
+  margin-top: 15px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.btn-grey {
+  background: #ccc;
+  color: #333;
+}
+
+.no-data {
+  text-align: center;
+  color: var(--charcoal);
+  margin-top: 10px;
+}
+
+/* ====== RESPONSIVE ====== */
+@media (max-width: 600px) {
+  .year-form,
+  .add-group-form {
+    flex-direction: column;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

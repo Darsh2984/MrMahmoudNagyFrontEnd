@@ -1,0 +1,105 @@
+:root {
+  --cream: #f5f1eb;
+  --terracotta: #c85d47;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* === LAYOUT === */
+.page-layout {
+  display: flex;
+  background: var(--cream);
+  min-height: 100vh;
+}
+
+.createsession-container {
+  flex: 1;
+  padding: 2rem;
+  transition: margin-left 0.4s ease;
+}
+
+/* Sidebar spacing */
+.with-sidebar {
+  margin-left: 240px;
+}
+
+.full-width {
+  margin-left: 0;
+}
+
+/* === CARD === */
+.createsession-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 2rem;
+  border: 1px solid var(--green);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  max-width: 550px;
+  margin: 0 auto;
+}
+
+.page-title {
+  color: var(--teal);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+}
+
+/* === FORM FIELDS === */
+.field-label {
+  font-weight: 600;
+  color: var(--charcoal);
+  margin-bottom: 4px;
+  margin-top: 1rem;
+  display: block;
+}
+
+.styled-select,
+.styled-input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--green);
+  background: #fff;
+  color: var(--charcoal);
+  font-weight: 500;
+}
+
+.styled-input::placeholder {
+  color: #888;
+}
+
+/* === BUTTON === */
+.submit-btn {
+  margin-top: 1.5rem;
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--teal);
+  color: #fff;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.submit-btn:hover {
+  background: var(--green);
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .createsession-container {
+    padding: 1rem;
+    margin-left: 0 !important;
+  }
+
+  .createsession-card {
+    padding: 1.5rem;
+    width: 100%;
+  }
+}

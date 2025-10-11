@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
-import "../styles/AppStyles.css";
+import "./SetPassword.css"; // ✅ new CSS file
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Key, CheckCircle, Envelope } from "phosphor-react"; // ✅ icons
 
 function SetPassword() {
   const location = useLocation();
   const navigate = useNavigate();
-  const email = location.state?.email || ""; // comes from Login redirect
+  const email = location.state?.email || "";
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // ✅ Apply login-page styling
+  // ✅ Add background layout
   useEffect(() => {
     document.body.classList.add("login-page");
     return () => {
@@ -21,43 +24,59 @@ function SetPassword() {
 
   const handleSetPassword = async (e) => {
     e.preventDefault();
+
     if (newPassword !== confirmPassword) {
-      setMessage("❌ Passwords do not match.");
+      toast.error("❌ Passwords do not match.", { position: "top-center" });
       return;
     }
 
+    setLoading(true);
     try {
       await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/parent/set-password`, {
         email,
         newPassword,
       });
 
-      setMessage("✅ Password set successfully! Redirecting to login...");
+      toast.success("✅ Password set successfully! Redirecting...", {
+        position: "top-center",
+        autoClose: 2000,
+      });
+
       setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
       console.error("❌ Failed to set password:", err);
-      setMessage("❌ Failed to set password. Please try again.");
+      toast.error("❌ Failed to set password. Please try again.", {
+        position: "top-center",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h2 className="login-title">🔑 Set Password</h2>
+    <div className="set-page-layout">
+      <div className="set-form-card">
+        {/* ✅ Title with icon */}
+        <h2 className="set-title">
+          <Key size={28} weight="bold" color="#0b3c49" />
+          <span>Set Password</span>
+        </h2>
 
-        <form onSubmit={handleSetPassword}>
-          {/* Disabled Email */}
-          <div className="input-group">
-            <i className="fas fa-envelope"></i>
+        <form onSubmit={handleSetPassword} className="set-form">
+          {/* Disabled Email Field */}
+          <div className="form-group">
+            <label>
+              <Envelope size={18} weight="fill" color="#0b3c49" style={{ marginRight: "6px" }} />
+              Email
+            </label>
             <input type="email" value={email} disabled />
           </div>
 
           {/* New Password */}
-          <div className="input-group">
-            <i className="fas fa-lock"></i>
+          <div className="form-group">
+            <label>New Password</label>
             <input
               type="password"
-              placeholder="New Password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               required
@@ -65,27 +84,22 @@ function SetPassword() {
           </div>
 
           {/* Confirm Password */}
-          <div className="input-group">
-            <i className="fas fa-lock"></i>
+          <div className="form-group">
+            <label>Confirm Password</label>
             <input
               type="password"
-              placeholder="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
             />
           </div>
 
-          <button type="submit" className="login-btn">
-            Set Password
+          {/* ✅ Submit Button */}
+          <button type="submit" className="set-btn" disabled={loading}>
+            <CheckCircle size={20} weight="fill" color="#fff" />
+            <span>{loading ? "Setting..." : "Set Password"}</span>
           </button>
         </form>
-
-        {message && (
-          <p className={`message ${message.includes("✅") ? "success" : "error"}`}>
-            {message}
-          </p>
-        )}
       </div>
     </div>
   );

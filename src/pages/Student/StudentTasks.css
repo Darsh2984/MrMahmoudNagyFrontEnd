@@ -1,0 +1,203 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* --- LAYOUT --- */
+.student-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.student-main {
+  flex-grow: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  transition: margin-left 0.3s ease, width 0.3s ease;
+}
+
+.student-main.expanded {
+  margin-left: 250px;
+}
+
+.student-main.collapsed {
+  margin-left: 80px;
+}
+
+/* --- HEADER --- */
+.dashboard-header {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-header h2 {
+  color: var(--teal);
+  margin-bottom: 0.2rem;
+}
+
+.dashboard-header p {
+  color: var(--green);
+}
+
+/* --- SECTION --- */
+.section-card {
+  background: white;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--green);
+}
+
+/* --- TASK CARDS --- */
+.task-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.task-card {
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  background: #fff;
+  padding: 1.3rem 1.5rem;
+  margin-bottom: 1.2rem;
+  transition: 0.3s;
+}
+
+.task-card:hover {
+  background: #f8fbf9;
+  transform: translateY(-2px);
+}
+
+/* --- Task Header --- */
+.task-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  padding-bottom: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.task-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.task-info h3 {
+  color: var(--teal);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.task-desc {
+  font-size: 0.95rem;
+  color: var(--charcoal);
+  margin-bottom: 0.4rem;
+  line-height: 1.5;
+}
+
+.deadline {
+  font-size: 0.9rem;
+  color: var(--charcoal);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- Submission Box --- */
+.submission-box {
+  background: #eef7ef;
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid var(--green);
+}
+
+.submitted {
+  color: green;
+  font-weight: 500;
+  margin-bottom: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.not-submitted {
+  color: var(--red);
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.graded-box {
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 0.8rem;
+  font-size: 0.9rem;
+  margin-bottom: 0.8rem;
+  border-left: 3px solid var(--teal);
+}
+
+.graded-box p {
+  margin: 0.3rem 0;
+}
+
+/* --- Upload --- */
+.upload-area {
+  margin-top: 0.8rem;
+}
+
+.upload-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 500;
+  color: var(--teal);
+  margin-bottom: 0.4rem;
+}
+
+.styled-input {
+  width: 100%;
+  padding: 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--green);
+  font-size: 0.9rem;
+}
+
+/* --- Buttons --- */
+.btn {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-red {
+  background: var(--red);
+  color: #fff;
+}
+
+.btn-red:hover {
+  background: var(--orange);
+}
+
+/* --- Responsive --- */
+@media (max-width: 768px) {
+  .student-main.expanded,
+  .student-main.collapsed {
+    margin-left: 0;
+    padding: 1rem;
+  }
+
+  .task-top {
+    flex-direction: column;
+  }
+}

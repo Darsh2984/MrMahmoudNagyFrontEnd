@@ -1,16 +1,23 @@
-// src/pages/StudentMaterialViewer.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import StudentSidebar from "../../components/StudentSidebar"; // import new sidebar
-
+import StudentSidebar from "../../components/StudentSidebar";
+import "./StudentMaterialViewer.css"; // ✅ new css file
+import {
+  UploadSimple,
+  Trash,
+  MagnifyingGlassPlus,
+  MagnifyingGlassMinus,
+  ArrowCounterClockwise,
+  BookOpen,
+  FileArrowUp,
+} from "phosphor-react";
 
 export default function StudentMaterialViewer() {
   const [yearId, setYearId] = useState("");
   const [units, setUnits] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [materials, setMaterials] = useState([]);
-
   const [filter, setFilter] = useState({ unitId: "", chapterId: "" });
   const [zoomLevels, setZoomLevels] = useState({});
   const [error, setError] = useState("");
@@ -20,74 +27,61 @@ export default function StudentMaterialViewer() {
   const user = JSON.parse(localStorage.getItem("user"));
   const navigate = useNavigate();
 
-  // Load student's year on mount
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user?.role === "student" && user.id) {
-      fetchStudentYear(user.id);
-    }
+    if (user?.role === "student" && user.id) fetchStudentYear(user.id);
   }, []);
 
-  // Fetch student's year (and teacherId to load units)
   const fetchStudentYear = async (studentId) => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/student/${studentId}/year`
       );
-if (res.data?.yearId) {
-  setYearId(res.data.yearId._id);
-  fetchMaterials(res.data.yearId._id);
-  fetchUnits(studentId, res.data.yearId._id); // ✅ pass studentId + yearId
-}
-
-    } catch (err) {
+      if (res.data?.yearId) {
+        const yrId = res.data.yearId._id;
+        setYearId(yrId);
+        fetchMaterials(yrId);
+        fetchUnits(studentId, yrId);
+      }
+    } catch {
       setError("❌ Failed to load your Year.");
     }
   };
 
-// Fetch units for logged-in student
-const fetchUnits = async (studentId, yearId) => {
-  try {
-    const res = await axios.get(
-      `${process.env.REACT_APP_API_URL}/api/unit/student/${studentId}/year/${yearId}/units`
-    );
-    setUnits(res.data);
-  } catch (err) {
-    setError("❌ Failed to load units.");
-  }
-};
-
-
-
-  // Fetch chapters by unit
-  const fetchChapters = async (unitId) => {
+  const fetchUnits = async (studentId, yearId) => {
     try {
       const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`
+        `${process.env.REACT_APP_API_URL}/api/unit/student/${studentId}/year/${yearId}/units`
       );
+      setUnits(res.data);
+    } catch {
+      setError("❌ Failed to load units.");
+    }
+  };
+
+  const fetchChapters = async (unitId) => {
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`);
       setChapters(res.data);
-    } catch (err) {
+    } catch {
       setError("❌ Failed to load chapters.");
     }
   };
 
-  // Fetch materials by year (filtered for this student)
-const fetchMaterials = async (yearId) => {
-  setLoading(true);
-  try {
-    const studentId = user?.id; // ✅ use logged-in student's ID
-    const res = await axios.get(
-      `${process.env.REACT_APP_API_URL}/api/material/student/${studentId}/year/${yearId}`
-    );
-    setMaterials(res.data);
-  } catch (err) {
-    setError("❌ Failed to load materials.");
-  } finally {
-    setLoading(false);
-  }
-};
+  const fetchMaterials = async (yearId) => {
+    setLoading(true);
+    try {
+      const studentId = user?.id;
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/material/student/${studentId}/year/${yearId}`
+      );
+      setMaterials(res.data);
+    } catch {
+      setError("❌ Failed to load materials.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Zoom controls
   const handleZoom = (id, action) => {
     setZoomLevels((prev) => {
       const current = prev[id] || 1;
@@ -98,7 +92,6 @@ const fetchMaterials = async (yearId) => {
     });
   };
 
-  // Apply filters
   const filteredMaterials = materials.filter((m) => {
     if (filter.unitId && m.unitId?._id !== filter.unitId) return false;
     if (filter.chapterId && m.chapterId?._id !== filter.chapterId) return false;
@@ -106,33 +99,31 @@ const fetchMaterials = async (yearId) => {
   });
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* === Sidebar === */}
+    <div className="student-layout">
       <StudentSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* === Main Content === */}
-      <main className="page-container">
-        <div className="section-card">
-          <h2 className="card-title">📑 Course Materials</h2>
-          {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
+      <main className={`student-main ${sidebarOpen ? "expanded" : "collapsed"}`}>
+        <header className="dashboard-header">
+          <h2>📑 Course Materials</h2>
+          <p>View and study all provided course PDFs</p>
+        </header>
 
-          {/* Filters */}
-          <div style={styles.filterBox}>
-            {/* Unit Selector */}
-            <div style={styles.filterItem}>
-              <label style={styles.label}>📘 Unit</label>
+        <section className="section-card">
+          {error && <p className="error-msg">{error}</p>}
+
+          {/* === Filters === */}
+          <div className="filter-box">
+            <div className="filter-item">
+              <label>📘 Select Unit</label>
               <select
                 value={filter.unitId}
                 onChange={(e) => {
                   const unitId = e.target.value;
-                  setFilter({ ...filter, unitId, chapterId: "" });
-                  if (unitId) fetchChapters(unitId);
-                  else setChapters([]);
+                  setFilter({ unitId, chapterId: "" });
+                  unitId ? fetchChapters(unitId) : setChapters([]);
                 }}
-                style={styles.select}
               >
-                {/* 👇 This "All Units" will only show student’s year units because units[] is already filtered */}
-                <option value="">-- All Units of My Year --</option>
+                <option value="">-- All Units --</option>
                 {units.map((u) => (
                   <option key={u._id} value={u._id}>
                     {u.name}
@@ -141,16 +132,12 @@ const fetchMaterials = async (yearId) => {
               </select>
             </div>
 
-            {/* Chapter Selector */}
             {chapters.length > 0 && (
-              <div style={styles.filterItem}>
-                <label style={styles.label}>📖 Chapter</label>
+              <div className="filter-item">
+                <label>📖 Select Chapter</label>
                 <select
                   value={filter.chapterId}
-                  onChange={(e) =>
-                    setFilter({ ...filter, chapterId: e.target.value })
-                  }
-                  style={styles.select}
+                  onChange={(e) => setFilter({ ...filter, chapterId: e.target.value })}
                 >
                   <option value="">-- All Chapters --</option>
                   {chapters.map((c) => (
@@ -163,46 +150,40 @@ const fetchMaterials = async (yearId) => {
             )}
           </div>
 
-          {/* Materials */}
+          {/* === Materials === */}
           {loading ? (
-            <p>⏳ Loading materials...</p>
+            <p className="loading-msg">⏳ Loading materials...</p>
           ) : filteredMaterials.length === 0 ? (
-            <p>⚠️ No materials found</p>
+            <p className="no-data">⚠️ No materials found</p>
           ) : (
-            <div style={styles.grid}>
+            <div className="material-grid">
               {filteredMaterials.map((m) => {
                 const zoom = zoomLevels[m._id] || 1;
                 return (
-                  <div key={m._id} style={styles.card}>
+                  <div key={m._id} className="material-card">
                     <h4>{m.title}</h4>
-                    <p>
+                    <p className="material-meta">
                       <b>Unit:</b> {m.unitId?.name || "—"} <br />
                       <b>Chapter:</b> {m.chapterId?.name || "—"}
                     </p>
 
-                    {/* Zoom Controls */}
-                    <div style={styles.zoomControls}>
-                      <button onClick={() => handleZoom(m._id, "out")} style={styles.zoomBtn}>
-                        ➖
+                    <div className="zoom-controls">
+                      <button onClick={() => handleZoom(m._id, "out")} title="Zoom Out">
+                        <MagnifyingGlassMinus size={18} />
                       </button>
-                      <button onClick={() => handleZoom(m._id, "in")} style={styles.zoomBtn}>
-                        ➕
+                      <button onClick={() => handleZoom(m._id, "in")} title="Zoom In">
+                        <MagnifyingGlassPlus size={18} />
                       </button>
-                      <button onClick={() => handleZoom(m._id, "reset")} style={styles.zoomBtn}>
-                        🔄
+                      <button onClick={() => handleZoom(m._id, "reset")} title="Reset Zoom">
+                        <ArrowCounterClockwise size={18} />
                       </button>
                     </div>
 
-                    {/* PDF Viewer */}
-                    <div style={styles.viewerWrapper}>
+                    <div className="pdf-viewer-wrapper">
                       <iframe
-                        src={`${m.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`} 
+                        src={`${m.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
                         title={m.title}
                         style={{
-                          width: "100%",
-                          height: "600px",
-                          border: "none",
-                          borderRadius: "6px",
                           transform: `scale(${zoom})`,
                           transformOrigin: "0 0",
                         }}
@@ -213,48 +194,8 @@ const fetchMaterials = async (yearId) => {
               })}
             </div>
           )}
-        </div>
+        </section>
       </main>
     </div>
   );
 }
-
-const styles = {
-  filterBox: {
-    display: "flex",
-    gap: "20px",
-    marginBottom: "25px",
-    background: "#f8f9fa",
-    padding: "15px",
-    borderRadius: "10px",
-    justifyContent: "flex-start",
-    alignItems: "flex-end",
-  },
-  filterItem: { display: "flex", flexDirection: "column", flex: 1 },
-  label: { marginBottom: "6px", fontWeight: "bold", color: "#34495e" },
-  select: {
-    padding: "10px",
-    border: "1px solid #ccc",
-    borderRadius: "6px",
-    fontSize: "14px",
-    background: "#fff",
-  },
-  grid: { display: "grid", gridTemplateColumns: "1fr", gap: "20px" },
-  card: {
-    background: "#f8f9fa",
-    padding: "15px",
-    borderRadius: "8px",
-    border: "1px solid #ddd",
-  },
-  zoomControls: { marginBottom: "8px", textAlign: "right" },
-  zoomBtn: {
-    marginLeft: "5px",
-    padding: "6px 10px",
-    border: "1px solid #ccc",
-    borderRadius: "4px",
-    background: "#ecf0f1",
-    cursor: "pointer",
-    fontSize: "14px",
-  },
-  viewerWrapper: { overflow: "auto", border: "1px solid #ddd" },
-};

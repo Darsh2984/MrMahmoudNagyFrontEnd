@@ -1,8 +1,17 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import "../../styles/AppStyles.css";
-import StudentSidebar from "../../components/StudentSidebar"; // import new sidebar
+import {
+  BookOpen,
+  Clock,
+  ChartBar,
+  PlayCircle,
+  LockSimple,
+  CheckCircle,
+  XCircle,
+} from "phosphor-react";
+import StudentSidebar from "../../components/StudentSidebar";
+import "./StudentQuizList.css";
 
 function StudentQuizList() {
   const [quizzes, setQuizzes] = useState([]);
@@ -30,13 +39,12 @@ function StudentQuizList() {
     }
   };
 
-  // ✅ Helper: format to local timezone
   const formatLocalDate = (dateString) => {
     if (!dateString) return "—";
     return new Date(dateString).toLocaleString("en-GB", {
       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       year: "numeric",
-      month: "2-digit",
+      month: "short",
       day: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
@@ -44,19 +52,20 @@ function StudentQuizList() {
   };
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* Sidebar */}
+    <div className="student-layout">
       <StudentSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* Main */}
-      <main className="page-container">
-        <div className="section-card">
-          <h2 className="card-title">📘 My Quizzes</h2><br />
+      <main className={`student-main ${sidebarOpen ? "expanded" : "collapsed"}`}>
+        <header className="dashboard-header">
+          <h2>My Quizzes</h2>
+          <p>View available quizzes, track scores, and start new ones</p>
+        </header>
 
+        <section className="section-card">
           {loading ? (
             <p>⏳ Loading quizzes...</p>
           ) : quizzes.length === 0 ? (
-            <p>No quizzes available</p>
+            <p>No quizzes available yet.</p>
           ) : (
             <ul className="quiz-list">
               {quizzes.map((quiz) => {
@@ -64,66 +73,81 @@ function StudentQuizList() {
                 const startTime = quiz.startTime ? new Date(quiz.startTime) : null;
                 const endTime = quiz.endTime ? new Date(quiz.endTime) : null;
 
-                let buttonLabel = "";
-                let buttonClass = "btn";
-                let buttonDisabled = false;
-                let onClickAction = null;
+                let status, label, colorClass, icon, disabled, onClick;
 
                 if (quiz.alreadySubmitted) {
-                  // ✅ Already taken
-                  buttonLabel = "📊 View Results";
-                  buttonClass = "btn-green";
-                  onClickAction = () => navigate(`/student/quiz-result/${quiz._id}`);
+                  status = "completed";
+                  label = "View Results";
+                  colorClass = "btn-green";
+                  icon = <ChartBar size={18} />;
+                  onClick = () => navigate(`/student/quiz-result/${quiz._id}`);
                 } else if (startTime && now < startTime) {
-                  // ⏳ Not started yet
-                  buttonLabel = "⏳ Opening Soon";
-                  buttonClass = "btn-gray";
-                  buttonDisabled = true;
+                  status = "upcoming";
+                  label = "Opening Soon";
+                  colorClass = "btn-gray";
+                  icon = <Clock size={18} />;
+                  disabled = true;
                 } else if (endTime && now > endTime) {
-                  // ❌ Quiz closed
-                  buttonLabel = "🚫 Quiz Closed";
-                  buttonClass = "btn-red";
-                  buttonDisabled = true;
+                  status = "closed";
+                  label = "Quiz Closed";
+                  colorClass = "btn-red";
+                  icon = <LockSimple size={18} />;
+                  disabled = true;
                 } else {
-                  // 🚀 Quiz is active
-                  buttonLabel = "🚀 Start Quiz";
-                  buttonClass = "btn-blue";
-                  onClickAction = () => navigate(`/student/take-quiz/${quiz._id}`);
+                  status = "active";
+                  label = "Start Quiz";
+                  colorClass = "btn-blue";
+                  icon = <PlayCircle size={18} />;
+                  onClick = () => navigate(`/student/take-quiz/${quiz._id}`);
                 }
 
                 return (
-                  <li key={quiz._id} className="quiz-card">
-                    <h3 style={{ marginBottom: "8px", color: "#2c3e50" }}>{quiz.title}</h3>
-                    <p>⏳ Duration: {quiz.duration} minutes</p>
+                  <li key={quiz._id} className={`quiz-card ${status}`}>
+                    <div className="quiz-header">
+                      <BookOpen size={22} color="#0b3c49" />
+                      <div>
+                        <h3>{quiz.title}</h3>
+                        <p>Duration: {quiz.duration} min</p>
+                      </div>
+                    </div>
 
-                    {quiz.startTime && (
-                      <p>📅 Starts: {formatLocalDate(quiz.startTime)}</p>
-                    )}
-                    {quiz.endTime && (
-                      <p>📅 Ends: {formatLocalDate(quiz.endTime)}</p>
-                    )}
+                    <div className="quiz-info">
+                      {quiz.startTime && (
+                        <p>
+                          <Clock size={16} /> <b>Starts:</b>{" "}
+                          {formatLocalDate(quiz.startTime)}
+                        </p>
+                      )}
+                      {quiz.endTime && (
+                        <p>
+                          <Clock size={16} /> <b>Ends:</b>{" "}
+                          {formatLocalDate(quiz.endTime)}
+                        </p>
+                      )}
+                    </div>
 
-                    {/* Show score if already submitted */}
                     {quiz.alreadySubmitted && (
-                      <p style={{ marginTop: "8px", color: "#27ae60", fontWeight: "bold" }}>
-                        ✅ Score: {quiz.score} / {quiz.total}
+                      <p className="quiz-score">
+                        <CheckCircle size={16} /> Score:{" "}
+                        <b>
+                          {quiz.score} / {quiz.total}
+                        </b>
                       </p>
                     )}
 
                     <button
-                      className={`btn ${buttonClass}`}
-                      style={{ marginTop: "12px" }}
-                      disabled={buttonDisabled}
-                      onClick={onClickAction}
+                      className={`btn ${colorClass}`}
+                      onClick={onClick}
+                      disabled={disabled}
                     >
-                      {buttonLabel}
+                      {icon} <span>{label}</span>
                     </button>
                   </li>
                 );
               })}
             </ul>
           )}
-        </div>
+        </section>
       </main>
     </div>
   );

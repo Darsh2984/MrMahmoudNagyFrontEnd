@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import "../styles/AppStyles.css";
+import TeacherSidebar from "./TeacherSidebar";
+import { ClipboardText, PlusCircle, CalendarBlank, X } from "phosphor-react";
+import "./CreateQuiz.css";
 
 function CreateQuiz() {
   const [title, setTitle] = useState("");
@@ -17,11 +19,9 @@ function CreateQuiz() {
   const [selectedUnit, setSelectedUnit] = useState("");
   const [selectedChapter, setSelectedChapter] = useState("");
   const [selectedQuestions, setSelectedQuestions] = useState([]);
-
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [previewImage, setPreviewImage] = useState(null);
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -31,98 +31,75 @@ function CreateQuiz() {
   useEffect(() => {
     if (teacherId) {
       fetchYears();
-      fetchQuestionsByYear();
     }
   }, [teacherId]);
 
-  // Convert datetime-local string → UTC ISO string
-function toUTCString(localDateTime) {
-  if (!localDateTime) return null;
-  const [datePart, timePart] = localDateTime.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
-  const localDate = new Date(year, month - 1, day, hour, minute);
-  return localDate.toISOString();
-}
+  const toUTCString = (localDateTime) => {
+    if (!localDateTime) return null;
+    const [date, time] = localDateTime.split("T");
+    const [y, m, d] = date.split("-").map(Number);
+    const [h, min] = time.split(":").map(Number);
+    return new Date(y, m - 1, d, h, min).toISOString();
+  };
 
-// Convert UTC ISO string → datetime-local (local timezone)
-function toLocalInputValue(isoDate) {
-  if (!isoDate) return "";
-  const d = new Date(isoDate);
-  const pad = (n) => n.toString().padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-
-  // 🔹 Fetch Years
   const fetchYears = async () => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/year/${teacherId}`
       );
       setYears(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching years:", err);
+    } catch {
       toast.error("❌ Failed to load years");
     }
   };
 
-    // Fetch Questions when year changes
-    const fetchQuestionsByYear = async (yearId) => {
-      try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_URL}/api/questions/${teacherId}/${yearId}`
-        );
-        setQuestions(res.data);
-      } catch (err) {
-        console.error("❌ Error fetching questions:", err);
-        toast.error("❌ Failed to load questions");
-      }
-    };
+  const fetchQuestionsByYear = async (yearId) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/questions/${teacherId}/${yearId}`
+      );
+      setQuestions(res.data);
+    } catch {
+      toast.error("❌ Failed to load questions");
+    }
+  };
 
-  // 🔹 Fetch Units for selected year
   const fetchUnits = async (yearId) => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`
       );
       setUnits(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching units:", err);
+    } catch {
       toast.error("❌ Failed to load units");
     }
   };
 
-  // 🔹 Fetch Chapters for selected unit
   const fetchChapters = async (unitId) => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`
       );
       setChapters(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching chapters:", err);
+    } catch {
       toast.error("❌ Failed to load chapters");
     }
   };
 
-  // 🔹 Create Quiz
   const createQuiz = async () => {
-    if (!title || !selectedYear || !selectedGroups.length || !duration || !selectedQuestions.length) {
-      return toast.warn("⚠️ Title, year, groups, duration, and questions are required");
+    if (!title || !selectedYear || !selectedGroups.length || !selectedQuestions.length) {
+      return toast.warn("⚠️ Please fill all required fields");
     }
-
     try {
       await axios.post(`${process.env.REACT_APP_API_URL}/api/quiz`, {
         title,
         teacherId,
-        groups: selectedGroups,
         duration,
+        groups: selectedGroups,
         questions: selectedQuestions,
-        startTime: toUTCString(startTime), // ✅ convert before sending
-        endTime: toUTCString(endTime),     // ✅ convert before sending   
+        startTime: toUTCString(startTime),
+        endTime: toUTCString(endTime),
       });
-
       toast.success("✅ Quiz created!");
       setTitle("");
       setDuration(30);
@@ -135,13 +112,11 @@ function toLocalInputValue(isoDate) {
       setChapters([]);
       setStartTime("");
       setEndTime("");
-    } catch (err) {
-      console.error("❌ Error creating quiz:", err);
+    } catch {
       toast.error("❌ Failed to create quiz");
     }
   };
 
-  // 🔹 Filter Questions
   const filteredQuestions = questions.filter((q) => {
     return (
       (!selectedUnit || q.unitId?._id === selectedUnit) &&
@@ -150,70 +125,59 @@ function toLocalInputValue(isoDate) {
   });
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* === Sidebar === */}
-      <aside className="sidebar">
-        <button className="sidebar-toggle" onClick={() => setSidebarOpen(!sidebarOpen)}>
-          {sidebarOpen ? "«" : "»"}
-        </button>
-        <h2 className="sidebar-title">📚 Dashboard</h2>
-        <ul>
-          <li onClick={() => navigate("/teacher-dashboard")}>🏠 Home</li>
-          <li onClick={() => navigate("/manage-units")}>📘 Units & Chapters</li>
-          <li onClick={() => navigate("/questions")}>📋 Questions</li>
-          <li className="active">📝 Create Quiz</li>
-          <li onClick={() => navigate("/quizlist")}>📑 Quiz Lists</li>
-          <li onClick={() => navigate("/studentsperformance")}>📊 Performance</li>
-          <li onClick={() => navigate("/teacher-tasks")}>📂 Tasks & Homework</li>
-          <li onClick={() => navigate("/videomanager")}>📽 Upload Videos</li>
-          <li onClick={() => navigate("/PDFManager")}>📃 Upload Course Materials</li>
-        </ul>
-      </aside>
+    <div className="page-layout">
+      <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* === Main Content === */}
-      <main className="page-container">
-        <div className="section-card">
-          <h2 className="card-title">📝 Create New Quiz</h2>
+      <main
+        className={`createquiz-container ${
+          sidebarOpen ? "with-sidebar" : "full-width"
+        }`}
+      >
+        <div className="createquiz-card">
+          <h2 className="page-title">
+            <ClipboardText size={26} /> Create New Quiz
+          </h2>
 
-          {/* Quiz Title */}
-          <input
-            type="text"
-            placeholder="Quiz Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="styled-input"
-          />
+          {/* === Quiz Details === */}
+          <div className="form-section">
+            <label className="field-label">Quiz Title</label>
+            <input
+              type="text"
+              value={title}
+              placeholder="Enter quiz title"
+              onChange={(e) => setTitle(e.target.value)}
+              className="styled-input"
+            />
 
-          {/* Duration */}
-          <input
-            type="number"
-            placeholder="Duration (minutes)"
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            className="styled-input"
-          />
+            <label className="field-label">Duration (minutes)</label>
+            <input
+              type="number"
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="styled-input"
+            />
+          </div>
 
-          {/* Year Selector */}
-          <label className="form-label">Select Year</label>
+          {/* === Year Selection === */}
+          <label className="field-label">Select Year</label>
           <select
-  value={selectedYear}
-  onChange={(e) => {
-    const yearId = e.target.value;
-    setSelectedYear(yearId);
-    setSelectedGroups([]);
-    setUnits([]);
-    setChapters([]);
-    setSelectedUnit("");
-    setSelectedChapter("");
-    setQuestions([]); // clear old
-    if (yearId) {
-      fetchUnits(yearId);
-      fetchQuestionsByYear(yearId); // ✅ only fetch questions for this year
-    }
-  }}
-  className="styled-select"
->
-
+            value={selectedYear}
+            onChange={(e) => {
+              const yearId = e.target.value;
+              setSelectedYear(yearId);
+              setSelectedGroups([]);
+              setSelectedUnit("");
+              setSelectedChapter("");
+              setQuestions([]);
+              setUnits([]);
+              setChapters([]);
+              if (yearId) {
+                fetchUnits(yearId);
+                fetchQuestionsByYear(yearId);
+              }
+            }}
+            className="styled-select"
+          >
             <option value="">-- Select Year --</option>
             {years.map((y) => (
               <option key={y._id} value={y._id}>
@@ -222,27 +186,29 @@ function toLocalInputValue(isoDate) {
             ))}
           </select>
 
-          {/* Groups */}
+          {/* === Group Selection === */}
           {selectedYear && (
             <div>
-              <label className="form-label">Assign to Groups</label>
+              <label className="field-label">Assign to Groups</label>
               <div className="checkbox-grid">
                 {years.find((y) => y._id === selectedYear)?.groups?.map((g) => (
                   <label
                     key={g._id}
-                    className={`checkbox-card ${selectedGroups.includes(g._id) ? "selected" : ""}`}
+                    className={`checkbox-card ${
+                      selectedGroups.includes(g._id) ? "selected" : ""
+                    }`}
                   >
                     <input
                       type="checkbox"
                       value={g._id}
                       checked={selectedGroups.includes(g._id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedGroups([...selectedGroups, g._id]);
-                        } else {
-                          setSelectedGroups(selectedGroups.filter((id) => id !== g._id));
-                        }
-                      }}
+                      onChange={(e) =>
+                        setSelectedGroups((prev) =>
+                          e.target.checked
+                            ? [...prev, g._id]
+                            : prev.filter((id) => id !== g._id)
+                        )
+                      }
                     />
                     {g.name}
                   </label>
@@ -251,18 +217,17 @@ function toLocalInputValue(isoDate) {
             </div>
           )}
 
-          {/* Unit Selector */}
+          {/* === Unit & Chapter Filters === */}
           {units.length > 0 && (
             <>
-              <label className="form-label">Filter by Unit</label>
+              <label className="field-label">Filter by Unit</label>
               <select
                 value={selectedUnit}
                 onChange={(e) => {
-                  const unitId = e.target.value;
-                  setSelectedUnit(unitId);
+                  const id = e.target.value;
+                  setSelectedUnit(id);
                   setSelectedChapter("");
-                  setChapters([]);
-                  if (unitId) fetchChapters(unitId);
+                  if (id) fetchChapters(id);
                 }}
                 className="styled-select"
               >
@@ -276,10 +241,9 @@ function toLocalInputValue(isoDate) {
             </>
           )}
 
-          {/* Chapter Selector */}
           {chapters.length > 0 && (
             <>
-              <label className="form-label">Filter by Chapter</label>
+              <label className="field-label">Filter by Chapter</label>
               <select
                 value={selectedChapter}
                 onChange={(e) => setSelectedChapter(e.target.value)}
@@ -295,21 +259,22 @@ function toLocalInputValue(isoDate) {
             </>
           )}
 
-          {/* Questions */}
-          {/* Questions */}
+          {/* === Question Picker === */}
           {selectedYear && (
             <>
-              <label className="form-label">Select Questions</label>
+              <label className="field-label">Select Questions</label>
               <div className="question-grid">
                 {filteredQuestions.length === 0 ? (
-                  <p style={{ color: "#666", textAlign: "center", width: "100%" }}>
-                    No questions available for this year/unit/chapter.
+                  <p className="no-data">
+                    No questions found for this selection.
                   </p>
                 ) : (
                   filteredQuestions.map((q) => (
                     <div
                       key={q._id}
-                      className={`question-card ${selectedQuestions.includes(q._id) ? "selected" : ""}`}
+                      className={`question-box ${
+                        selectedQuestions.includes(q._id) ? "selected" : ""
+                      }`}
                       onClick={() =>
                         setSelectedQuestions((prev) =>
                           prev.includes(q._id)
@@ -329,7 +294,7 @@ function toLocalInputValue(isoDate) {
                           }}
                         />
                       )}
-                      <p className="question-meta">
+                      <p>
                         {q.unitId?.name} → {q.chapterId?.name}
                       </p>
                     </div>
@@ -339,39 +304,46 @@ function toLocalInputValue(isoDate) {
             </>
           )}
 
-
-          {/* Image Preview */}
+          {/* === Preview Modal === */}
           {previewImage && (
             <div className="modal-overlay" onClick={() => setPreviewImage(null)}>
               <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-                <img src={previewImage} alt="Full Preview" style={{ maxWidth: "100%", maxHeight: "90vh" }} />
-                <button className="btn btn-blue small-btn" style={{ marginTop: "10px" }} onClick={() => setPreviewImage(null)}>
-                  ✖ Close
+                <img src={previewImage} alt="Preview" className="preview-img" />
+                <button
+                  className="btn btn-blue small-btn"
+                  onClick={() => setPreviewImage(null)}
+                >
+                  <X size={20} /> Close
                 </button>
               </div>
             </div>
           )}
 
-          {/* Optional Times */}
-          <label className="form-label">Start Time (optional)</label>
-          <input
-            type="datetime-local"
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            className="styled-input"
-          />
+          {/* === Optional Time Settings === */}
+          <div className="form-section">
+            <label className="field-label">
+              <CalendarBlank size={18} /> Start Time
+            </label>
+            <input
+              type="datetime-local"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="styled-input"
+            />
 
-          <label className="form-label">End Time (optional)</label>
-          <input
-            type="datetime-local"
-            value={endTime}
-            onChange={(e) => setEndTime(e.target.value)}
-            className="styled-input"
-          />
+            <label className="field-label">
+              <CalendarBlank size={18} /> End Time
+            </label>
+            <input
+              type="datetime-local"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="styled-input"
+            />
+          </div>
 
-          {/* Submit */}
-          <button onClick={createQuiz} className="btn btn-purple">
-            Create Quiz
+          <button onClick={createQuiz} className="btn btn-blue submit-btn">
+            <PlusCircle size={20} /> Create Quiz
           </button>
         </div>
       </main>

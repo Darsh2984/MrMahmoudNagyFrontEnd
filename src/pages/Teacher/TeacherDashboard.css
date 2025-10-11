@@ -1,0 +1,154 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* --- LAYOUT FIX --- */
+.teacher-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.teacher-main {
+  flex-grow: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  transition: margin-left 0.3s ease, width 0.3s ease;
+  min-width: 0;
+}
+
+.teacher-main.expanded {
+  margin-left: 250px; /* matches sidebar width */
+}
+
+.teacher-main.collapsed {
+  margin-left: 80px; /* matches collapsed sidebar */
+}
+
+/* --- HEADER --- */
+.dashboard-header {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-header h2 {
+  color: var(--teal);
+  margin-bottom: 0.2rem;
+}
+
+.dashboard-header p {
+  color: var(--green);
+}
+
+/* --- CARD GRID --- */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1rem;
+}
+
+.dashboard-card {
+  background: white;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  border: 1px solid var(--green);
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.dashboard-card:hover {
+  background: var(--green);
+  color: white;
+  transform: translateY(-3px);
+}
+
+/* --- SECTIONS --- */
+.section-card {
+  background: white;
+  border-radius: 10px;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* --- BUTTONS --- */
+.btn {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-red {
+  background: var(--red);
+  color: #fff;
+}
+
+.btn-green {
+  background: var(--green);
+  color: #fff;
+}
+
+.btn-purple {
+  background: var(--teal);
+  color: #fff;
+}
+
+.btn-export {
+  background: var(--teal);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 1rem;
+}
+
+/* --- ZOOM LINKS --- */
+.zoom-block {
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.zoom-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 0.8rem;
+}
+
+.zoom-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.styled-input {
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+@media (max-width: 768px) {
+  .teacher-main.expanded,
+  .teacher-main.collapsed {
+    margin-left: 0;
+    padding: 1rem;
+  }
+
+  .zoom-row,
+  .zoom-actions {
+    flex-direction: column;
+  }
+}

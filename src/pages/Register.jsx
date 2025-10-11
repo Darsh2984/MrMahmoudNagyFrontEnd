@@ -3,9 +3,10 @@ import "react-phone-input-2/lib/style.css";
 import PhoneInput from "react-phone-input-2";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import "../styles/AppStyles.css";
-import { toast } from "react-toastify"; 
-
+import "./Register.css";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { UserPlus, CheckCircle } from "phosphor-react"; // ✅ icons
 
 function Register() {
   const [form, setForm] = useState({
@@ -17,185 +18,166 @@ function Register() {
     parentName: "",
     parentPhone: "",
     parentEmail: "",
-    schoolId: "", // ✅ new
+    schoolId: "",
   });
 
   const [schools, setSchools] = useState([]);
-  const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
-// ✅ Fetch schools
   useEffect(() => {
     const fetchSchools = async () => {
       try {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/school/all`);
-        const sortedSchools = res.data.sort((a, b) =>
+        const sorted = res.data.sort((a, b) =>
           a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
         );
-        setSchools(sortedSchools);
-      } catch (err) {
-        console.error("❌ Error fetching schools:", err);
+        setSchools(sorted);
+      } catch {
+        toast.error("❌ Failed to load schools");
       }
     };
     fetchSchools();
   }, []);
 
-  // ✅ Page style
-  useEffect(() => {
-    document.body.classList.add("login-page");
-    return () => {
-      document.body.classList.remove("login-page");
-    };
-  }, []);
-
   const handleRegister = async (e) => {
     e.preventDefault();
 
-    // 🚨 Validation: student email cannot equal parent email
     if (form.email.trim() && form.parentEmail.trim() && form.email === form.parentEmail) {
-      toast.error("❌ Student email cannot be the same as parent email.");
-      return; // ⛔ stop submission
+      toast.error("❌ Student email cannot be the same as parent email.", {
+        position: "top-center",
+        autoClose: 3000,
+      });
+      return;
     }
 
     try {
       await axios.post(`${process.env.REACT_APP_API_URL}/api/auth/register`, form);
-      setMessage("✅ Registration successful! Redirecting to login...");
+      toast.success("✅ Registration successful! Redirecting...", {
+        position: "top-center",
+        autoClose: 2000,
+      });
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      console.error("❌ Registration failed:", err);
-
-      if (err.response?.status === 400 && err.response?.data?.msg?.includes("User already exists")) {
-        setMessage("❌ User already exists. Please log in.");
-      } else {
-        setMessage("❌ Registration failed! Please try again.");
-      }
+      const msg =
+        err.response?.data?.msg?.includes("User already exists")
+          ? "❌ User already exists. Please log in."
+          : "❌ Registration failed. Try again.";
+      toast.error(msg, { position: "top-center" });
     }
   };
 
-
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h2 className="login-title">📝 Register</h2>
+    <div className="register-page-layout">
+      <div className="register-form-card">
+        {/* ✅ Title with icon */}
+        <h2 className="register-title">
+          <UserPlus size={28} weight="bold" color="#0b3c49" />
+          <span>Register</span>
+        </h2>
 
-        <form onSubmit={handleRegister}>
-          {/* Name */}
-          <div className="input-group">
-            <i className="fas fa-user"></i>
+        <form onSubmit={handleRegister} className="register-form">
+          <div className="form-group">
+            <label>Full Name</label>
             <input
               type="text"
-              placeholder="Full Name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               required
             />
           </div>
 
-          {/* Email */}
-          <div className="input-group">
-            <i className="fas fa-envelope"></i>
+          <div className="form-group">
+            <label>Email</label>
             <input
               type="email"
-              placeholder="Email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               required
             />
           </div>
 
-          {/* Password */}
-          <div className="input-group">
-            <i className="fas fa-lock"></i>
+          <div className="form-group">
+            <label>Password</label>
             <input
               type="password"
-              placeholder="Password"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
               required
             />
           </div>
 
-          {/* 🔹 School Selection */}
-          <label className="field-label">Select School</label>
-          <select
-            className="styled-select"
-            value={form.schoolId}
-            onChange={(e) => setForm({ ...form, schoolId: e.target.value })}
-            required
-          >
-            <option value="">-- Choose a School --</option>
-            {schools.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <div className="form-group">
+            <label>School</label>
+            <select
+              value={form.schoolId}
+              onChange={(e) => setForm({ ...form, schoolId: e.target.value })}
+              required
+            >
+              <option value="">-- Select School --</option>
+              {schools.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {/* Student phone */}
-          <label className="field-label">Student Phone</label>
-          <PhoneInput
-              country={"eg"}                 // 🌍 default country (Egypt)
-              value={form.studentPhone}      // 🔗 bind value
+          <div className="form-group">
+            <label>Student Phone</label>
+            <PhoneInput
+              country={"eg"}
+              value={form.studentPhone}
               onChange={(phone) => setForm({ ...form, studentPhone: phone })}
               inputStyle={{ width: "100%" }}
-              containerStyle={{ marginBottom: "15px" }}
-              enableSearch={true}            // 🔍 allow searching countries
-              countryCodeEditable={false}    // 🔒 keeps +20 visible & locked
-              required
+              enableSearch
+              countryCodeEditable={false}
+              inputProps={{ required: true }} // ✅ enforce required
             />
+          </div>
 
-          {/* Parent Name */}
-          <div className="input-group">
-            <i className="fas fa-user"></i>
+          <div className="form-group">
+            <label>Parent Full Name</label>
             <input
               type="text"
-              placeholder="Parent Full Name"
               value={form.parentName}
               onChange={(e) => setForm({ ...form, parentName: e.target.value })}
-              // ❌ removed required
+              required
             />
           </div>
 
-          {/* Parent Phone */}
-          <label className="field-label">Parent Phone</label>
-          <PhoneInput
-            country={"eg"}
-            value={form.parentPhone}
-            onChange={(phone) => setForm({ ...form, parentPhone: phone })}
-            enableSearch={true}            // 🔍 allow searching countries
-            countryCodeEditable={false}    // 🔒 keeps +20 visible & locked
-            inputStyle={{ width: "100%" }}
-            containerStyle={{ marginBottom: "15px" }}
-          />
+          <div className="form-group">
+            <label>Parent Phone</label>
+            <PhoneInput
+              country={"eg"}
+              value={form.parentPhone}
+              onChange={(phone) => setForm({ ...form, parentPhone: phone })}
+              inputStyle={{ width: "100%" }}
+              enableSearch
+              countryCodeEditable={false}
+              inputProps={{ required: true }} // ✅ enforce required
+            />
+          </div>
 
-          {/* Parent Email */}
-          <div className="input-group">
-            <i className="fas fa-envelope"></i>
+          <div className="form-group">
+            <label>Parent Email</label>
             <input
               type="email"
-              placeholder="Parent Email"
               value={form.parentEmail}
               onChange={(e) => setForm({ ...form, parentEmail: e.target.value })}
-              // ❌ removed required
+              required
             />
           </div>
 
-
-          {/* Submit */}
-          <button type="submit" className="login-btn">
-            {message.includes("✅") ? "⏳ Redirecting..." : "✅ Register"}
+          {/* ✅ Button with icon */}
+          <button type="submit" className="register-btn">
+            <CheckCircle size={20} weight="fill" color="#fff" />
+            <span>Register</span>
           </button>
         </form>
 
-        <p className="forgot-link">
+        <p className="register-link">
           Already have an account? <Link to="/login">Login</Link>
         </p>
-
-        {message && (
-          <p className={`message ${message.includes("✅") ? "success" : "error"}`}>
-            {message}
-          </p>
-        )}
       </div>
     </div>
   );

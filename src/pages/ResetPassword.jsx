@@ -1,18 +1,19 @@
-// ResetPassword.js
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import "../styles/AppStyles.css";
+import "./ResetPassword.css"; // ✅ new CSS
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Key, CheckCircle } from "phosphor-react"; // ✅ icons
 
 export default function ResetPassword() {
   const { token } = useParams();
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ Add login-page background + centering
+  // ✅ Add same centered layout background
   useEffect(() => {
     document.body.classList.add("login-page");
     return () => {
@@ -22,66 +23,69 @@ export default function ResetPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (password !== confirmPassword) {
-      return setMsg("❌ Passwords do not match!");
+      toast.error("❌ Passwords do not match!", { position: "top-center" });
+      return;
     }
 
     setLoading(true);
-    setMsg("");
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_URL}/api/auth/reset-password/${token}`,
         { password }
       );
-      setMsg(res.data.msg || "✅ Password reset successful!");
+      toast.success(res.data.msg || "✅ Password reset successful!", {
+        position: "top-center",
+        autoClose: 2000,
+      });
 
-      // redirect to login after 2 seconds
-      setTimeout(() => navigate("/"), 2000);
+      setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      setMsg("❌ Error resetting password. Try again.");
+      toast.error("❌ Error resetting password. Try again.", {
+        position: "top-center",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h2 className="login-title">🔑 Reset Password</h2>
+    <div className="reset-page-layout">
+      <div className="reset-form-card">
+        {/* ✅ Title with icon */}
+        <h2 className="reset-title">
+          <Key size={28} weight="bold" color="#0b3c49" />
+          <span>Reset Password</span>
+        </h2>
 
-        <form onSubmit={handleSubmit}>
-          <div className="input-group">
-            <i className="fas fa-lock"></i>
+        <form onSubmit={handleSubmit} className="reset-form">
+          <div className="form-group">
+            <label>New Password</label>
             <input
               type="password"
-              placeholder="New Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
 
-          <div className="input-group">
-            <i className="fas fa-lock"></i>
+          <div className="form-group">
+            <label>Confirm Password</label>
             <input
               type="password"
-              placeholder="Confirm New Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
             />
           </div>
 
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? "⏳ Resetting..." : "✅ Reset Password"}
+          {/* ✅ Button with icon */}
+          <button type="submit" className="reset-btn" disabled={loading}>
+            <CheckCircle size={20} weight="fill" color="#fff" />
+            <span>{loading ? "Resetting..." : "Reset Password"}</span>
           </button>
         </form>
-
-        {msg && (
-          <p className={`message ${msg.includes("✅") ? "success" : "error"}`}>
-            {msg}
-          </p>
-        )}
       </div>
     </div>
   );

@@ -1,0 +1,116 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* ==== CARD CONTAINER ==== */
+.groupsessions-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.07);
+  margin-top: 1.5rem;
+}
+
+/* ==== HEADER ==== */
+.groupsessions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+}
+
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.header-title h3 {
+  color: var(--teal);
+  margin: 0;
+}
+
+.btn-refresh {
+  background: var(--teal);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-refresh:hover {
+  background: var(--green);
+}
+
+/* ==== FIELD LABEL ==== */
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--charcoal);
+  margin-bottom: 6px;
+}
+
+/* ==== SELECT DROPDOWN ==== */
+.session-select-container {
+  margin-bottom: 1rem;
+}
+
+.styled-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--green);
+  border-radius: 6px;
+  background: var(--cream);
+  color: var(--charcoal);
+  font-weight: 500;
+}
+
+/* ==== ATTENDANCE SECTION ==== */
+.attendance-container {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  background: #fafafa;
+}
+
+.attendance-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1rem;
+  color: var(--teal);
+}
+
+.text-muted {
+  color: #777;
+  font-style: italic;
+  margin-top: 10px;
+}
+
+/* ==== RESPONSIVE ==== */
+@media (max-width: 768px) {
+  .groupsessions-card {
+    padding: 1rem;
+  }
+
+  .btn-refresh {
+    padding: 6px 10px;
+  }
+
+  .attendance-container {
+    padding: 0.8rem;
+  }
+}

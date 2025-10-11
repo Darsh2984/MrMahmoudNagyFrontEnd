@@ -1,0 +1,193 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --terracotta: #c85d47;
+  --orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* === Layout === */
+.page-layout {
+  display: flex;
+  background: var(--cream);
+  min-height: 100vh;
+}
+
+.teachertasks-container {
+  flex: 1;
+  padding: 2rem;
+  transition: margin-left 0.4s ease;
+}
+
+.with-sidebar {
+  margin-left: 240px;
+}
+
+.full-width {
+  margin-left: 0;
+}
+
+/* === Cards === */
+.section-card {
+  background: #fff;
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.page-title {
+  color: var(--teal);
+  margin-bottom: 1rem;
+}
+
+/* === Form === */
+.styled-input,
+.styled-select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--green);
+  margin-bottom: 10px;
+}
+
+.btn {
+  border: none;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-blue {
+  background: var(--teal);
+  color: #fff;
+}
+
+.btn-blue:hover {
+  background: var(--green);
+}
+
+.btn-green {
+  background: var(--green);
+  color: #fff;
+}
+
+.btn-red {
+  background: var(--terracotta);
+  color: #fff;
+}
+
+.btn-purple {
+  background: var(--orange);
+  color: #fff;
+}
+
+/* === Groups Grid === */
+.checkbox-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.checkbox-card {
+  background: #fff;
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.checkbox-card.selected {
+  background: var(--green);
+  color: #fff;
+}
+
+/* === Task List === */
+.task-card {
+  border-bottom: 1px solid var(--green);
+  padding: 1rem 0;
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.task-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* === Submissions === */
+.submission-table {
+  margin-top: 1rem;
+}
+
+.submission-header,
+.submission-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 8px;
+  border-bottom: 1px solid #ddd;
+}
+
+.submission-header {
+  background: var(--teal);
+  color: #fff;
+  font-weight: 600;
+}
+
+.present {
+  color: var(--green);
+}
+
+.absent {
+  color: var(--terracotta);
+}
+
+.grading-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.grading-box {
+  margin-top: 8px;
+  border-left: 3px solid var(--green);
+  padding-left: 10px;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  .teachertasks-container {
+    padding: 1rem;
+    margin-left: 0 !important;
+  }
+
+  .submission-header,
+  .submission-row {
+    grid-template-columns: 1fr 1fr;
+    font-size: 0.9rem;
+  }
+
+  .task-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

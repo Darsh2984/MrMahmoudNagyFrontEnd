@@ -1,0 +1,183 @@
+/* =========================================================
+   Teacher In-Class Quizzes Page
+   Scoped Styling – follows unified Teacher UI system
+   ========================================================= */
+
+/* === Base Layout === */
+.teacher-inclass-page {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f5f1eb; /* beige background */
+  color: #33312e;
+  font-family: "Poppins", sans-serif;
+}
+
+.teacher-inclass-container {
+  flex: 1;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: margin-left 0.3s ease;
+}
+
+.teacher-inclass-page.with-sidebar .teacher-inclass-container {
+  margin-left: 20px;
+}
+
+.teacher-inclass-page.full-width .teacher-inclass-container {
+  margin-left: 0;
+}
+
+/* === Cards / Sections === */
+.inclass-card {
+  width: 100%;
+  max-width: 950px;
+  background: #ffffff;
+  border: 1px solid #8baa91;
+  border-radius: 12px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.inclass-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #0b3c49;
+  margin-bottom: 1rem;
+}
+
+/* === Header Controls === */
+.inclass-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* === Form / Inputs === */
+.inclass-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.inclass-input,
+.inclass-select {
+  width: 100%;
+  padding: 0.65rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: #33312e;
+  transition: border-color 0.2s ease;
+}
+
+.inclass-input:focus,
+.inclass-select:focus {
+  border-color: #8baa91;
+  outline: none;
+}
+
+.inclass-select:hover {
+  border-color: #8baa91;
+}
+
+/* === Buttons === */
+.inclass-btn {
+  border: none;
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.inclass-btn-blue {
+  background-color: #0b3c49;
+  color: #f5f1eb;
+}
+
+.inclass-btn-blue:hover {
+  background-color: #07313b;
+}
+
+.inclass-btn-green {
+  background-color: #8baa91;
+  color: #ffffff;
+}
+
+.inclass-btn-green:hover {
+  background-color: #769b81;
+}
+
+.inclass-btn-orange {
+  background-color: #d77e42;
+  color: #ffffff;
+}
+
+.inclass-btn-orange:hover {
+  background-color: #b96834;
+}
+
+/* === Table === */
+.inclass-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.inclass-table th {
+  background-color: #0b3c49;
+  color: #f5f1eb;
+  padding: 0.75rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.inclass-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #ddd;
+  font-size: 0.95rem;
+}
+
+.inclass-table tr:hover {
+  background-color: #f5f1eb;
+}
+
+/* === Responsive === */
+@media (max-width: 992px) {
+  .teacher-inclass-container {
+    padding: 1.5rem;
+  }
+
+  .inclass-select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .teacher-inclass-container {
+    padding: 1rem;
+  }
+
+  .inclass-card {
+    padding: 1rem;
+  }
+
+  .inclass-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .inclass-btn {
+    font-size: 0.85rem;
+  }
+}

@@ -4,8 +4,17 @@ import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
-import "../styles/AppStyles.css";
 import TeacherSidebar from "../components/TeacherSidebar";
+import {
+  PencilSimple,
+  Trash,
+  FloppyDisk,
+  XCircle,
+  Users,
+  Student,
+  UserCirclePlus,
+} from "phosphor-react";
+import "./AllStudentsData.css";
 
 export default function AllStudentsData() {
   const [years, setYears] = useState([]);
@@ -16,49 +25,13 @@ export default function AllStudentsData() {
   const [unassigned, setUnassigned] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Editing state
-  const [editing, setEditing] = useState(null); // studentId being edited
-  const [editForm, setEditForm] = useState({}); // temp form values
-
+  const [editing, setEditing] = useState(null);
+  const [editForm, setEditForm] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
   const user = JSON.parse(localStorage.getItem("user"));
   const navigate = useNavigate();
 
-  // Sorting handler
-  const handleSort = (key) => {
-    let direction = "asc";
-    if (sortConfig.key === key && sortConfig.direction === "asc") {
-      direction = "desc";
-    }
-    setSortConfig({ key, direction });
-  };
-
-  // Sorted students list
-  const sortedStudents = [...students].sort((a, b) => {
-    if (!sortConfig.key) return 0;
-    let valA, valB;
-
-    switch (sortConfig.key) {
-      case "parentEmail":
-        valA = a.parentId?.email || "";
-        valB = b.parentId?.email || "";
-        break;
-      default:
-        valA = a[sortConfig.key] || "";
-        valB = b[sortConfig.key] || "";
-        break;
-    }
-
-    valA = valA.toString().toLowerCase();
-    valB = valB.toString().toLowerCase();
-
-    if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
-    if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  // Load years + unassigned students
   useEffect(() => {
     if (user?.id) fetchYears(user.id);
     fetchUnassigned();
@@ -102,22 +75,38 @@ export default function AllStudentsData() {
     }
   };
 
-  // ✅ Start editing
+  const handleSort = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") direction = "desc";
+    setSortConfig({ key, direction });
+  };
+
+  const sortedStudents = [...students].sort((a, b) => {
+    if (!sortConfig.key) return 0;
+    let valA = a[sortConfig.key] || "";
+    let valB = b[sortConfig.key] || "";
+    if (sortConfig.key === "parentEmail") {
+      valA = a.parentId?.email || "";
+      valB = b.parentId?.email || "";
+    }
+    return sortConfig.direction === "asc"
+      ? valA.localeCompare(valB)
+      : valB.localeCompare(valA);
+  });
+
   const startEditing = (student) => {
     setEditing(student._id);
     setEditForm({
       ...student,
-      parentEmail: student.parentId?.email || "", // extract parent email into its own field
+      parentEmail: student.parentId?.email || "",
     });
   };
 
-  // ✅ Cancel editing
   const cancelEditing = () => {
     setEditing(null);
     setEditForm({});
   };
 
-  // ✅ Update student + parent
   const handleUpdate = async () => {
     try {
       await axios.put(`${process.env.REACT_APP_API_URL}/api/students/${editing}`, editForm);
@@ -131,31 +120,48 @@ export default function AllStudentsData() {
     }
   };
 
-  // ✅ Delete student + parent
   const handleDelete = async (studentId) => {
-    if (!window.confirm("⚠️ Are you sure you want to delete this student and their parent?")) {
-      return;
-    }
-    try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/api/students/${studentId}`);
-      toast.success("🗑️ Student deleted");
-      if (groupId) fetchStudents(yearId, groupId);
-      fetchUnassigned();
-    } catch {
-      toast.error("❌ Failed to delete student");
-    }
+    toast.info(
+      <div>
+        <p>⚠️ Are you sure you want to delete this student and their parent?</p>
+        <div className="toast-actions">
+          <button
+            onClick={async () => {
+              try {
+                await axios.delete(`${process.env.REACT_APP_API_URL}/api/students/${studentId}`);
+                toast.dismiss();
+                toast.success("🗑️ Student deleted");
+                if (groupId) fetchStudents(yearId, groupId);
+                fetchUnassigned();
+              } catch {
+                toast.dismiss();
+                toast.error("❌ Failed to delete student");
+              }
+            }}
+            className="toast-btn-confirm"
+          >
+            Confirm
+          </button>
+          <button onClick={() => toast.dismiss()} className="toast-btn-cancel">
+            Cancel
+          </button>
+        </div>
+      </div>,
+      { autoClose: false, closeOnClick: false, draggable: false, position: "top-center" }
+    );
   };
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+    <div className="page-layout">
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      <main className="page-container">
+      <main className={`allstudents-container ${sidebarOpen ? "with-sidebar" : "full-width"}`}>
         <div className="section-card">
-          <h2 className="card-title">📋 All Registered Student Data</h2>
+          <h2 className="page-title">
+            <Users size={28} weight="fill" color="#0b3c49" /> All Registered Student Data
+          </h2>
 
-          {/* Year & Group Selectors */}
-          <div className="filter-box">
+          <div className="filter-bar">
             <div className="filter-item">
               <label>Year</label>
               <select
@@ -200,84 +206,136 @@ export default function AllStudentsData() {
           </div>
         </div>
 
-        {/* Students in Group */}
         {students.length > 0 && (
           <div className="section-card">
-            <h3 className="card-title">👥 Students in Group</h3>
-            <table className="styled-table">
-              <thead>
-                <tr>
-                  <th onClick={() => handleSort("name")}>Name</th>
-                  <th onClick={() => handleSort("email")}>Email</th>
-                  <th onClick={() => handleSort("studentPhone")}>Phone</th>
-                  <th onClick={() => handleSort("parentName")}>Parent Name</th>
-                  <th onClick={() => handleSort("parentPhone")}>Parent Phone</th>
-                  <th onClick={() => handleSort("parentEmail")}>Parent Email</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedStudents.map((s) =>
-                  editing === s._id ? (
-                    <tr key={s._id}>
-                      <td>
-                        <input
-                          className="styled-input"
-                          value={editForm.name}
-                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="styled-input"
-                          value={editForm.email}
-                          onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <PhoneInput
-                          country={"eg"}
-                          value={editForm.studentPhone || ""}
-                          onChange={(phone) => setEditForm({ ...editForm, studentPhone: phone })}
-                          inputStyle={{ width: "100%" }}
-                          enableSearch={true}
-                          countryCodeEditable={false}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="styled-input"
-                          value={editForm.parentName || ""}
-                          onChange={(e) => setEditForm({ ...editForm, parentName: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <PhoneInput
-                          country={"eg"}
-                          value={editForm.parentPhone || ""}
-                          onChange={(phone) => setEditForm({ ...editForm, parentPhone: phone })}
-                          inputStyle={{ width: "100%" }}
-                          enableSearch={true}
-                          countryCodeEditable={false}
-                        />
-                      </td>
-                      <td>
-                        <input
-                          className="styled-input"
-                          value={editForm.parentEmail || ""}
-                          onChange={(e) => setEditForm({ ...editForm, parentEmail: e.target.value })}
-                        />
-                      </td>
-                      <td>
-                        <button className="btn btn-green" onClick={handleUpdate}>
-                          💾 Save
-                        </button>
-                        <button className="btn btn-red" onClick={cancelEditing}>
-                          Cancel
-                        </button>
-                      </td>
-                    </tr>
-                  ) : (
+            <h3 className="card-title">
+              <Student size={24} weight="fill" color="#0b3c49" /> Students in Group
+            </h3>
+            <div className="table-wrapper">
+              <table className="styled-table">
+                <thead>
+                  <tr>
+                    <th onClick={() => handleSort("name")}>Name</th>
+                    <th onClick={() => handleSort("email")}>Email</th>
+                    <th>Phone</th>
+                    <th>Parent Name</th>
+                    <th>Parent Phone</th>
+                    <th>Parent Email</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedStudents.map((s) =>
+                    editing === s._id ? (
+                      <tr key={s._id}>
+                        <td>
+                          <input
+                            className="styled-input"
+                            value={editForm.name}
+                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="styled-input"
+                            value={editForm.email}
+                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                          />
+                        </td>
+                        <td>
+                          <PhoneInput
+                            country="eg"
+                            value={editForm.studentPhone || ""}
+                            onChange={(phone) =>
+                              setEditForm({ ...editForm, studentPhone: phone })
+                            }
+                            inputStyle={{ width: "100%" }}
+                            enableSearch
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="styled-input"
+                            value={editForm.parentName || ""}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, parentName: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <PhoneInput
+                            country="eg"
+                            value={editForm.parentPhone || ""}
+                            onChange={(phone) =>
+                              setEditForm({ ...editForm, parentPhone: phone })
+                            }
+                            inputStyle={{ width: "100%" }}
+                            enableSearch
+                          />
+                        </td>
+                        <td>
+                          <input
+                            className="styled-input"
+                            value={editForm.parentEmail || ""}
+                            onChange={(e) =>
+                              setEditForm({ ...editForm, parentEmail: e.target.value })
+                            }
+                          />
+                        </td>
+                        <td className="actions-cell">
+                          <button className="btn btn-green" onClick={handleUpdate}>
+                            <FloppyDisk size={18} /> Save
+                          </button>
+                          <button className="btn btn-red" onClick={cancelEditing}>
+                            <XCircle size={18} /> Cancel
+                          </button>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr key={s._id}>
+                        <td>{s.name}</td>
+                        <td>{s.email}</td>
+                        <td>{s.studentPhone ? `+${s.studentPhone}` : "-"}</td>
+                        <td>{s.parentName || "-"}</td>
+                        <td>{s.parentPhone ? `+${s.parentPhone}` : "-"}</td>
+                        <td>{s.parentId?.email || "-"}</td>
+                        <td className="actions-cell">
+                          <button className="btn btn-blue" onClick={() => startEditing(s)}>
+                            <PencilSimple size={18} /> Edit
+                          </button>
+                          <button className="btn btn-red" onClick={() => handleDelete(s._id)}>
+                            <Trash size={18} /> Delete
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {unassigned.length > 0 && (
+          <div className="section-card">
+            <h3 className="card-title">
+              <UserCirclePlus size={24} weight="fill" color="#d77e42" /> Unassigned Students
+            </h3>
+            <div className="table-wrapper">
+              <table className="styled-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Parent Name</th>
+                    <th>Parent Phone</th>
+                    <th>Parent Email</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unassigned.map((s) => (
                     <tr key={s._id}>
                       <td>{s.name}</td>
                       <td>{s.email}</td>
@@ -286,59 +344,15 @@ export default function AllStudentsData() {
                       <td>{s.parentPhone ? `+${s.parentPhone}` : "-"}</td>
                       <td>{s.parentId?.email || "-"}</td>
                       <td>
-                        <div className="action-buttons">
-                          <button className="btn btn-blue" onClick={() => startEditing(s)}>
-                            ✏️ Edit
-                          </button>
-                          <button className="btn btn-red" onClick={() => handleDelete(s._id)}>
-                            🗑️ Delete
-                          </button>
-                        </div>
+                        <button className="btn btn-red" onClick={() => handleDelete(s._id)}>
+                          <Trash size={18} /> Delete
+                        </button>
                       </td>
                     </tr>
-                  )
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Unassigned Students */}
-        {unassigned.length > 0 && (
-          <div className="section-card">
-            <h3 className="card-title">⚠️ Unassigned Students</h3>
-            <table className="styled-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Phone</th>
-                  <th>Parent Name</th>
-                  <th>Parent Phone</th>
-                  <th>Parent Email</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unassigned.map((s) => (
-                  <tr key={s._id}>
-                    <td>{s.name}</td>
-                    <td>{s.email}</td>
-                    <td>{s.studentPhone ? `+${s.studentPhone}` : "-"}</td>
-                    <td>{s.parentName || "-"}</td>
-                    <td>{s.parentPhone ? `+${s.parentPhone}` : "-"}</td>
-                    <td>{s.parentId?.email || "-"}</td>
-                    <td>
-                      <div className="action-buttons">
-                        <button className="btn btn-red" onClick={() => handleDelete(s._id)}>
-                          🗑️ Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </main>

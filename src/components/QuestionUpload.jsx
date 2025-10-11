@@ -2,9 +2,9 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import "../styles/AppStyles.css";
-import TeacherSidebar from "./TeacherSidebar"; // ✅ import new sidebar
-
+import TeacherSidebar from "./TeacherSidebar";
+import { UploadSimple } from "phosphor-react";
+import "./QuestionUpload.css";
 
 function QuestionUpload() {
   const [years, setYears] = useState([]);
@@ -16,7 +16,6 @@ function QuestionUpload() {
   const [selectedChapter, setSelectedChapter] = useState("");
   const [image, setImage] = useState(null);
   const [correctAnswer, setCorrectAnswer] = useState("");
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -24,7 +23,6 @@ function QuestionUpload() {
 
   const navigate = useNavigate();
 
-  // 🔹 Fetch teacher's years
   useEffect(() => {
     if (teacherId) fetchYears();
   }, [teacherId]);
@@ -89,7 +87,7 @@ function QuestionUpload() {
 
     try {
       const formData = new FormData();
-      formData.append("yearId", selectedYear);   // ✅ include year
+      formData.append("yearId", selectedYear);
       formData.append("unitId", selectedUnit);
       formData.append("chapterId", selectedChapter);
       formData.append("teacherId", teacherId);
@@ -100,8 +98,7 @@ function QuestionUpload() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      toast.success("✅ Question uploaded!");
-      // reset fields
+      toast.success("✅ Question uploaded successfully!");
       setSelectedYear("");
       setSelectedUnit("");
       setSelectedChapter("");
@@ -118,16 +115,20 @@ function QuestionUpload() {
   };
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-       {/* ✅ Sidebar extracted */}
+    <div className="page-layout">
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* === Main Content === */}
-      <main className="page-container">
-        <div className="section-card">
-          <h3 className="card-title">📤 Upload MCQ Question</h3>
+      <main
+        className={`upload-container ${
+          sidebarOpen ? "with-sidebar" : "full-width"
+        }`}
+      >
+        <div className="upload-card">
+          <h2 className="upload-title">
+            <UploadSimple size={24} weight="bold" /> Upload MCQ Question
+          </h2>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="upload-form">
             {/* Year */}
             <label className="field-label">Select Year</label>
             <select
@@ -199,10 +200,8 @@ function QuestionUpload() {
               ))}
             </select>
 
-            <br />
-            <br />
-            <button type="submit" className="btn btn-blue" style={{ width: "100%" }}>
-              Upload
+            <button type="submit" className="btn btn-blue submit-btn">
+              Upload Question
             </button>
           </form>
         </div>

@@ -2,9 +2,18 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import "../../styles/AppStyles.css";
-import StudentSidebar from "../../components/StudentSidebar"; // import new sidebar
-
+import StudentSidebar from "../../components/StudentSidebar";
+import {
+  ClipboardText,
+  UploadSimple,
+  FilePdf,
+  Trash,
+  CheckCircle,
+  XCircle,
+  Clock,
+} from "phosphor-react";
+import "react-toastify/dist/ReactToastify.css";
+import "./StudentTasks.css";
 
 function StudentTasks() {
   const [tasks, setTasks] = useState([]);
@@ -14,7 +23,7 @@ function StudentTasks() {
   const user = JSON.parse(localStorage.getItem("user"));
   const navigate = useNavigate();
 
-  // Fetch tasks
+  // === Fetch all tasks ===
   useEffect(() => {
     const fetchTasks = async () => {
       try {
@@ -35,7 +44,7 @@ function StudentTasks() {
     fetchTasks();
   }, [user?.groupId]);
 
-  // Fetch student submission for a task
+  // === Fetch submission for each task ===
   const fetchSubmission = async (taskId) => {
     try {
       const res = await axios.get(
@@ -48,7 +57,7 @@ function StudentTasks() {
     }
   };
 
-  // Upload PDF
+  // === Upload a PDF ===
   const uploadSubmission = async (taskId, file) => {
     if (!file) return toast.warn("⚠️ Please select a PDF");
 
@@ -72,146 +81,136 @@ function StudentTasks() {
     }
   };
 
-  function formatDeadline(isoDate) {
-  const date = new Date(isoDate);
-  return date.toLocaleString("en-GB", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
-
-  // Delete submission
+  // === Delete submission ===
   const deleteSubmission = async (submissionId, task) => {
-    // Check deadline
     if (new Date(task.deadline) <= new Date()) {
-      return toast.error("⏰ Deadline has passed. You cannot delete this submission.");
+      return toast.error("⏰ Deadline passed. You cannot delete this submission.");
     }
-
-    // Check graded
     if (submissions[task._id]?.grade !== undefined) {
-      return toast.error("❌ This submission has already been graded. You cannot delete it.");
+      return toast.error("❌ Already graded. Cannot delete.");
     }
-
     try {
       await axios.delete(`${process.env.REACT_APP_API_URL}/api/tasks/submission/${submissionId}`);
-      toast.success("🗑️ Submission deleted. You can re-upload before the deadline.");
-      fetchSubmission(task._id); // refresh
-    } catch (err) {
-      console.error("❌ Error deleting submission:", err);
+      toast.success("🗑️ Submission deleted. You can re-upload before deadline.");
+      fetchSubmission(task._id);
+    } catch {
       toast.error("❌ Failed to delete submission");
     }
   };
 
+  const formatDeadline = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleString("en-GB", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  };
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* Sidebar */}
+    <div className="student-layout">
       <StudentSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* Main */}
-      <main className="page-container">
-        <div className="section-card">
-          <h2 className="card-title">📋 My Tasks</h2> <br />
+      <main className={`student-main ${sidebarOpen ? "expanded" : "collapsed"}`}>
+        <header className="dashboard-header">
+          <h2>My Tasks</h2>
+          <p>Submit, track, and review your homework tasks</p>
+        </header>
 
+        <section className="section-card">
           {tasks.length === 0 ? (
             <p>No tasks assigned to your group yet.</p>
           ) : (
             <ul className="task-list">
               {tasks.map((t) => {
-                const submitted = submissions[t._id];
+                const submission = submissions[t._id];
+                const pastDeadline = new Date(t.deadline) <= new Date();
                 return (
-                  <li key={t._id} className="task-card" style={{ padding: "18px", marginBottom: "20px" }}>
-                    <h3 style={{ marginBottom: "8px", color: "#2c3e50" }}>{t.title}</h3>
-                    <p className="task-desc" style={{ marginBottom: "8px" }}>{t.description}</p>
-                    <p style={{ marginBottom: "12px" }}>
-                      <b>Deadline:</b> {formatDeadline(t.deadline)}
-                    </p>
-
-
-                    {/* Submission Status */}
-                    {submitted ? (
-                      <div className="submission-status" style={{ marginTop: "10px", lineHeight: "1.6" }}>
-                        <p style={{ color: "green", marginBottom: "10px" }}>
-                          ✅ Submitted (
-                          <a
-                            href={submitted.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="link"
-                          >
-                            📄 View File
-                          </a>
-                          )
-                        </p>
-
-                        {/* Grading Info */}
-                        {submitted.grade !== undefined && (
-                          <div className="graded-info" style={{ padding: "10px", background: "#eef6f9", borderRadius: "6px" }}>
-                            <p><b>Grade:</b> {submitted.grade} / {t.gradeOutOf}</p>
-                            {submitted.comments && <p><b>Teacher’s comments:</b> {submitted.comments}</p>}
-                            {submitted.correctedFileUrl && (
-                              <p>
-                                <a
-                                  href={submitted.correctedFileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="link"
-                                >
-                                  📄 Download Corrected File
-                                </a>
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Delete Button (only if deadline not passed & not graded) */}
-                        {new Date(t.deadline) > new Date() && submitted.grade === undefined && (
-                          <button
-                            className="btn btn-red"
-                            style={{ marginTop: "10px" }}
-                            onClick={() => deleteSubmission(submitted._id, t)}
-                          >
-                            🗑️ Cancel Submission
-                          </button>
-                        )}
+                  <li key={t._id} className="task-card">
+                    <div className="task-top">
+                      <div className="task-icon">
+                        <ClipboardText size={24} color="#0b3c49" />
                       </div>
-                    ) : (
-                      <p style={{ color: "red", marginBottom: "10px" }}>❌ Not Submitted</p>
-                    )}
+                      <div className="task-info">
+                        <h3>{t.title}</h3>
+                        <p className="task-desc">{t.description}</p>
+                        <p className="deadline">
+                          <Clock size={18} /> <b>Deadline:</b> {formatDeadline(t.deadline)}
+                        </p>
+                      </div>
+                    </div>
 
+                    <div className="task-content">
+                      {submission ? (
+                        <div className="submission-box">
+                          <p className="submitted">
+                            <CheckCircle size={18} color="green" /> Submitted —{" "}
+                            <a href={submission.fileUrl} target="_blank" rel="noreferrer">
+                              <FilePdf size={16} /> View File
+                            </a>
+                          </p>
 
-                    {/* Upload Form */}
-                    {!submitted && (
-                      new Date(t.deadline) > new Date() ? (
-                        <div className="upload-box" style={{ marginTop: "12px" }}>
+                          {submission.grade !== undefined && (
+                            <div className="graded-box">
+                              <p>
+                                <b>Grade:</b> {submission.grade} / {t.gradeOutOf}
+                              </p>
+                              {submission.comments && (
+                                <p>
+                                  <b>Teacher’s comments:</b> {submission.comments}
+                                </p>
+                              )}
+                              {submission.correctedFileUrl && (
+                                <p>
+                                  <a
+                                    href={submission.correctedFileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    <FilePdf size={16} /> Download Corrected File
+                                  </a>
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {!pastDeadline && submission.grade === undefined && (
+                            <button
+                              className="btn btn-red"
+                              onClick={() => deleteSubmission(submission._id, t)}
+                            >
+                              <Trash size={16} /> Cancel Submission
+                            </button>
+                          )}
+                        </div>
+                      ) : pastDeadline ? (
+                        <p className="not-submitted">
+                          <XCircle size={18} color="gray" /> Deadline passed. Cannot submit.
+                        </p>
+                      ) : (
+                        <div className="upload-area">
+                          <label className="upload-label">
+                            <UploadSimple size={18} /> Upload PDF
+                          </label>
                           <input
                             type="file"
                             accept="application/pdf"
                             className="styled-input"
                             onChange={(e) => uploadSubmission(t._id, e.target.files[0])}
                           />
-                          {uploading[t._id] && (
-                            <p style={{ marginTop: "6px", color: "#555" }}>⏳ Uploading...</p>
-                          )}
+                          {uploading[t._id] && <p>⏳ Uploading...</p>}
                         </div>
-                      ) : (
-                        <p style={{ color: "gray", marginTop: "10px" }}>
-                          ⏰ Deadline has passed. You can no longer submit.
-                        </p>
-                      )
-                    )}
-
+                      )}
+                    </div>
                   </li>
                 );
               })}
             </ul>
           )}
-        </div>
+        </section>
       </main>
     </div>
   );

@@ -1,0 +1,191 @@
+/* === Layout === */
+.page-layout {
+  display: flex;
+  background-color: #f5f1eb;
+  min-height: 100vh;
+  color: #33312e;
+}
+
+.allstudents-container {
+  flex: 1;
+  padding: 2rem;
+  transition: margin-left 0.3s ease;
+}
+
+.allstudents-container.full-width {
+  margin-left: 0;
+}
+
+.allstudents-container.with-sidebar {
+  margin-left: 250px;
+}
+
+/* === Section Cards === */
+.section-card {
+  background-color: #ffffff;
+  border: 1px solid #8baa91;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.page-title,
+.card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: #0b3c49;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* === Filters === */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+}
+
+.filter-item label {
+  margin-bottom: 0.4rem;
+  font-weight: 500;
+  color: #33312e;
+}
+
+.styled-select {
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  color: #33312e;
+  font-size: 0.95rem;
+}
+
+/* === Table === */
+.table-wrapper {
+  overflow-x: auto;
+}
+
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #ffffff;
+}
+
+.styled-table th {
+  background-color: #0b3c49;
+  color: #f5f1eb;
+  text-align: left;
+  padding: 0.75rem;
+  cursor: pointer;
+}
+
+.styled-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.styled-input {
+  width: 100%;
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+/* === Buttons === */
+.btn {
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.btn-blue {
+  background-color: #0b3c49;
+  color: #f5f1eb;
+}
+
+.btn-blue:hover {
+  background-color: #07313b;
+}
+
+.btn-green {
+  background-color: #8baa91;
+  color: #33312e;
+}
+
+.btn-green:hover {
+  background-color: #7da683;
+}
+
+.btn-red {
+  background-color: #c85d47;
+  color: #fff;
+}
+
+.btn-red:hover {
+  background-color: #a94837;
+}
+
+.toast-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.toast-btn-confirm,
+.toast-btn-cancel {
+  border: none;
+  border-radius: 5px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
+.toast-btn-confirm {
+  background-color: #8baa91;
+  color: #fff;
+}
+
+.toast-btn-cancel {
+  background-color: #c85d47;
+  color: #fff;
+}
+
+/* === Responsive === */
+@media (max-width: 992px) {
+  .filter-bar {
+    flex-direction: column;
+  }
+
+  .filter-item {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .allstudents-container {
+    padding: 1rem;
+  }
+
+  .styled-table th,
+  .styled-table td {
+    padding: 0.5rem;
+  }
+
+  .btn {
+    padding: 0.3rem 0.6rem;
+  }
+}

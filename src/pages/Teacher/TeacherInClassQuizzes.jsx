@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
+import { PlusCircle, PencilSimple, FloppyDisk } from "phosphor-react";
 import TeacherSidebar from "../../components/TeacherSidebar";
-import "../../styles/AppStyles.css";
+import "./TeacherInClassQuizzes.css";
 
 export default function TeacherInClassQuizzes() {
   const [teacherId, setTeacherId] = useState("");
@@ -28,7 +30,7 @@ export default function TeacherInClassQuizzes() {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${id}`);
       setYears(res.data);
     } catch (err) {
-      console.error("Error fetching years", err);
+      toast.error("❌ Failed to fetch years");
     }
   };
 
@@ -37,13 +39,18 @@ export default function TeacherInClassQuizzes() {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/inclassquiz/${groupId}`);
       setQuizzes(res.data);
     } catch (err) {
-      console.error("Error fetching quizzes", err);
+      toast.error("❌ Failed to fetch quizzes");
     }
   };
 
   const handleCreateQuiz = async () => {
+    if (!form.quizName || !form.date || !form.gradeOutOf) {
+      toast.warning("⚠️ Please fill in all fields");
+      return;
+    }
+
     try {
-      const res = await axios.post(`${process.env.REACT_APP_API_URL}/api/inclassquiz`, {
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/inclassquiz`, {
         teacherId,
         yearId: selectedYear,
         groupId: selectedGroup,
@@ -52,22 +59,22 @@ export default function TeacherInClassQuizzes() {
       setShowForm(false);
       setForm({ quizName: "", date: "", gradeOutOf: "" });
       fetchQuizzes(selectedGroup);
-      alert("✅ Quiz created successfully");
+      toast.success("✅ Quiz created successfully");
     } catch (err) {
-      console.error(err);
-      alert("❌ Failed to create quiz");
+      toast.error("❌ Failed to create quiz");
     }
   };
 
   const handleSaveGrades = async () => {
     try {
-      await axios.put(`${process.env.REACT_APP_API_URL}/api/inclassquiz/${activeQuiz._id}/grades`, {
-        studentGrades: grades,
-      });
-      alert("✅ Grades saved");
+      await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/inclassquiz/${activeQuiz._id}/grades`,
+        { studentGrades: grades }
+      );
+      toast.success("✅ Grades saved successfully");
       setActiveQuiz(null);
     } catch (err) {
-      console.error("Error saving grades", err);
+      toast.error("❌ Failed to save grades");
     }
   };
 
@@ -76,25 +83,25 @@ export default function TeacherInClassQuizzes() {
     setGrades(quiz.studentGrades || []);
   };
 
-  // 🔹 Format a date as DD MM YYYY
   const formatDate = (isoDate) => {
     if (!isoDate) return "";
     const date = new Date(isoDate);
     const day = String(date.getDate()).padStart(2, "0");
-    const month = date.toLocaleString("en-GB", { month: "short" }); // "Jan", "Feb", "Mar"...
+    const month = date.toLocaleString("en-GB", { month: "short" });
     const year = date.getFullYear();
     return `${day} ${month} ${year}`;
   };
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
+    <div className={`teacher-inclass-page ${sidebarOpen ? "with-sidebar" : "full-width"}`}>
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-      <main className="page-container">
-        {/* Year Selection */}
-        <div className="section-card" style={{ textAlign: "center" }}>
-          <h3>Select Year</h3>
+
+      <main className="teacher-inclass-container">
+        {/* === Select Year === */}
+        <div className="inclass-card">
+          <h2 className="inclass-title">Select Year</h2>
           <select
-            className="styled-select"
+            className="inclass-select"
             value={selectedYear}
             onChange={(e) => {
               setSelectedYear(e.target.value);
@@ -104,17 +111,19 @@ export default function TeacherInClassQuizzes() {
           >
             <option value="">-- Select Year --</option>
             {years.map((y) => (
-              <option key={y._id} value={y._id}>{y.name}</option>
+              <option key={y._id} value={y._id}>
+                {y.name}
+              </option>
             ))}
           </select>
         </div>
 
-        {/* Group Selection */}
+        {/* === Select Group === */}
         {selectedYear && (
-          <div className="section-card" style={{ textAlign: "center" }}>
-            <h3>Select Group</h3>
+          <div className="inclass-card">
+            <h2 className="inclass-title">Select Group</h2>
             <select
-              className="styled-select"
+              className="inclass-select"
               value={selectedGroup}
               onChange={(e) => {
                 setSelectedGroup(e.target.value);
@@ -122,50 +131,64 @@ export default function TeacherInClassQuizzes() {
               }}
             >
               <option value="">-- Select Group --</option>
-              {years.find((y) => y._id === selectedYear)?.groups?.map((g) => (
-                <option key={g._id} value={g._id}>{g.name}</option>
-              ))}
+              {years
+                .find((y) => y._id === selectedYear)
+                ?.groups?.map((g) => (
+                  <option key={g._id} value={g._id}>
+                    {g.name}
+                  </option>
+                ))}
             </select>
           </div>
         )}
 
-        {/* Quiz List */}
+        {/* === Quizzes List === */}
         {selectedGroup && (
-          <div className="section-card">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3>Existing In-Class Quizzes</h3>
-              <button className="btn btn-purple" onClick={() => setShowForm(!showForm)}>
-                Create Quiz
+          <div className="inclass-card">
+            <div className="inclass-header">
+              <h2 className="inclass-title">Existing In-Class Quizzes</h2>
+              <button
+                className="inclass-btn inclass-btn-blue"
+                onClick={() => setShowForm(!showForm)}
+              >
+                <PlusCircle size={18} /> {showForm ? "Close" : "Create Quiz"}
               </button>
             </div>
 
             {showForm && (
-              <div className="form-grid">
+              <div className="inclass-form-grid">
                 <input
                   type="text"
                   placeholder="Quiz Name"
                   value={form.quizName}
                   onChange={(e) => setForm({ ...form, quizName: e.target.value })}
-                  className="styled-input"
+                  className="inclass-input"
                 />
                 <input
                   type="date"
                   value={form.date}
                   onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="styled-input"
+                  className="inclass-input"
                 />
                 <input
                   type="number"
                   placeholder="Grade Out Of"
                   value={form.gradeOutOf}
-                  onChange={(e) => setForm({ ...form, gradeOutOf: e.target.value })}
-                  className="styled-input"
+                  onChange={(e) =>
+                    setForm({ ...form, gradeOutOf: e.target.value })
+                  }
+                  className="inclass-input"
                 />
-                <button className="btn btn-purple" onClick={handleCreateQuiz}>Save</button>
+                <button
+                  className="inclass-btn inclass-btn-green"
+                  onClick={handleCreateQuiz}
+                >
+                  <FloppyDisk size={18} /> Save
+                </button>
               </div>
             )}
 
-            <table className="styled-table">
+            <table className="inclass-table">
               <thead>
                 <tr>
                   <th>Quiz Name</th>
@@ -181,8 +204,11 @@ export default function TeacherInClassQuizzes() {
                     <td>{formatDate(q.date)}</td>
                     <td>{q.gradeOutOf}</td>
                     <td>
-                      <button className="btn btn-blue" onClick={() => openGradesEditor(q)}>
-                        ✏️ Enter Grades
+                      <button
+                        className="inclass-btn inclass-btn-orange"
+                        onClick={() => openGradesEditor(q)}
+                      >
+                        <PencilSimple size={18} /> Enter Grades
                       </button>
                     </td>
                   </tr>
@@ -192,12 +218,14 @@ export default function TeacherInClassQuizzes() {
           </div>
         )}
 
-        {/* Grade Entry Section */}
+        {/* === Grade Editor === */}
         {activeQuiz && (
-          <div className="section-card">
-            <h3>Grades for {activeQuiz.quizName}</h3>
+          <div className="inclass-card">
+            <h2 className="inclass-title">
+              Grades for {activeQuiz.quizName}
+            </h2>
             {grades.map((s, idx) => (
-              <div key={idx} className="form-grid">
+              <div key={idx} className="inclass-form-grid">
                 <span>{s.studentId?.name || "Unnamed Student"}</span>
                 <input
                   type="number"
@@ -208,13 +236,16 @@ export default function TeacherInClassQuizzes() {
                     updated[idx].grade = e.target.value;
                     setGrades(updated);
                   }}
-                  className="styled-input"
+                  className="inclass-input"
                 />
               </div>
             ))}
 
-            <button className="btn btn-purple" onClick={handleSaveGrades}>
-              💾 Save Grades
+            <button
+              className="inclass-btn inclass-btn-blue"
+              onClick={handleSaveGrades}
+            >
+              <FloppyDisk size={18} /> Save Grades
             </button>
           </div>
         )}

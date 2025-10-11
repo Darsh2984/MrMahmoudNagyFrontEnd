@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { Clock, CheckCircle } from "phosphor-react";
+import "./TakeQuiz.css";
 
 function TakeQuiz() {
   const { quizId } = useParams();
@@ -13,6 +15,7 @@ function TakeQuiz() {
   const user = JSON.parse(localStorage.getItem("user"));
   const studentId = user?.id;
 
+  // === Fetch Quiz ===
   useEffect(() => {
     fetchQuiz();
     // eslint-disable-next-line
@@ -20,17 +23,30 @@ function TakeQuiz() {
 
   const fetchQuiz = async () => {
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/quiz/id/${quizId}`
-      );
-      setQuiz(res.data);
-      setTimeLeft(res.data.duration * 60); // convert minutes to seconds
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/quiz/id/${quizId}`);
+      const q = res.data;
+      setQuiz(q);
+
+      // Check if timer already started in localStorage
+      const savedStart = localStorage.getItem(`quizStart_${quizId}`);
+      const now = Date.now();
+      let remaining;
+
+      if (savedStart) {
+        const elapsed = Math.floor((now - parseInt(savedStart)) / 1000);
+        remaining = q.duration * 60 - elapsed;
+      } else {
+        localStorage.setItem(`quizStart_${quizId}`, now.toString());
+        remaining = q.duration * 60;
+      }
+
+      setTimeLeft(remaining > 0 ? remaining : 0);
     } catch (err) {
       console.error("❌ Error fetching quiz:", err);
     }
   };
 
-  // ⏳ Timer
+  // === Timer (persists across refresh) ===
   useEffect(() => {
     if (timeLeft === null) return;
     if (timeLeft <= 0) {
@@ -42,12 +58,14 @@ function TakeQuiz() {
     // eslint-disable-next-line
   }, [timeLeft]);
 
+  // === Select Answer ===
   const handleAnswer = (qId, ans) => {
     setAnswers((prev) => ({ ...prev, [qId]: ans }));
   };
 
+  // === Submit ===
   const handleSubmit = async () => {
-    if (submitting) return; // prevent double submission
+    if (submitting) return;
     setSubmitting(true);
     try {
       await axios.post(
@@ -60,6 +78,7 @@ function TakeQuiz() {
           })),
         }
       );
+      localStorage.removeItem(`quizStart_${quizId}`);
       navigate(`/student/quiz-result/${quizId}`);
     } catch (err) {
       console.error("❌ Error submitting quiz:", err);
@@ -67,85 +86,73 @@ function TakeQuiz() {
     }
   };
 
-  if (!quiz) return <p style={{ textAlign: "center" }}>⏳ Loading quiz...</p>;
+  const formatTime = (seconds) => {
+    if (seconds <= 0) return "00:00";
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  if (!quiz)
+    return <p className="loading-msg">⏳ Loading quiz...</p>;
 
   return (
-    <div
-      style={{
-        maxWidth: "800px",
-        margin: "20px auto",
-        padding: "20px",
-        background: "#fff",
-        borderRadius: "10px",
-      }}
-    >
-      <h2>{quiz.title}</h2>
-      <p>
-        ⏳ Time left:{" "}
-        {timeLeft !== null
-          ? `${Math.max(Math.floor(timeLeft / 60), 0)}:${String(
-              Math.max(timeLeft % 60, 0)
-            ).padStart(2, "0")}`
-          : "--:--"}
-      </p>
-
-      {quiz.questions && quiz.questions.length > 0 ? (
-        quiz.questions.map((q, index) => (
-          <div
-            key={q._id}
-            style={{
-              marginBottom: "20px",
-              border: "1px solid #ddd",
-              padding: "10px",
-              borderRadius: "8px",
-            }}
-          >
-            <h4>Q{index + 1}</h4>
-            {q.imageUrl && (
-              <img
-              src={q.imageUrl}
-              alt="question"
-              style={{ maxWidth: "100%", marginBottom: "10px" }}
-            />
-            )}
-            <div style={{ marginTop: "10px" }}>
-              {["A", "B", "C", "D"].map((opt) => (
-                <label
-                  key={opt}
-                  style={{ display: "block", marginBottom: "5px" }}
-                >
-                  <input
-                    type="radio"
-                    name={q._id}
-                    value={opt}
-                    checked={answers[q._id] === opt}
-                    onChange={() => handleAnswer(q._id, opt)}
-                  />
-                  {opt}
-                </label>
-              ))}
-            </div>
+    <div className="quiz-layout">
+      <div className="quiz-container">
+        <header className="quiz-header">
+          <h2>{quiz.title}</h2>
+          <div className="timer-box">
+            <Clock size={20} />
+            <span>Time Left: {formatTime(timeLeft || 0)}</span>
           </div>
-        ))
-      ) : (
-        <p>No questions found for this quiz.</p>
-      )}
+        </header>
 
-      <button
-        onClick={handleSubmit}
-        disabled={submitting}
-        style={{
-          marginTop: "20px",
-          padding: "10px 16px",
-          background: submitting ? "#95a5a6" : "#27ae60",
-          color: "white",
-          border: "none",
-          borderRadius: "6px",
-          cursor: submitting ? "not-allowed" : "pointer",
-        }}
-      >
-        {submitting ? "Submitting..." : "✅ Submit Quiz"}
-      </button>
+        {quiz.questions && quiz.questions.length > 0 ? (
+          quiz.questions.map((q, index) => (
+            <div key={q._id} className="question-card">
+              <h4>Q{index + 1}</h4>
+              {q.imageUrl && (
+                <img
+                  src={q.imageUrl}
+                  alt="question"
+                  className="question-image"
+                />
+              )}
+              <div className="options-list">
+                {["A", "B", "C", "D"].map((opt) => (
+                  <div key={opt} className="option-row">
+                    <input
+                      type="radio"
+                      id={`${q._id}_${opt}`}
+                      name={q._id}
+                      value={opt}
+                      checked={answers[q._id] === opt}
+                      onChange={() => handleAnswer(q._id, opt)}
+                    />
+                    <label htmlFor={`${q._id}_${opt}`} className="option-label">
+                      {opt}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p>No questions found for this quiz.</p>
+        )}
+
+        <button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className={`btn-submit ${submitting ? "disabled" : ""}`}
+        >
+          {submitting ? "Submitting..." : (
+            <>
+              <CheckCircle size={18} /> Submit Quiz
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

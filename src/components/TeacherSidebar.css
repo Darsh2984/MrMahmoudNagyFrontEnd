@@ -1,0 +1,131 @@
+:root {
+  --cream-white: #f5f1eb;
+  --terracotta: #c85d47;
+  --deep-teal: #0b3c49;
+  --sage-green: #8baa91;
+  --warm-orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* === SIDEBAR BASE === */
+.teacher-sidebar {
+  width: 240px;
+  height: 100vh;
+  background: var(--deep-teal);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: fixed;
+  left: 0;
+  top: 0;
+  overflow-y: auto;
+  transition: width 0.4s ease, opacity 0.3s ease;
+  z-index: 100;
+}
+
+.teacher-sidebar.closed {
+  width: 0;
+  opacity: 0;
+  pointer-events: none; /* prevent clicks when closed */
+}
+
+/* === CONTENT INSIDE SIDEBAR === */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+}
+
+.sidebar-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-menu li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  border-left: 4px solid transparent;
+  transition: 0.3s;
+  white-space: nowrap;
+}
+
+.sidebar-menu li:hover {
+  background: var(--sage-green);
+  border-left: 4px solid var(--warm-orange);
+}
+
+.sidebar-menu span {
+  font-weight: 500;
+}
+
+.sidebar-footer {
+  padding: 1rem;
+}
+
+.btn-logout {
+  width: 100%;
+  background: var(--terracotta);
+  border: none;
+  padding: 0.6rem;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.3s;
+}
+
+.btn-logout:hover {
+  background: var(--warm-orange);
+}
+
+/* === TOGGLE BUTTON === */
+.toggle-btn {
+  position: absolute;
+  top: 20px;
+  left: 250px; /* align with sidebar edge when open */
+  background: var(--deep-teal);
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition: left 0.4s ease, background 0.3s ease;
+  z-index: 200;
+}
+
+.toggle-btn:hover {
+  background: var(--sage-green);
+}
+
+/* when sidebar is closed, button shifts left */
+.teacher-sidebar.closed + .toggle-btn {
+  left: 20px;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+  .teacher-sidebar {
+    width: 100%;
+    max-width: 240px;
+  }
+
+  .teacher-sidebar.closed {
+    width: 0;
+    opacity: 0;
+  }
+
+  .toggle-btn {
+    left: 20px;
+  }
+}

@@ -1,9 +1,8 @@
-// src/pages/StudentVideoViewer.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import StudentSidebar from "../../components/StudentSidebar"; // import new sidebar
-
+import StudentSidebar from "../../components/StudentSidebar";
+import "./StudentVideoViewer.css"; // ✅ new css file
 
 export default function StudentVideoViewer() {
   const [yearId, setYearId] = useState("");
@@ -11,31 +10,25 @@ export default function StudentVideoViewer() {
   const [chapters, setChapters] = useState([]);
   const [videos, setVideos] = useState([]);
   const [filter, setFilter] = useState({ unitId: "", chapterId: "" });
-
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const user = JSON.parse(localStorage.getItem("user"));
 
+  const user = JSON.parse(localStorage.getItem("user"));
   const navigate = useNavigate();
 
-  // 🔹 Get year & fetch videos + units for that year
   useEffect(() => {
-    if (user?.role === "student") {
-      fetchStudentYear(user.id);
-    }
+    if (user?.role === "student") fetchStudentYear(user.id);
   }, []);
 
   const fetchStudentYear = async (studentId) => {
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/student/${studentId}/year`
-      );
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/student/${studentId}/year`);
       if (res.data?.yearId) {
         const yrId = res.data.yearId._id;
         setYearId(yrId);
         fetchVideos(yrId);
-        fetchUnits(studentId, yrId); // ✅ use new route
+        fetchUnits(studentId, yrId);
       }
     } catch (err) {
       console.error("❌ Error fetching student year:", err);
@@ -43,24 +36,20 @@ export default function StudentVideoViewer() {
     }
   };
 
-  // ✅ Fetch only units for this student + year
   const fetchUnits = async (studentId, yearId) => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/unit/student/${studentId}/year/${yearId}/units`
       );
       setUnits(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching units:", err);
+    } catch {
       setError("Failed to load units.");
     }
   };
 
   const fetchChapters = async (unitId) => {
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`
-      );
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`);
       setChapters(res.data);
     } catch (err) {
       console.error("❌ Error fetching chapters:", err);
@@ -70,12 +59,9 @@ export default function StudentVideoViewer() {
   const fetchVideos = async (yearId) => {
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/video/year/${yearId}`
-      );
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/video/year/${yearId}`);
       setVideos(res.data);
-    } catch (err) {
-      console.error("❌ Error fetching videos:", err);
+    } catch {
       setError("Failed to load videos.");
     } finally {
       setLoading(false);
@@ -89,29 +75,28 @@ export default function StudentVideoViewer() {
   });
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* Sidebar */}
+    <div className="student-layout">
       <StudentSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* === Main Content === */}
-      <main className="page-container">
-        <div className="section-card">
-          <h2 className="card-title">🎥 Course Videos</h2>
-          {error && <p style={{ color: "red", fontWeight: "bold" }}>{error}</p>}
+      <main className={`student-main ${sidebarOpen ? "expanded" : "collapsed"}`}>
+        <header className="dashboard-header">
+          <h2>Course Videos</h2>
+          <p>Watch your recorded lessons by unit and chapter</p>
+        </header>
 
-          {/* 🔹 Filter Section */}
-          <div style={styles.filterBox}>
-            {/* Unit Selector */}
-            <div style={styles.filterItem}>
-              <label style={styles.label}>📦 Select Unit</label>
+        <section className="section-card">
+          {error && <p className="error-msg">{error}</p>}
+
+          {/* === Filter Section === */}
+          <div className="filter-box">
+            <div className="filter-item">
+              <label>Select Unit</label>
               <select
-                style={styles.select}
                 value={filter.unitId}
                 onChange={(e) => {
                   const unitId = e.target.value;
                   setFilter({ unitId, chapterId: "" });
-                  if (unitId) fetchChapters(unitId);
-                  else setChapters([]);
+                  unitId ? fetchChapters(unitId) : setChapters([]);
                 }}
               >
                 <option value="">-- All Units --</option>
@@ -123,12 +108,10 @@ export default function StudentVideoViewer() {
               </select>
             </div>
 
-            {/* Chapter Selector */}
             {chapters.length > 0 && (
-              <div style={styles.filterItem}>
-                <label style={styles.label}>📖 Select Chapter</label>
+              <div className="filter-item">
+                <label>Select Chapter</label>
                 <select
-                  style={styles.select}
                   value={filter.chapterId}
                   onChange={(e) => setFilter({ ...filter, chapterId: e.target.value })}
                 >
@@ -143,17 +126,17 @@ export default function StudentVideoViewer() {
             )}
           </div>
 
-          {/* 🔹 Videos */}
+          {/* === Videos === */}
           {loading ? (
-            <p style={styles.loading}>⏳ Loading videos...</p>
+            <p className="loading-msg">⏳ Loading videos...</p>
           ) : filteredVideos.length === 0 ? (
-            <p style={styles.noData}>⚠️ No videos found</p>
+            <p className="no-data">⚠️ No videos found</p>
           ) : (
-            <div style={styles.videoGrid}>
+            <div className="video-grid">
               {filteredVideos.map((v) => (
-                <div key={v._id} style={styles.card}>
+                <div key={v._id} className="video-card">
                   <h4>{v.title}</h4>
-                  <p>
+                  <p className="video-meta">
                     <b>Unit:</b> {v.unitId?.name || "—"} <br />
                     <b>Chapter:</b> {v.chapterId?.name || "—"}
                   </p>
@@ -162,50 +145,14 @@ export default function StudentVideoViewer() {
                     controls
                     controlsList="nodownload"
                     disablePictureInPicture
-                    style={styles.video}
+                    className="video-player"
                   />
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </section>
       </main>
     </div>
   );
 }
-
-const styles = {
-  filterBox: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "20px",
-    marginBottom: "25px",
-    background: "#f8f9fa",
-    padding: "15px",
-    borderRadius: "8px",
-    justifyContent: "center",
-  },
-  filterItem: { display: "flex", flexDirection: "column", minWidth: "220px" },
-  label: { marginBottom: "6px", fontWeight: "bold", color: "#2c3e50" },
-  select: {
-    padding: "8px",
-    borderRadius: "6px",
-    border: "1px solid #ccc",
-    background: "#fff",
-  },
-  videoGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: "20px",
-  },
-  card: {
-    background: "#f9f9f9",
-    padding: "15px",
-    borderRadius: "10px",
-    border: "1px solid #ddd",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.05)",
-  },
-  video: { width: "100%", borderRadius: "6px" },
-  loading: { textAlign: "center", fontWeight: "bold", color: "#555" },
-  noData: { textAlign: "center", color: "#888" },
-};

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import "../../src/styles/AppStyles.css";
+import "./CreateSessionForm.css"; // ✅ new CSS file
 
 function CreateSessionForm({ teacherId, years, onSessionCreated }) {
   const [selectedYear, setSelectedYear] = useState("");

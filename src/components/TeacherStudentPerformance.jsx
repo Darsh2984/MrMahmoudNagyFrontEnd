@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import "../styles/AppStyles.css";
-
-import TeacherSidebar from "./TeacherSidebar"; // ✅ import new sidebar
+import { ChartBar, Download, MagnifyingGlass } from "phosphor-react";
+import TeacherSidebar from "./TeacherSidebar";
+import "./TeacherStudentPerformance.css";
 
 export default function TeacherStudentPerformance() {
   const [teacherId, setTeacherId] = useState("");
@@ -20,7 +20,6 @@ export default function TeacherStudentPerformance() {
 
   const navigate = useNavigate();
 
-  // get teacherId from localStorage
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (user?.role === "teacher") {
@@ -29,7 +28,6 @@ export default function TeacherStudentPerformance() {
     }
   }, []);
 
-  // fetch years
   const fetchYears = async (teacherId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${teacherId}`);
@@ -39,7 +37,6 @@ export default function TeacherStudentPerformance() {
     }
   };
 
-  // fetch groups
   const fetchGroups = async (yearId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/group/${yearId}`);
@@ -53,7 +50,6 @@ export default function TeacherStudentPerformance() {
     }
   };
 
-  // fetch students
   const fetchStudents = async (groupId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/group/${groupId}/students`);
@@ -65,14 +61,11 @@ export default function TeacherStudentPerformance() {
     }
   };
 
-  // fetch performance for one student
   const fetchPerformance = async () => {
     if (!groupId || !studentId) return;
     setLoading(true);
-
-    const user = JSON.parse(localStorage.getItem("user")); // ✅ now defined here
-
     try {
+      const user = JSON.parse(localStorage.getItem("user"));
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/performance/${groupId}/${studentId}/teacher/${user.id}`
       );
@@ -83,51 +76,47 @@ export default function TeacherStudentPerformance() {
       setLoading(false);
     }
   };
-  // 🔹 Export group performance
-const exportGroupPerformance = async () => {
-  if (!groupId) {
-    alert("⚠️ Please select a group first");
-    return;
-  }
 
-  const user = JSON.parse(localStorage.getItem("user"));
+  const exportGroupPerformance = async () => {
+    if (!groupId) {
+      alert("⚠️ Please select a group first");
+      return;
+    }
 
-  try {
-    const res = await axios.get(
-      `${process.env.REACT_APP_API_URL}/api/performance/export/${groupId}/teacher/${user.id}`,
-      { responseType: "blob" }
-    );
-
-    const url = window.URL.createObjectURL(new Blob([res.data]));
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${groupId}_performance.xlsx`);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  } catch (err) {
-    console.error("❌ Export failed:", err.response?.data || err.message);
-    alert("❌ Failed to export group performance data");
-  }
-};
-
-
-
-
+    const user = JSON.parse(localStorage.getItem("user"));
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/performance/export/${groupId}/teacher/${user.id}`,
+        { responseType: "blob" }
+      );
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `${groupId}_performance.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (err) {
+      console.error("❌ Export failed:", err);
+      alert("❌ Failed to export group performance data");
+    }
+  };
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* ✅ Sidebar extracted */}
+    <div className="page-layout">
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* === Main Content === */}
-      <main className="page-container">
-        <div className="section-card">
-          <h2 className="card-title">📊 Student Performance</h2>
+      <main className={`teacherperformance-container ${sidebarOpen ? "with-sidebar" : "full-width"}`}>
+        <div className="teacherperformance-card">
+          <h2 className="page-title">
+            <ChartBar size={24} /> Student Performance
+          </h2>
+
           {error && <p className="error-text">{error}</p>}
 
-          {/* Filters */}
-          <div className="filter-box">
+          {/* === Filters === */}
+          <div className="filter-bar">
+            {/* Year Selector */}
             <div className="filter-item">
               <label>Year</label>
               <select
@@ -147,6 +136,7 @@ const exportGroupPerformance = async () => {
               </select>
             </div>
 
+            {/* Group Selector */}
             {groups.length > 0 && (
               <div className="filter-item">
                 <label>Group</label>
@@ -168,6 +158,7 @@ const exportGroupPerformance = async () => {
               </div>
             )}
 
+            {/* Student Selector */}
             {students.length > 0 && (
               <div className="filter-item">
                 <label>Student</label>
@@ -188,23 +179,23 @@ const exportGroupPerformance = async () => {
 
             {students.length > 0 && (
               <button className="btn btn-blue" onClick={fetchPerformance}>
-                🔍 View
+                <MagnifyingGlass size={18} /> View
               </button>
             )}
 
             {groupId && (
               <button className="btn btn-green" onClick={exportGroupPerformance}>
-                📥 Export Group Performance
+                <Download size={18} /> Export
               </button>
             )}
           </div>
         </div>
 
-        {/* Results */}
-        {loading && <p style={{ marginTop: "20px" }}>⏳ Loading results...</p>}
+        {/* === Results === */}
+        {loading && <p className="loading-text">⏳ Loading results...</p>}
 
         {data && !loading && (
-          <div className="results-grid-3">
+          <div className="results-grid">
             {/* Attendance */}
             <div className="section-card">
               <h3 className="card-title">📅 Attendance</h3>
@@ -213,7 +204,7 @@ const exportGroupPerformance = async () => {
               ) : (
                 <ul className="styled-list">
                   {data.attendance.map((a, i) => (
-                    <li key={i} style={{ color: a.present ? "green" : "red" }}>
+                    <li key={i} className={a.present ? "present" : "absent"}>
                       {a.title} → {a.present ? "✅ Present" : "❌ Absent"}
                     </li>
                   ))}
@@ -229,7 +220,7 @@ const exportGroupPerformance = async () => {
               ) : (
                 <ul className="styled-list">
                   {data.tasks.map((t) => (
-                    <li key={t._id} style={{ color: t.submitted ? "green" : "red" }}>
+                    <li key={t._id} className={t.submitted ? "present" : "absent"}>
                       {t.title} → {t.submitted ? "✅ Submitted" : "❌ Not Submitted"}
                     </li>
                   ))}
@@ -254,7 +245,7 @@ const exportGroupPerformance = async () => {
                     {data.quizzes.map((q, i) => (
                       <tr key={i}>
                         <td>{q.quizTitle}</td>
-                        <td style={{ color: q.score !== null ? "#2c3e50" : "red" }}>
+                        <td className={q.score !== null ? "present" : "absent"}>
                           {q.score !== null ? `${q.score}/${q.total}` : "❌ Not Attempted"}
                         </td>
                       </tr>

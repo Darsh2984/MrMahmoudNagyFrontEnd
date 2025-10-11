@@ -1,10 +1,8 @@
-// src/pages/StudentAttendance.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import "../../styles/AppStyles.css";
-import StudentSidebar from "../../components/StudentSidebar"; // import new sidebar
-
+import StudentSidebar from "../../components/StudentSidebar";
+import "./StudentAttendance.css"; // ✅ new CSS file
 
 export default function StudentAttendance() {
   const [sessions, setSessions] = useState([]);
@@ -41,52 +39,55 @@ export default function StudentAttendance() {
     }
   };
 
+  const getStatusClass = (status) => {
+    switch (status) {
+      case "Present":
+        return "status-present";
+      case "Late":
+        return "status-late";
+      case "Absent":
+      default:
+        return "status-absent";
+    }
+  };
+
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* Sidebar */}
+    <div className="student-layout">
       <StudentSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* Main Content */}
-      <main className="page-container">
-        <div className="section-card">
-          <h2 className="card-title">📝 My Attendance</h2>
-          <br />
-          {loading && <p>⏳ Loading attendance...</p>}
-          {message && <p>{message}</p>}
+      <main className={`student-main ${sidebarOpen ? "expanded" : "collapsed"}`}>
+        <header className="dashboard-header">
+          <h2>📝 My Attendance</h2>
+          <p>Track your attendance records and participation</p>
+        </header>
+
+        <section className="section-card">
+          {loading && <p className="loading-msg">⏳ Loading attendance...</p>}
+          {message && <p className="error-msg">{message}</p>}
           {!loading && !message && sessions.length === 0 && (
-            <p>⚠️ No attendance records found.</p>
+            <p className="no-data">⚠️ No attendance records found.</p>
           )}
 
-          <div className="student-dashboard-vertical">
+          <div className="attendance-grid">
             {sessions.map((session) => {
               const record = session.attendance.find(
                 (a) => a.studentId?._id === studentId
               );
+              const status = record?.status || "Not Recorded";
               return (
-                <div key={session._id} className="student-tile">
-                  <h3>{session.title}</h3>
-                  <p>
-                    Status:{" "}
-                    <strong
-                      style={{
-                        color:
-                          record?.status === "Present"
-                            ? "green"
-                            : record?.status === "Late"
-                            ? "orange"
-                            : "red",
-                      }}
-                    >
-                      {record?.status || "Not Recorded"}
-                    </strong>
+                <div key={session._id} className="attendance-card">
+                  <h4>{session.title}</h4>
+                  <p className="attendance-meta">
+                    <b>👥 Group:</b> {session.groupId?.name || "N/A"}
                   </p>
-                  <p>👥 Group: {session.groupId?.name || "N/A"}</p>
-                  <br />
+                  <span className={`attendance-status ${getStatusClass(status)}`}>
+                    {status}
+                  </span>
                 </div>
               );
             })}
           </div>
-        </div>
+        </section>
       </main>
     </div>
   );

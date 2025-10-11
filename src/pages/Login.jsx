@@ -1,93 +1,95 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import "../styles/AppStyles.css"; 
+import "./Login.css"; // ✅ same layout structure as Register.css
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+import { Lock, SignIn } from "phosphor-react"; // ✅ icons
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Add login-page class to body when this page is active
   useEffect(() => {
     document.body.classList.add("login-page");
-    return () => {
-      document.body.classList.remove("login-page");
-    };
+    return () => document.body.classList.remove("login-page");
   }, []);
 
   const handleLogin = async (e) => {
-  e.preventDefault();
-  try {
-    const res = await axios.post(
-      `${process.env.REACT_APP_API_URL}/api/auth/login`,
-      { email: email.toLowerCase(), password }
-    );
+    e.preventDefault();
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/auth/login`,
+        { email: email.toLowerCase(), password }
+      );
 
-    localStorage.setItem("token", res.data.token);
-    localStorage.setItem("user", JSON.stringify(res.data.user));
-    setMessage("✅ Login successful!");
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
 
-    if (res.data.user.role === "teacher") {
-      navigate("/teacher-dashboard");
-    } else if (res.data.user.role === "student") {
-      // ✅ Check if student must complete parent details first
-      if (res.data.parentDetailsRequired) {
-        navigate(`/complete-parent/${res.data.studentId}`);
-      } 
-      // ✅ Check if student is assigned to a group
-      else if (!res.data.user.groupId) {
-        navigate("/Accessdenied");
+      toast.success("✅ Login successful!", {
+        position: "top-center",
+        autoClose: 1500,
+      });
+
+      if (res.data.user.role === "teacher") {
+        navigate("/teacher-dashboard");
+      } else if (res.data.user.role === "student") {
+        if (res.data.parentDetailsRequired) {
+          navigate(`/complete-parent/${res.data.studentId}`);
+        } else if (!res.data.user.groupId) {
+          navigate("/accessdenied");
+        } else {
+          navigate("/student-dashboard");
+        }
+      } else if (res.data.user.role === "parent") {
+        navigate("/parent-dashboard");
       } else {
-        navigate("/student-dashboard");
+        navigate("/dashboard");
       }
-    } else if (res.data.user.role === "parent") {
-      navigate("/parent-dashboard");
-    } else {
-      navigate("/dashboard");
+    } catch (err) {
+      console.error("❌ Login failed:", err);
+
+      if (err.response?.data?.activationRequired) {
+        navigate("/set-password", { state: { email: err.response.data.email } });
+        return;
+      }
+
+      if (err.response?.data?.parentDetailsRequired) {
+        navigate(`/complete-parent/${err.response.data.studentId}`);
+        return;
+      }
+
+      toast.error("❌ Invalid credentials. Please try again.", {
+        position: "top-center",
+      });
     }
-  } catch (err) {
-    console.error("❌ Login failed:", err);
-
-    if (err.response?.data?.activationRequired) {
-      navigate("/set-password", { state: { email: err.response.data.email } });
-      return;
-    }
-
-    // ✅ Handle missing parent details returned as an error
-    if (err.response?.data?.parentDetailsRequired) {
-      navigate(`/complete-parent/${err.response.data.studentId}`);
-      return;
-    }
-
-    setMessage("❌ Login failed! Please check credentials.");
-  }
-};
-
+  };
 
   return (
-    <div className="login-container">
-      <div className="login-card">
-        <h2 className="login-title">🔐 Welcome Back</h2>
+    <div className="login-page-layout">
+      <div className="login-form-card">
+        {/* ✅ Title with icon (same as Register) */}
+        <h2 className="login-title">
+          <Lock size={28} weight="bold" color="#0b3c49" />
+          <span>Login</span>
+        </h2>
 
-        <form onSubmit={handleLogin}>
-          <div className="input-group">
-            <i className="fas fa-envelope"></i>
+        <form onSubmit={handleLogin} className="login-form">
+          <div className="form-group">
+            <label>Email</label>
             <input
               type="email"
-              placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
 
-          <div className="input-group">
-            <i className="fas fa-lock"></i>
+          <div className="form-group">
+            <label>Password</label>
             <input
               type="password"
-              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -95,26 +97,17 @@ function Login() {
           </div>
 
           <button type="submit" className="login-btn">
-            Login
+            <SignIn size={20} weight="fill" color="#fff" />
+            <span>Login</span>
           </button>
         </form>
 
-        {/* 🔹 Forgot password link */}
-        <p className="forgot-link">
+        <p className="login-link">
           <Link to="/forgot-password">Forgot Password?</Link>
         </p>
-
-        {/* 🔹 Register link */}
-        <p className="forgot-link">
-          Don’t have an account?{" "}
-          <Link to="/register">Register here</Link>
+        <p className="login-link">
+          Don’t have an account? <Link to="/register">Register</Link>
         </p>
-
-        {message && (
-          <p className={`message ${message.includes("✅") ? "success" : "error"}`}>
-            {message}
-          </p>
-        )}
       </div>
     </div>
   );

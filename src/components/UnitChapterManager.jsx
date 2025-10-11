@@ -1,9 +1,17 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom";
-import "../styles/AppStyles.css";
-import TeacherSidebar from "./TeacherSidebar"; // ✅ import new sidebar
+import {
+  BookOpen,
+  PlusCircle,
+  PencilSimple,
+  Trash,
+  ArrowsClockwise,
+  Books,
+} from "phosphor-react";
+import TeacherSidebar from "./TeacherSidebar";
+import "react-toastify/dist/ReactToastify.css";
+import "./UnitChapterManager.css"; // ✅ new CSS file
 
 function UnitChapterManager() {
   const [years, setYears] = useState([]);
@@ -18,9 +26,6 @@ function UnitChapterManager() {
   const user = JSON.parse(localStorage.getItem("user"));
   const teacherId = user.realTeacherId || user.id;
 
-  const navigate = useNavigate();
-
-  // Load teacher's years
   useEffect(() => {
     if (teacherId) fetchYears();
   }, [teacherId]);
@@ -35,7 +40,6 @@ function UnitChapterManager() {
     }
   };
 
-  // Fetch units for selected year
   useEffect(() => {
     if (teacherId && selectedYear) fetchUnits();
   }, [teacherId, selectedYear]);
@@ -63,7 +67,7 @@ function UnitChapterManager() {
         yearId: selectedYear,
       });
       setNewUnit("");
-      toast.success("✅ Unit added");
+      toast.success("✅ Unit added successfully");
       fetchUnits();
     } catch (err) {
       console.error("❌ Error creating unit:", err);
@@ -76,7 +80,7 @@ function UnitChapterManager() {
       await axios.put(`${process.env.REACT_APP_API_URL}/api/unit/${unitId}`, {
         name: editingUnit.name,
       });
-      toast.success("✅ Unit updated");
+      toast.success("✅ Unit updated successfully");
       setEditingUnit(null);
       fetchUnits();
     } catch (err) {
@@ -86,7 +90,7 @@ function UnitChapterManager() {
   };
 
   const deleteUnit = async (unitId) => {
-    if (!window.confirm("Are you sure you want to delete this unit and all its chapters?")) return;
+    toast.info("🗑 Deleting unit...");
     try {
       await axios.delete(`${process.env.REACT_APP_API_URL}/api/unit/${unitId}`);
       toast.success("✅ Unit deleted");
@@ -106,7 +110,7 @@ function UnitChapterManager() {
         unitId,
       });
       setNewChapter({ ...newChapter, [unitId]: "" });
-      toast.success("✅ Chapter added");
+      toast.success("✅ Chapter added successfully");
       fetchUnits();
     } catch (err) {
       console.error("❌ Error creating chapter:", err);
@@ -119,7 +123,7 @@ function UnitChapterManager() {
       await axios.put(`${process.env.REACT_APP_API_URL}/api/chapter/${chapterId}`, {
         name: editingChapter.name,
       });
-      toast.success("✅ Chapter updated");
+      toast.success("✅ Chapter updated successfully");
       setEditingChapter(null);
       fetchUnits();
     } catch (err) {
@@ -129,7 +133,7 @@ function UnitChapterManager() {
   };
 
   const deleteChapter = async (chapterId) => {
-    if (!window.confirm("Are you sure you want to delete this chapter?")) return;
+    toast.info("🗑 Deleting chapter...");
     try {
       await axios.delete(`${process.env.REACT_APP_API_URL}/api/chapter/${chapterId}`);
       toast.success("✅ Chapter deleted");
@@ -142,89 +146,99 @@ function UnitChapterManager() {
 
   return (
     <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-       {/* ✅ Sidebar extracted */}
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* === Main Content === */}
-      <main className="page-container">
-        <div className="section-card">
-          <h3 className="card-title">📘 Manage Units & Chapters</h3>
-
-          {/* Select Year */}
-          <div className="form-inline">
-            <select
-              value={selectedYear}
-              onChange={(e) => {
-                setSelectedYear(e.target.value);
-                localStorage.setItem("yearId", e.target.value);
-              }}
-              className="styled-input"
-            >
-              <option value="">Select Year</option>
-              {years.map((y) => (
-                <option key={y._id} value={y._id}>
-                  {y.name}
-                </option>
-              ))}
-            </select>
+      <main className="unitmanager-container">
+        <div className="unitmanager-header">
+          <div className="header-title">
+            <Books size={26} weight="duotone" color="#0b3c49" />
+            <h2>Manage Units & Chapters</h2>
           </div>
+          <button className="btn-refresh" onClick={fetchYears}>
+            <ArrowsClockwise size={18} /> Refresh
+          </button>
+        </div>
 
-          {/* Add Unit */}
-          {selectedYear && (
-            <div className="form-inline" style={{ marginTop: "15px" }}>
-              <input
-                type="text"
-                placeholder="Enter Unit Name"
-                value={newUnit}
-                onChange={(e) => setNewUnit(e.target.value)}
-                className="styled-input"
-              />
-              <button onClick={addUnit} className="btn btn-purple">
-                Add Unit
-              </button>
-            </div>
-          )}
+        {/* Year Selection */}
+        <div className="form-section">
+          <label className="field-label">
+            <BookOpen size={18} /> Select Year
+          </label>
+          <select
+            className="styled-select"
+            value={selectedYear}
+            onChange={(e) => {
+              setSelectedYear(e.target.value);
+              localStorage.setItem("yearId", e.target.value);
+            }}
+          >
+            <option value="">-- Select Year --</option>
+            {years.map((y) => (
+              <option key={y._id} value={y._id}>
+                {y.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-          {/* Units List */}
-          <ul className="unit-list">
-            {units.map((u) => (
-              <li key={u._id} className="unit-card">
-                {editingUnit && editingUnit._id === u._id ? (
-                  <div className="form-inline">
-                    <input
-                      type="text"
-                      value={editingUnit.name}
-                      onChange={(e) =>
-                        setEditingUnit({ ...editingUnit, name: e.target.value })
-                      }
-                      className="styled-input"
-                    />
-                    <button onClick={() => updateUnit(u._id)} className="btn btn-green">
-                      Save
-                    </button>
-                    <button onClick={() => setEditingUnit(null)} className="btn btn-purple">
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="unit-header">
-                    <b>{u.name}</b>
-                    <div>
-                      <button
-                        onClick={() => setEditingUnit(u)}
-                        className="btn btn-blue small-btn"
-                      >
-                        ✏️ Edit
+        {/* Add Unit */}
+        {selectedYear && (
+          <div className="form-inline add-unit">
+            <input
+              type="text"
+              placeholder="Enter Unit Name"
+              value={newUnit}
+              onChange={(e) => setNewUnit(e.target.value)}
+              className="styled-input"
+            />
+            <button onClick={addUnit} className="btn btn-green">
+              <PlusCircle size={18} /> Add Unit
+            </button>
+          </div>
+        )}
+
+        {/* Units */}
+        <div className="unit-list">
+          {units.length === 0 ? (
+            <p className="text-muted">No units created yet.</p>
+          ) : (
+            units.map((u) => (
+              <div key={u._id} className="unit-card">
+                <div className="unit-header">
+                  {editingUnit && editingUnit._id === u._id ? (
+                    <div className="form-inline">
+                      <input
+                        type="text"
+                        value={editingUnit.name}
+                        onChange={(e) =>
+                          setEditingUnit({ ...editingUnit, name: e.target.value })
+                        }
+                        className="styled-input"
+                      />
+                      <button onClick={() => updateUnit(u._id)} className="btn btn-green">
+                        Save
                       </button>
                       <button
-                        onClick={() => deleteUnit(u._id)}
-                        className="btn btn-purple small-btn"
+                        onClick={() => setEditingUnit(null)}
+                        className="btn btn-grey"
                       >
-                        🗑 Delete
+                        Cancel
                       </button>
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <>
+                      <h4>{u.name}</h4>
+                      <div className="unit-actions">
+                        <button onClick={() => setEditingUnit(u)} className="btn btn-blue small-btn">
+                          <PencilSimple size={16} /> Edit
+                        </button>
+                        <button onClick={() => deleteUnit(u._id)} className="btn btn-red small-btn">
+                          <Trash size={16} /> Delete
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 {/* Chapters */}
                 <ul className="chapter-list">
@@ -254,20 +268,20 @@ function UnitChapterManager() {
                           </button>
                         </div>
                       ) : (
-                        <div className="chapter-header">
+                        <div className="chapter-row">
                           <span>{c.name}</span>
                           <div>
                             <button
                               onClick={() => setEditingChapter(c)}
                               className="btn btn-blue small-btn"
                             >
-                              ✏️ Edit
+                              <PencilSimple size={14} /> Edit
                             </button>
                             <button
                               onClick={() => deleteChapter(c._id)}
-                              className="btn btn-purple small-btn"
+                              className="btn btn-red small-btn"
                             >
-                              🗑 Delete
+                              <Trash size={14} /> Delete
                             </button>
                           </div>
                         </div>
@@ -277,7 +291,7 @@ function UnitChapterManager() {
                 </ul>
 
                 {/* Add Chapter */}
-                <div className="form-inline">
+                <div className="form-inline add-chapter">
                   <input
                     type="text"
                     placeholder="New Chapter"
@@ -287,13 +301,13 @@ function UnitChapterManager() {
                     }
                     className="styled-input"
                   />
-                  <button onClick={() => addChapter(u._id)} className="btn btn-green">
-                    Add Chapter
+                  <button onClick={() => addChapter(u._id)} className="btn btn-green small-btn">
+                    <PlusCircle size={16} /> Add Chapter
                   </button>
                 </div>
-              </li>
-            ))}
-          </ul>
+              </div>
+            ))
+          )}
         </div>
       </main>
     </div>

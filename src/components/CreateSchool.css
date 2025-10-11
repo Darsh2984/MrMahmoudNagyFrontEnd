@@ -1,0 +1,201 @@
+/* ======= Color Palette ======= */
+:root {
+  --cream-white: #f5f1eb;
+  --terracotta: #c85d47;
+  --deep-teal: #0b3c49;
+  --sage-green: #8baa91;
+  --warm-orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* ======= Layout ======= */
+.create-school-container {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(51, 49, 46, 0.1);
+  margin-bottom: 2rem;
+}
+
+/* ======= Header ======= */
+.school-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--sage-green);
+  padding-bottom: 10px;
+  margin-bottom: 1rem;
+}
+
+.school-header .title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--deep-teal);
+}
+
+.school-header h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.collapse-btn {
+  background-color: transparent;
+  border: none;
+  color: var(--deep-teal);
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.2s ease;
+}
+
+/* ======= Form ======= */
+.school-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 1.2rem;
+}
+
+.styled-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--sage-green);
+  background: var(--cream-white);
+  font-size: 14px;
+  color: var(--charcoal);
+  transition: all 0.2s ease;
+}
+
+.styled-input:focus {
+  outline: none;
+  border-color: var(--deep-teal);
+  box-shadow: 0 0 0 2px rgba(11, 60, 73, 0.15);
+}
+
+.btn {
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: 0.3s ease;
+}
+
+/* ======= Buttons ======= */
+.btn-add {
+  background: var(--deep-teal);
+  color: #fff;
+}
+
+.btn-add:hover {
+  background: var(--warm-orange);
+}
+
+.btn-delete {
+  background: var(--terracotta);
+  color: #fff;
+}
+
+.btn-delete:hover {
+  background: #a84b39;
+}
+
+/* ======= School List ======= */
+.school-list {
+  margin-top: 1rem;
+}
+
+.school-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 15px;
+}
+
+.school-card {
+  background: var(--cream-white);
+  border: 1px solid var(--sage-green);
+  border-radius: 10px;
+  padding: 0.9rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: 0.3s ease;
+}
+
+.school-card:hover {
+  background: var(--sage-green);
+  color: #fff;
+  transform: translateY(-3px);
+}
+
+.school-name {
+  font-weight: 600;
+  color: var(--deep-teal);
+}
+
+.school-card:hover .school-name {
+  color: #fff;
+}
+
+/* ======= Toastify Delete Prompt ======= */
+.toast-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.toast-btn {
+  border: none;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.toast-btn.confirm {
+  background: var(--terracotta);
+  color: #fff;
+}
+
+.toast-btn.cancel {
+  background: var(--sage-green);
+  color: #fff;
+}
+
+/* ======= No Data ======= */
+.no-data {
+  color: var(--charcoal);
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* ======= Responsive ======= */
+@media (max-width: 600px) {
+  .school-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .school-card {
+    flex-direction: column;
+    gap: 10px;
+  }
+}

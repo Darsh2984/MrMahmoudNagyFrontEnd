@@ -1,9 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import axios from "axios";
-import "../../styles/AppStyles.css";
-import TeacherSidebar from "../../components/TeacherSidebar"; // ✅ import new sidebar
-
+import TeacherSidebar from "../../components/TeacherSidebar";
+import {
+  UploadSimple,
+  Trash,
+  MagnifyingGlassPlus,
+  MagnifyingGlassMinus,
+  ArrowCounterClockwise,
+  BookOpen,
+  FileArrowUp,
+} from "phosphor-react";
+import "./TeacherMaterialManager.css";
 
 export default function TeacherMaterialManager() {
   const [teacherId, setTeacherId] = useState("");
@@ -11,7 +19,6 @@ export default function TeacherMaterialManager() {
   const [units, setUnits] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [materials, setMaterials] = useState([]);
-
   const [form, setForm] = useState({
     title: "",
     yearId: "",
@@ -20,13 +27,10 @@ export default function TeacherMaterialManager() {
     file: null,
     fileUrl: "",
   });
-
-  const [uploadType, setUploadType] = useState("file"); // "file" or "url"
+  const [uploadType, setUploadType] = useState("file");
   const [zoomLevels, setZoomLevels] = useState({});
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -41,18 +45,16 @@ export default function TeacherMaterialManager() {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/year/${teacherId}`);
       setYears(res.data);
     } catch {
-      setError("Failed to load years.");
+      toast.error("❌ Failed to load years");
     }
   };
 
   const fetchUnits = async (teacherId, yearId) => {
     try {
-      const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`
-      );
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/unit/${teacherId}/${yearId}`);
       setUnits(res.data);
     } catch {
-      setError("Failed to load units.");
+      toast.error("❌ Failed to load units");
     }
   };
 
@@ -61,24 +63,22 @@ export default function TeacherMaterialManager() {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`);
       setChapters(res.data);
     } catch {
-      setError("Failed to load chapters.");
+      toast.error("❌ Failed to load chapters");
     }
   };
 
   const fetchMaterials = async (yearId) => {
-  try {
-    const user = JSON.parse(localStorage.getItem("user")); // ✅ get logged in user
-    const teacherId = user?.id; // or user?._id depending on schema
-
-    const res = await axios.get(
-      `${process.env.REACT_APP_API_URL}/api/material/year/${yearId}/teacher/${teacherId}`
-    );
-
-    setMaterials(res.data);
-  } catch {
-    setError("Failed to load materials.");
-  }
-};
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const teacherId = user?.id;
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/material/year/${yearId}/teacher/${teacherId}`
+      );
+      setMaterials(res.data);
+    } catch {
+      toast.error("❌ Failed to load materials");
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -89,38 +89,34 @@ export default function TeacherMaterialManager() {
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!form.title || !form.yearId || !form.unitId || !form.chapterId) {
-      return setError("⚠️ All fields are required");
+      toast.warning("⚠️ All fields are required");
+      return;
     }
-    setLoading(true);
-    setError("");
 
+    setLoading(true);
     try {
       if (uploadType === "url") {
-        // Save by URL
         await axios.post(`${process.env.REACT_APP_API_URL}/api/material/url`, {
-          title: form.title,
-          fileUrl: form.fileUrl,
-          yearId: form.yearId,
-          unitId: form.unitId,
-          chapterId: form.chapterId,
+          ...form,
           teacherId,
         });
       } else {
-        // Upload file
-        if (!form.file) return setError("⚠️ Please choose a file");
-        const formData = new FormData();
-        formData.append("title", form.title);
-        formData.append("yearId", form.yearId);
-        formData.append("unitId", form.unitId);
-        formData.append("chapterId", form.chapterId);
-        formData.append("teacherId", teacherId);
-        formData.append("file", form.file);
-
-        await axios.post(`${process.env.REACT_APP_API_URL}/api/material`, formData, {
+        if (!form.file) {
+          toast.warning("⚠️ Please choose a file");
+          return;
+        }
+        const fd = new FormData();
+        fd.append("title", form.title);
+        fd.append("yearId", form.yearId);
+        fd.append("unitId", form.unitId);
+        fd.append("chapterId", form.chapterId);
+        fd.append("teacherId", teacherId);
+        fd.append("file", form.file);
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/material`, fd, {
           headers: { "Content-Type": "multipart/form-data" },
         });
       }
-
+      toast.success("✅ Material uploaded successfully");
       setForm({
         title: "",
         yearId: "",
@@ -133,64 +129,75 @@ export default function TeacherMaterialManager() {
       setChapters([]);
       fetchMaterials(form.yearId);
     } catch {
-      setError("❌ Failed to upload PDF.");
+      toast.error("❌ Upload failed");
     } finally {
       setLoading(false);
     }
   };
 
- const handleDelete = async (id) => {
-  if (!window.confirm("Delete this material?")) return;
-
-  try {
-    const user = JSON.parse(localStorage.getItem("user"));
-    const teacherId = user?.id; // or user?._id depending on your schema
-
-    await axios.delete(
-      `${process.env.REACT_APP_API_URL}/api/material/${id}/teacher/${teacherId}`
+  const handleDelete = (id) => {
+    toast.info(
+      <div>
+        <p>🗑 Are you sure you want to delete this material?</p>
+        <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+          <button
+            className="material-toast-btn-confirm"
+            onClick={async () => {
+              try {
+                const user = JSON.parse(localStorage.getItem("user"));
+                const teacherId = user?.id;
+                await axios.delete(
+                  `${process.env.REACT_APP_API_URL}/api/material/${id}/teacher/${teacherId}`
+                );
+                toast.dismiss();
+                toast.success("✅ Material deleted");
+                fetchMaterials(form.yearId);
+              } catch {
+                toast.dismiss();
+                toast.error("❌ Failed to delete material");
+              }
+            }}
+          >
+            Confirm
+          </button>
+          <button className="material-toast-btn-cancel" onClick={() => toast.dismiss()}>
+            Cancel
+          </button>
+        </div>
+      </div>,
+      { autoClose: false, closeOnClick: false, draggable: false, position: "top-center" }
     );
+  };
 
-    fetchMaterials(form.yearId);
-  } catch {
-    setError("❌ Failed to delete PDF.");
-  }
-};
-
-
-  const handleZoom = (id, action) => {
+  const handleZoom = (id, type) => {
     setZoomLevels((prev) => {
       const current = prev[id] || 1;
-      if (action === "in") return { ...prev, [id]: Math.min(current + 0.2, 2) };
-      if (action === "out") return { ...prev, [id]: Math.max(current - 0.2, 0.5) };
-      if (action === "reset") return { ...prev, [id]: 1 };
-      return prev;
+      if (type === "in") return { ...prev, [id]: Math.min(current + 0.2, 2) };
+      if (type === "out") return { ...prev, [id]: Math.max(current - 0.2, 0.5) };
+      return { ...prev, [id]: 1 };
     });
   };
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-       {/* ✅ Sidebar extracted */}
+    <div className={`material-layout ${sidebarOpen ? "with-sidebar" : "full-width"}`}>
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-      {/* === Main Content === */}
-      <main className="page-container">
-        <div className="section-card">
-          <h3 className="card-title">📑 Manage Course Materials</h3>
-          <br />
-          {error && <p className="error-text">{error}</p>}
+      <main className="material-container">
+        <div className="material-section-card">
+          <h2 className="material-title">
+            <FileArrowUp size={22} weight="fill" color="#0b3c49" /> Manage Course Materials
+          </h2>
 
-          {/* Upload Form */}
-          <form onSubmit={handleUpload} className="form-grid">
+          <form onSubmit={handleUpload} className="material-form-grid">
             <input
               type="text"
               name="title"
               placeholder="PDF Title"
               value={form.title}
               onChange={handleChange}
-              className="styled-input"
+              className="material-input"
             />
 
-            {/* Year Dropdown */}
             <select
               name="yearId"
               value={form.yearId}
@@ -204,7 +211,7 @@ export default function TeacherMaterialManager() {
                   fetchUnits(teacherId, yearId);
                 }
               }}
-              className="styled-input"
+              className="material-input"
             >
               <option value="">-- Select Year --</option>
               {years.map((y) => (
@@ -214,7 +221,6 @@ export default function TeacherMaterialManager() {
               ))}
             </select>
 
-            {/* Unit Dropdown */}
             <select
               name="unitId"
               value={form.unitId}
@@ -222,11 +228,9 @@ export default function TeacherMaterialManager() {
                 const unitId = e.target.value;
                 setForm({ ...form, unitId, chapterId: "" });
                 setChapters([]);
-                if (unitId) {
-                  fetchChapters(unitId);
-                }
+                if (unitId) fetchChapters(unitId);
               }}
-              className="styled-input"
+              className="material-input"
               disabled={!form.yearId}
             >
               <option value="">-- Select Unit --</option>
@@ -237,12 +241,11 @@ export default function TeacherMaterialManager() {
               ))}
             </select>
 
-            {/* Chapter Dropdown */}
             <select
               name="chapterId"
               value={form.chapterId}
               onChange={handleChange}
-              className="styled-input"
+              className="material-input"
               disabled={!form.unitId}
             >
               <option value="">-- Select Chapter --</option>
@@ -254,7 +257,7 @@ export default function TeacherMaterialManager() {
             </select>
 
             {/* Upload Type Toggle */}
-            <div className="form-toggle">
+            <div className="material-toggle">
               <label>
                 <input
                   type="radio"
@@ -281,7 +284,7 @@ export default function TeacherMaterialManager() {
                 name="file"
                 accept="application/pdf"
                 onChange={handleChange}
-                className="styled-input"
+                className="material-input"
               />
             ) : (
               <input
@@ -290,75 +293,64 @@ export default function TeacherMaterialManager() {
                 placeholder="Paste Bunny CDN PDF URL"
                 value={form.fileUrl}
                 onChange={handleChange}
-                className="styled-input"
+                className="material-input"
               />
             )}
 
-            <button type="submit" disabled={loading} className="btn btn-purple">
-              {loading ? "⏳ Uploading..." : "📤 Save PDF"}
+            <button type="submit" disabled={loading} className="material-btn material-btn-blue">
+              {loading ? "Uploading..." : <><UploadSimple size={18} /> Save PDF</>}
             </button>
           </form>
         </div>
 
-        {/* Material List */}
-        <div className="section-card">
-          <h3 className="card-title">📚 Uploaded Materials</h3>
+        <div className="material-section-card">
+          <h2 className="material-title">
+            <BookOpen size={22} weight="fill" color="#8baa91" /> Uploaded Materials
+          </h2>
+
           {materials.length === 0 ? (
-            <p>No materials uploaded yet.</p>
+            <p className="material-empty">No materials uploaded yet.</p>
           ) : (
-            <div className="video-grid">
+            <div className="material-grid">
               {materials.map((m) => {
                 const zoom = zoomLevels[m._id] || 1;
                 return (
-                  <div key={m._id} className="video-card">
+                  <div key={m._id} className="material-card">
                     <h4>{m.title}</h4>
                     <p>
                       <b>Unit:</b> {m.unitId?.name} <br />
                       <b>Chapter:</b> {m.chapterId?.name}
                     </p>
 
-                    {/* Zoom Controls */}
-                    <div className="form-inline" style={{ justifyContent: "flex-end" }}>
-                      <button
-                        onClick={() => handleZoom(m._id, "out")}
-                        className="btn btn-grey small-btn"
-                      >
-                        ➖
+                    <div className="material-zoom">
+                      <button onClick={() => handleZoom(m._id, "out")} className="material-btn-grey">
+                        <MagnifyingGlassMinus size={16} />
                       </button>
-                      <button
-                        onClick={() => handleZoom(m._id, "in")}
-                        className="btn btn-grey small-btn"
-                      >
-                        ➕
+                      <button onClick={() => handleZoom(m._id, "in")} className="material-btn-grey">
+                        <MagnifyingGlassPlus size={16} />
                       </button>
-                      <button
-                        onClick={() => handleZoom(m._id, "reset")}
-                        className="btn btn-grey small-btn"
-                      >
-                        🔄
+                      <button onClick={() => handleZoom(m._id, "reset")} className="material-btn-grey">
+                        <ArrowCounterClockwise size={16} />
                       </button>
                     </div>
 
-                    {/* PDF Viewer */}
-                    <div className="pdf-viewer">
-                      <iframe
-                        src={`${m.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                        title={m.title}
-                        style={{
-                          width: "100%",
-                          height: "500px",
-                          border: "none",
-                          transform: `scale(${zoom})`,
-                          transformOrigin: "0 0",
-                        }}
-                      ></iframe>
-                    </div>
+                    <iframe
+                      src={`${m.fileUrl}#toolbar=0&navpanes=0`}
+                      title={m.title}
+                      style={{
+                        width: "100%",
+                        height: "500px",
+                        border: "none",
+                        transform: `scale(${zoom})`,
+                        transformOrigin: "0 0",
+                      }}
+                    ></iframe>
 
                     <button
                       onClick={() => handleDelete(m._id)}
-                      className="btn btn-purple small-btn"
+                      className="material-btn material-btn-red"
                     >
-                      🗑 Delete
+                      <Trash size={16} /> Delete
                     </button>
                   </div>
                 );

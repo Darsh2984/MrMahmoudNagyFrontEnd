@@ -1,8 +1,18 @@
-// src/pages/ParentDashboard.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import "../../styles/AppStyles.css";
+import "./ParentDashboard.css";
+import {
+  Users,
+  ClipboardText,
+  BookOpen,
+  MagnifyingGlass,
+  Student,
+  ChalkboardTeacher,
+  ChartBar,
+  Clock,
+  House,
+} from "phosphor-react";
 
 function ParentDashboard() {
   const [students, setStudents] = useState([]);
@@ -10,7 +20,6 @@ function ParentDashboard() {
   const [performance, setPerformance] = useState(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user"));
@@ -41,172 +50,171 @@ function ParentDashboard() {
   };
 
   const fetchPerformance = async (parentId) => {
-    if (!parentId) {
-      setMessage("⚠️ No parent ID provided.");
-      setPerformance(null);
-      return;
-    }
-
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_URL}/api/performance/parent/${parentId}`
       );
-      setPerformance(res.data); 
+      setPerformance(res.data);
       setMessage("");
     } catch (err) {
       console.error("❌ Error fetching parent performance:", err);
-      setMessage("❌ Could not load parent performance.");
+      setMessage("❌ Could not load performance data.");
       setPerformance(null);
     }
   };
 
-
+  const getColor = (condition) => (condition ? "green" : "red");
 
   return (
-    <div className={`layout ${sidebarOpen ? "sidebar-open" : "sidebar-closed"}`}>
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <button
-          className="sidebar-toggle"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-        >
-          {sidebarOpen ? "«" : "»"}
-        </button>
-        <h2 className="sidebar-title">👪 Parent</h2>
-        <ul>
-          <li onClick={() => navigate("/parent-dashboard")}>🏠 Dashboard</li>
-        </ul>
-      </aside>
+    <div className="parent-dashboard">
+      <header className="dashboard-header">
+        <h2>
+          <Users size={22} /> Parent Dashboard
+        </h2>
+        <p>Monitor your children’s attendance, tasks, and quiz performance</p>
+      </header>
 
-      {/* Main Content */}
-      <main className="page-container">
-        <div className="section-card">
-          <h2 className="card-title">👪 Parent Dashboard</h2>
-          {loading && <p>⏳ Loading...</p>}
-          {message && <p className="error-text">{message}</p>}
+      <section className="section-card">
+        {loading && <p className="loading-msg">⏳ Loading...</p>}
+        {message && <p className="error-msg">{message}</p>}
 
-          {!loading && students.length === 0 && (
-            <p>⚠️ No children linked to this parent account.</p>
-          )}
+        {!loading && students.length === 0 && (
+          <p className="no-data">No children linked to this parent account.</p>
+        )}
 
-          {/* Children List */}
-          <div className="student-dashboard-vertical">
-            {students.map((child) => (
-              <div key={child._id} className="student-tile">
-                <h3 style={{ padding: "10px 0" }}> 🎓 {child.name}</h3>
-                <p style={{ padding: "10px 0" }}>👥 Group: {child.groupId?.name || "Not Assigned"}</p>
-                <p style={{ padding: "10px 0" }}>
-                  Year: {child.yearId?.name || "Not Assigned"}
-                </p>
-
-                <button
-                  onClick={() => {
-                    setSelectedStudent(child._id);
-                    fetchPerformance(user.id);  // ✅ Pass parentId, not childId
-                  }}
-                  className="btn btn-blue"
-                >
-                  🔍 View Performance
-                </button>
+        {/* === Children List === */}
+        <div className="children-grid">
+          {students.map((child) => (
+            <div key={child._id} className="child-card">
+              <div className="child-icon">
+                <Student size={26} />
               </div>
-            ))}
-          </div>
-
-          {/* Performance Section */}
-          {/* Performance Section */}
-          {performance && selectedStudent && (
-            <div className="section-card" style={{ marginTop: "25px" }}>
-              <h3 className="card-title">Performance Report</h3>
-              <br />
-
-                {Array.isArray(performance) ? (
-                (() => {
-                  const childPerf = performance.find(c => c.childId === selectedStudent);
-                  if (!childPerf) return <p>No performance data for this student</p>;
-
-                  return (
-                    <>
-                      {/* Attendance */}
-                      <div className="student-tile">
-                        <h4>Attendance</h4>
-                        {childPerf.attendance?.length === 0 ? (
-                          <p>No attendance records</p>
-                        ) : (
-                          <ul style={{ listStyle: "none", padding: 0 }}>
-                            {childPerf.attendance.map((a, i) => (
-                              <li
-                                key={i}
-                                style={{
-                                  marginBottom: "8px",
-                                  color: a.present ? "green" : "red",
-                                }}
-                              >
-                                {a.title} → {a.present ? "✅ Present" : "❌ Absent"}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Tasks */}
-                      <div className="student-tile">
-                        <h4>📝 Tasks</h4>
-                        {childPerf.tasks?.length === 0 ? (
-                          <p>No tasks</p>
-                        ) : (
-                          <ul style={{ listStyle: "none", padding: 0 }}>
-                            {childPerf.tasks.map((t) => (
-                              <li
-                                key={t._id}
-                                style={{
-                                  marginBottom: "8px",
-                                  color: t.submitted ? "green" : "red",
-                                }}
-                              >
-                                {t.title} → {t.submitted ? "✅ Submitted" : "❌ Not Submitted"}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Quizzes */}
-                      <div className="student-tile">
-                        <h4>🧾 Quizzes</h4>
-                        {childPerf.quizzes?.length === 0 ? (
-                          <p>No quizzes</p>
-                        ) : (
-                          <table className="styled-table">
-                            <thead>
-                              <tr>
-                                <th>Quiz</th>
-                                <th>Score</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {childPerf.quizzes.map((q, i) => (
-                                <tr key={i}>
-                                  <td>{q.quizTitle}</td>
-                                  <td style={{ color: q.score !== null ? "#2c3e50" : "red" }}>
-                                    {q.score !== null ? `${q.score}/${q.total}` : "❌ Not Attempted"}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()
-              ) : (
-                <p>No performance data</p>
-              )}
+              <h4>{child.name}</h4>
+              <p>
+                <strong>Group:</strong> {child.groupId?.name || "Not Assigned"}
+              </p>
+              <p>
+                <strong>Year:</strong> {child.yearId?.name || "Not Assigned"}
+              </p>
+              <button
+                className="btn-view"
+                onClick={() => {
+                  setSelectedStudent(child._id);
+                  fetchPerformance(user.id);
+                }}
+              >
+                <MagnifyingGlass size={18} /> View Performance
+              </button>
             </div>
-          )}
-
+          ))}
         </div>
-      </main>
+
+        {/* === Performance Section === */}
+        {performance && selectedStudent && (
+          <div className="section-card performance-section">
+            <h3 className="card-title">
+              <ChartBar size={20} /> Performance Report
+            </h3>
+
+            {Array.isArray(performance) ? (
+              (() => {
+                const childPerf = performance.find(
+                  (c) => c.childId === selectedStudent
+                );
+                if (!childPerf)
+                  return <p>No performance data for this student.</p>;
+
+                return (
+                  <>
+                    {/* === Attendance === */}
+                    <div className="performance-block">
+                      <h4>
+                        <ChalkboardTeacher size={18} /> Attendance
+                      </h4>
+                      {childPerf.attendance?.length === 0 ? (
+                        <p>No attendance records</p>
+                      ) : (
+                        <ul className="status-list">
+                          {childPerf.attendance.map((a, i) => (
+                            <li key={i} style={{ color: getColor(a.present) }}>
+                              {a.title} →{" "}
+                              {a.present ? "Present" : "Absent"}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* === Tasks === */}
+                    <div className="performance-block">
+                      <h4>
+                        <ClipboardText size={18} /> Tasks
+                      </h4>
+                      {childPerf.tasks?.length === 0 ? (
+                        <p>No tasks</p>
+                      ) : (
+                        <ul className="status-list">
+                          {childPerf.tasks.map((t) => (
+                            <li
+                              key={t._id}
+                              style={{
+                                color: getColor(t.submitted),
+                              }}
+                            >
+                              {t.title} →{" "}
+                              {t.submitted
+                                ? "Submitted"
+                                : "Not Submitted"}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* === Quizzes === */}
+                    <div className="performance-block">
+                      <h4>
+                        <BookOpen size={18} /> Quizzes
+                      </h4>
+                      {childPerf.quizzes?.length === 0 ? (
+                        <p>No quizzes</p>
+                      ) : (
+                        <table className="styled-table">
+                          <thead>
+                            <tr>
+                              <th>Quiz</th>
+                              <th>Score</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {childPerf.quizzes.map((q, i) => (
+                              <tr key={i}>
+                                <td>{q.quizTitle}</td>
+                                <td
+                                  style={{
+                                    color:
+                                      q.score !== null ? "#0b3c49" : "red",
+                                  }}
+                                >
+                                  {q.score !== null
+                                    ? `${q.score}/${q.total}`
+                                    : "Not Attempted"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  </>
+                );
+              })()
+            ) : (
+              <p>No performance data available</p>
+            )}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

@@ -3,7 +3,7 @@
   import { toast } from "react-toastify";
   import { useNavigate } from "react-router-dom";
   import "react-toastify/dist/ReactToastify.css";
-  import "../styles/AppStyles.css";
+  import "./TeacherQuizList.css";
   import TeacherSidebar from "./TeacherSidebar"; // ✅ import new sidebar
 
   
