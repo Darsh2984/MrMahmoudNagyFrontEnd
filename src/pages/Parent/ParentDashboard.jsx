@@ -10,8 +10,6 @@ import {
   Student,
   ChalkboardTeacher,
   ChartBar,
-  Clock,
-  House,
 } from "phosphor-react";
 
 function ParentDashboard() {
@@ -40,10 +38,11 @@ function ParentDashboard() {
         `${process.env.REACT_APP_API_URL}/api/auth/parent/${user.id}/students`,
         { headers: { Authorization: token } }
       );
-      setStudents(res.data);
+      setStudents(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("❌ Error fetching children:", err);
       setMessage("❌ Could not load students.");
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -84,29 +83,30 @@ function ParentDashboard() {
 
         {/* === Children List === */}
         <div className="children-grid">
-          {students.map((child) => (
-            <div key={child._id} className="child-card">
-              <div className="child-icon">
-                <Student size={26} />
+          {Array.isArray(students) &&
+            students.map((child) => (
+              <div key={child._id} className="child-card">
+                <div className="child-icon">
+                  <Student size={26} />
+                </div>
+                <h4>{child.name}</h4>
+                <p>
+                  <strong>Group:</strong> {child.groupId?.name || "Not Assigned"}
+                </p>
+                <p>
+                  <strong>Year:</strong> {child.yearId?.name || "Not Assigned"}
+                </p>
+                <button
+                  className="btn-view"
+                  onClick={() => {
+                    setSelectedStudent(child._id);
+                    fetchPerformance(user.id);
+                  }}
+                >
+                  <MagnifyingGlass size={18} /> View Performance
+                </button>
               </div>
-              <h4>{child.name}</h4>
-              <p>
-                <strong>Group:</strong> {child.groupId?.name || "Not Assigned"}
-              </p>
-              <p>
-                <strong>Year:</strong> {child.yearId?.name || "Not Assigned"}
-              </p>
-              <button
-                className="btn-view"
-                onClick={() => {
-                  setSelectedStudent(child._id);
-                  fetchPerformance(user.id);
-                }}
-              >
-                <MagnifyingGlass size={18} /> View Performance
-              </button>
-            </div>
-          ))}
+            ))}
         </div>
 
         {/* === Performance Section === */}
@@ -131,14 +131,14 @@ function ParentDashboard() {
                       <h4>
                         <ChalkboardTeacher size={18} /> Attendance
                       </h4>
-                      {childPerf.attendance?.length === 0 ? (
+                      {!Array.isArray(childPerf.attendance) ||
+                      childPerf.attendance.length === 0 ? (
                         <p>No attendance records</p>
                       ) : (
                         <ul className="status-list">
                           {childPerf.attendance.map((a, i) => (
                             <li key={i} style={{ color: getColor(a.present) }}>
-                              {a.title} →{" "}
-                              {a.present ? "Present" : "Absent"}
+                              {a.title} → {a.present ? "Present" : "Absent"}
                             </li>
                           ))}
                         </ul>
@@ -150,7 +150,8 @@ function ParentDashboard() {
                       <h4>
                         <ClipboardText size={18} /> Tasks
                       </h4>
-                      {childPerf.tasks?.length === 0 ? (
+                      {!Array.isArray(childPerf.tasks) ||
+                      childPerf.tasks.length === 0 ? (
                         <p>No tasks</p>
                       ) : (
                         <ul className="status-list">
@@ -162,9 +163,7 @@ function ParentDashboard() {
                               }}
                             >
                               {t.title} →{" "}
-                              {t.submitted
-                                ? "Submitted"
-                                : "Not Submitted"}
+                              {t.submitted ? "Submitted" : "Not Submitted"}
                             </li>
                           ))}
                         </ul>
@@ -176,7 +175,8 @@ function ParentDashboard() {
                       <h4>
                         <BookOpen size={18} /> Quizzes
                       </h4>
-                      {childPerf.quizzes?.length === 0 ? (
+                      {!Array.isArray(childPerf.quizzes) ||
+                      childPerf.quizzes.length === 0 ? (
                         <p>No quizzes</p>
                       ) : (
                         <table className="styled-table">
