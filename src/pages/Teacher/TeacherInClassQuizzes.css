@@ -153,6 +153,19 @@
   background-color: #f5f1eb;
 }
 
+.action-buttons button {
+  margin-right: 6px;
+}
+
+.inclass-btn-red {
+  background-color: #dc2626;
+  color: white;
+}
+.inclass-btn-red:hover {
+  background-color: #b91c1c;
+}
+
+
 /* === Responsive === */
 @media (max-width: 992px) {
   .teacher-inclass-container {
@@ -180,4 +193,5 @@
   .inclass-btn {
     font-size: 0.85rem;
   }
+  
 }

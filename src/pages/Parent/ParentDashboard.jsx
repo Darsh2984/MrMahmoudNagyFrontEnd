@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
 import "./ParentDashboard.css";
 import {
   Users,
@@ -63,6 +73,16 @@ function ParentDashboard() {
   };
 
   const getColor = (condition) => (condition ? "green" : "red");
+
+  const prepareChartData = (quizzes = []) => {
+  return quizzes
+    .filter((q) => q.score !== null && q.total > 0)
+    .map((q) => ({
+      name: q.quizName || q.quizTitle,
+      score: ((q.score / q.total) * 100).toFixed(1),
+    }));
+};
+
 
   return (
     <div className="parent-dashboard">
@@ -205,6 +225,65 @@ function ParentDashboard() {
                           </tbody>
                         </table>
                       )}
+                      {/* === Performance Trend Charts === */}
+<div className="chart-section-wrapper">
+  {/* Online Quiz Trend */}
+  <div className="chart-container fullwidth-chart">
+    <h4 className="chart-title">Online Quiz Performance Trend</h4>
+    {childPerf.quizzes && childPerf.quizzes.length > 0 ? (
+      <ResponsiveContainer width="100%" height={350}>
+        <LineChart
+          data={prepareChartData(childPerf.quizzes)}
+          margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+          <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+          <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+          <Tooltip formatter={(v) => `${v}%`} />
+          <Line
+            type="monotone"
+            dataKey="score"
+            stroke="#2563eb"
+            strokeWidth={3}
+            dot={{ r: 4 }}
+            activeDot={{ r: 6 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    ) : (
+      <p className="no-data-text">No online quiz data available</p>
+    )}
+  </div>
+
+    {/* In-Class Quiz Trend */}
+    <div className="chart-container fullwidth-chart">
+      <h4 className="chart-title">In-Class Quiz Performance Trend</h4>
+      {childPerf.inClassQuizzes && childPerf.inClassQuizzes.length > 0 ? (
+        <ResponsiveContainer width="100%" height={350}>
+          <LineChart
+            data={prepareChartData(childPerf.inClassQuizzes)}
+            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+          >
+            <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+            <Tooltip formatter={(v) => `${v}%`} />
+            <Line
+              type="monotone"
+              dataKey="score"
+              stroke="#16a34a"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <p className="no-data-text">No in-class quiz data available</p>
+      )}
+    </div>
+  </div>
+
                     </div>
                   </>
                 );

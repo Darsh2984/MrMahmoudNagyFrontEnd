@@ -171,6 +171,43 @@
   font-weight: 600;
 }
 
+.chart-section-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  margin-top: 40px;
+  width: 100%;
+}
+
+.chart-container {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: 20px;
+  width: 100%;
+}
+
+.fullwidth-chart {
+  width: 100%;
+  max-width: 100%;
+}
+
+.chart-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  text-align: center;
+  color: #1f2937;
+}
+
+.no-data-text {
+  text-align: center;
+  color: #6b7280;
+  margin-top: 20px;
+}
+
+
+
 /* === Responsive === */
 @media (max-width: 768px) {
   .teacherperformance-container {

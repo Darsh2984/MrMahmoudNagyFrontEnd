@@ -3,6 +3,16 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { ChartBar, Download, MagnifyingGlass } from "phosphor-react";
 import TeacherSidebar from "./TeacherSidebar";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
 import "./TeacherStudentPerformance.css";
 
 export default function TeacherStudentPerformance() {
@@ -101,6 +111,18 @@ export default function TeacherStudentPerformance() {
       alert("❌ Failed to export group performance data");
     }
   };
+
+  const prepareChartData = (quizzes = []) => {
+  return quizzes
+    .filter((q) => q.score !== null && q.total > 0)
+    .map((q) => ({
+      name: q.quizName || q.quizTitle,
+      score: ((q.score / q.total) * 100).toFixed(1),
+    }));
+};
+
+const onlineQuizData = prepareChartData(data?.quizzes);
+const inClassQuizData = prepareChartData(data?.inClassQuizzes);
 
   return (
     <div className="page-layout">
@@ -254,6 +276,106 @@ export default function TeacherStudentPerformance() {
                 </table>
               )}
             </div>
+            {/* In-Class Quizzes */}
+            <div className="section-card">
+              <h3 className="card-title">🏫 In-Class Quizzes</h3>
+              {(!data.inClassQuizzes || data.inClassQuizzes.length === 0) ? (
+                <p>No in-class quizzes found</p>
+              ) : (
+                <table className="styled-table">
+                  <thead>
+                    <tr>
+                      <th>Quiz</th>
+                      <th>Date</th>
+                      <th>Score</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.inClassQuizzes.map((q, i) => (
+                      <tr key={i}>
+                        <td>{q.quizName}</td>
+                        <td>{new Date(q.date).toLocaleDateString()}</td>
+                        <td className={q.score !== null ? "present" : "absent"}>
+                          {q.score !== null ? `${q.score}/${q.total}` : "❌ Not Graded"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {/* === Performance Trend Charts === */}
+{data && (
+  <div
+    style={{
+      display: "flex",
+      flexWrap: "wrap",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: "40px",
+      marginTop: "40px",
+    }}
+  >
+    {/* === Performance Trend Charts === */}
+{data && (
+  <div className="chart-section-wrapper">
+    {/* Online Quiz Trend */}
+    <div className="chart-container fullwidth-chart">
+      <h3 className="chart-title">Online Quiz Performance Trend</h3>
+      {onlineQuizData && onlineQuizData.length > 0 ? (
+        <ResponsiveContainer width="100%" height={350}>
+          <LineChart data={onlineQuizData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+            <Tooltip formatter={(v) => `${v}%`} />
+            <Line
+              type="monotone"
+              dataKey="score"
+              stroke="#2563eb"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <p className="no-data-text">No quiz data available</p>
+      )}
+    </div>
+
+    {/* In-Class Quiz Trend */}
+    <div className="chart-container fullwidth-chart">
+      <h3 className="chart-title">In-Class Quiz Performance Trend</h3>
+      {inClassQuizData && inClassQuizData.length > 0 ? (
+        <ResponsiveContainer width="100%" height={350}>
+          <LineChart data={inClassQuizData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#ccc" />
+            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+            <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+            <Tooltip formatter={(v) => `${v}%`} />
+            <Line
+              type="monotone"
+              dataKey="score"
+              stroke="#16a34a"
+              strokeWidth={3}
+              dot={{ r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      ) : (
+        <p className="no-data-text">No in-class quiz data available</p>
+      )}
+    </div>
+  </div>
+)}
+
+  </div>
+)}
+
+
+
           </div>
         )}
       </main>
