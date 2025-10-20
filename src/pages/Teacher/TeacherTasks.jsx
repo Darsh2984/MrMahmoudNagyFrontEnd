@@ -166,6 +166,21 @@ function TeacherTasks() {
     }
   };
 
+  const markAsSubmitted = async (taskId, studentId) => {
+    try {
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/tasks/submission/manual`, {
+        taskId,
+        studentId,
+        teacherId: user.id,
+      });
+      toast.success("✅ Student marked as submitted");
+      fetchSubmissions(taskId); // refresh submissions list
+    } catch (err) {
+      toast.error(err.response?.data?.msg || "❌ Failed to mark as submitted");
+    }
+  };
+
+
   return (
     <div className="page-layout">
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
@@ -351,19 +366,34 @@ function TeacherTasks() {
                           <span>Status</span>
                           <span>Actions</span>
                         </div>
+
                         {groupStudents.map((s) => {
                           const sub = submissions[t._id]?.find(
                             (sub) => sub.studentId?._id === s._id
                           );
+
+                          // Determine displayed status text
+                          const statusText = sub ? "Submitted" : "Not Submitted";
+
+                          console.log("Student:", s.name, "| Status:", statusText);
+
                           return (
                             <div key={s._id} className="submission-row">
                               <span>{s.name}</span>
                               <span>{s.email}</span>
-                              <span className={sub ? "present" : "absent"}>
-                                {sub ? "Submitted" : "Not Submitted"}
-                              </span>
+                              <span className={sub ? "present" : "absent"}>{statusText}</span>
+
                               <span>
-                                {sub && (
+                                {statusText === "Not Submitted" ? (
+                                  // ✅ If the displayed status is "Not Submitted"
+                                  <button
+                                    className="btn btn-yellow small-btn"
+                                    onClick={() => markAsSubmitted(t._id, s._id)}
+                                  >
+                                    Mark as Submitted
+                                  </button>
+                                ) : (
+                                  // ✅ Otherwise, show the normal "View" button
                                   <button
                                     className="btn btn-purple small-btn"
                                     onClick={() =>
@@ -382,11 +412,16 @@ function TeacherTasks() {
                                 <div className="grading-box">
                                   <p>
                                     📄{" "}
-                                    <a href={sub.fileUrl} target="_blank" rel="noreferrer">
-                                      View Submitted File
-                                    </a>
+                                    {sub.fileUrl ? (
+                                      <a href={sub.fileUrl} target="_blank" rel="noreferrer">
+                                        View Submitted File
+                                      </a>
+                                    ) : (
+                                      <em>No file uploaded (manually marked)</em>
+                                    )}
                                   </p>
-                                  {sub.grade !== undefined ? (
+
+                                  {sub.grade !== undefined && sub.grade !== null ? (
                                     <p>
                                       Grade: {sub.grade}/{t.gradeOutOf}
                                     </p>
@@ -443,6 +478,8 @@ function TeacherTasks() {
                       </div>
                     </div>
                   )}
+
+
                 </li>
               ))}
             </ul>
