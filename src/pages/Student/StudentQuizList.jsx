@@ -8,7 +8,7 @@ import {
   PlayCircle,
   LockSimple,
   CheckCircle,
-  XCircle,
+  ArrowClockwise,
 } from "phosphor-react";
 import StudentSidebar from "../../components/StudentSidebar";
 import "./StudentQuizList.css";
@@ -17,6 +17,7 @@ function StudentQuizList() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [startingQuizId, setStartingQuizId] = useState(null); // prevent double click
   const navigate = useNavigate();
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -51,6 +52,27 @@ function StudentQuizList() {
     });
   };
 
+  // 🔹 Handle Start Quiz click
+  const handleStartQuiz = async (quizId) => {
+    if (startingQuizId) return; // prevent multiple clicks
+    setStartingQuizId(quizId);
+
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_URL}/api/quiz-student/${quizId}/start`,
+        { studentId }
+      );
+
+      console.log("✅ Quiz start recorded:", res.data);
+      navigate(`/student/take-quiz/${quizId}`);
+    } catch (err) {
+      console.error("❌ Error starting quiz:", err.response?.data || err.message);
+      alert(err.response?.data?.msg || "Failed to start quiz. Please try again.");
+    } finally {
+      setStartingQuizId(null);
+    }
+  };
+
   return (
     <div className="student-layout">
       <StudentSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
@@ -75,30 +97,49 @@ function StudentQuizList() {
 
                 let status, label, colorClass, icon, disabled, onClick;
 
+                // 🟢 Completed quiz
                 if (quiz.alreadySubmitted) {
                   status = "completed";
                   label = "View Results";
                   colorClass = "btn-green";
                   icon = <ChartBar size={18} />;
                   onClick = () => navigate(`/student/quiz-result/${quiz._id}`);
-                } else if (startTime && now < startTime) {
-                  status = "upcoming";
-                  label = "Opening Soon";
-                  colorClass = "btn-gray";
-                  icon = <Clock size={18} />;
-                  disabled = true;
-                } else if (endTime && now > endTime) {
+                }
+
+                // 🔒 Closed quiz (always overrides)
+                else if (endTime && now > endTime) {
                   status = "closed";
                   label = "Quiz Closed";
                   colorClass = "btn-red";
                   icon = <LockSimple size={18} />;
                   disabled = true;
-                } else {
+                }
+
+                // 🕒 Upcoming quiz
+                else if (startTime && now < startTime) {
+                  status = "upcoming";
+                  label = "Opening Soon";
+                  colorClass = "btn-gray";
+                  icon = <Clock size={18} />;
+                  disabled = true;
+                }
+
+                // 🟡 Continue quiz (started but not submitted)
+                else if (quiz.hasStarted && !quiz.alreadySubmitted) {
+                  status = "in-progress";
+                  label = "Continue Quiz";
+                  colorClass = "btn-yellow";
+                  icon = <ArrowClockwise size={18} />;
+                  onClick = () => navigate(`/student/take-quiz/${quiz._id}`);
+                }
+
+                // 🔵 Not started
+                else {
                   status = "active";
-                  label = "Start Quiz";
+                  label = startingQuizId === quiz._id ? "Starting..." : "Start Quiz";
                   colorClass = "btn-blue";
                   icon = <PlayCircle size={18} />;
-                  onClick = () => navigate(`/student/take-quiz/${quiz._id}`);
+                  onClick = () => handleStartQuiz(quiz._id);
                 }
 
                 return (
@@ -138,7 +179,7 @@ function StudentQuizList() {
                     <button
                       className={`btn ${colorClass}`}
                       onClick={onClick}
-                      disabled={disabled}
+                      disabled={disabled || startingQuizId === quiz._id}
                     >
                       {icon} <span>{label}</span>
                     </button>
