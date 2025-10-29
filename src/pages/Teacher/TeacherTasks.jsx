@@ -1,3 +1,4 @@
+// ================= TeacherTasks.js =================
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
@@ -27,25 +28,28 @@ function TeacherTasks() {
   const user = JSON.parse(localStorage.getItem("user"));
   const navigate = useNavigate();
 
-  // ⏰ Utility functions for date conversion
-  function toUTCString(localDateTime) {
-    if (!localDateTime) return null;
-    const [datePart, timePart] = localDateTime.split("T");
-    const [year, month, day] = datePart.split("-").map(Number);
-    const [hour, minute] = timePart.split(":").map(Number);
-    const localDate = new Date(year, month - 1, day, hour, minute);
-    return localDate.toISOString();
+  // ----------------- TIMEZONE HELPERS -----------------
+  // Convert local input (from datetime-local) -> UTC ISO for backend
+  function localToUTC(localString) {
+    if (!localString) return null;
+    // localString is like "2025-10-29T18:00"
+    const local = new Date(localString);
+    return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
   }
 
-  function toLocalInputValue(isoDate) {
-    if (!isoDate) return "";
-    const d = new Date(isoDate);
+  // Convert UTC ISO from DB -> local string for input display
+  function utcToLocalInput(utcString) {
+    if (!utcString) return "";
+    const utcDate = new Date(utcString);
+    // convert to local ISO (e.g., 2025-10-29T18:00)
+    const local = new Date(utcDate.getTime() + utcDate.getTimezoneOffset() * 60000);
     const pad = (n) => n.toString().padStart(2, "0");
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
-      d.getHours()
-    )}:${pad(d.getMinutes())}`;
+    return `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(
+      local.getHours()
+    )}:${pad(local.getMinutes())}`;
   }
 
+  // ----------------- LOAD DATA -----------------
   useEffect(() => {
     if (user?.id) fetchYears(user.id);
   }, [user?.id]);
@@ -78,6 +82,7 @@ function TeacherTasks() {
     }
   };
 
+  // ----------------- CREATE TASK -----------------
   const createTask = async () => {
     if (!selectedYear || !selectedGroups.length || !title || !deadline || !gradeOutOf) {
       toast.warn("⚠️ Please fill all fields");
@@ -91,7 +96,7 @@ function TeacherTasks() {
         teacherId: user.id,
         yearId: selectedYear,
         groups: selectedGroups,
-        deadline: toUTCString(deadline),
+        deadline: localToUTC(deadline), // ✅ convert local → UTC before sending
         gradeOutOf,
       });
 
@@ -102,21 +107,27 @@ function TeacherTasks() {
       setGradeOutOf("");
       setSelectedGroups([]);
 
+      // refresh
       let allTasks = [];
       for (const gId of selectedGroups) {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/tasks/group/${gId}`);
         allTasks = [...allTasks, ...res.data];
       }
       setTasks(allTasks);
-    } catch {
+    } catch (err) {
+      console.error("❌ Create Task Error:", err);
       toast.error("❌ Failed to create task");
     }
   };
 
+  // ----------------- UPDATE TASK -----------------
   const updateTask = async () => {
     if (!editingTask) return;
     try {
-      await axios.put(`${process.env.REACT_APP_API_URL}/api/tasks/task/${editingTask._id}`, editingTask);
+      await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/tasks/task/${editingTask._id}`,
+        { ...editingTask, deadline: localToUTC(editingTask.deadline) } // ✅ local → UTC
+      );
       toast.success("✅ Task updated");
       setTasks((prev) => prev.map((t) => (t._id === editingTask._id ? editingTask : t)));
       setEditingTask(null);
@@ -125,6 +136,7 @@ function TeacherTasks() {
     }
   };
 
+  // ----------------- DELETE TASK -----------------
   const deleteTask = async (taskId) => {
     if (!window.confirm("⚠️ Delete this task?")) return;
     try {
@@ -136,6 +148,7 @@ function TeacherTasks() {
     }
   };
 
+  // ----------------- SUBMISSIONS -----------------
   const fetchSubmissions = async (taskId) => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/tasks/submission/${taskId}`);
@@ -174,19 +187,18 @@ function TeacherTasks() {
         teacherId: user.id,
       });
       toast.success("✅ Student marked as submitted");
-      fetchSubmissions(taskId); // refresh submissions list
+      fetchSubmissions(taskId);
     } catch (err) {
       toast.error(err.response?.data?.msg || "❌ Failed to mark as submitted");
     }
   };
 
-
+  // ----------------- UI -----------------
   return (
     <div className="page-layout">
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
       <main className={`teachertasks-container ${sidebarOpen ? "with-sidebar" : "full-width"}`}>
-        {/* === Title === */}
         <div className="section-card">
           <h2 className="page-title">📘 Teacher Tasks</h2>
 
@@ -291,7 +303,7 @@ function TeacherTasks() {
             />
             <input
               type="datetime-local"
-              value={toLocalInputValue(editingTask.deadline)}
+              value={utcToLocalInput(editingTask.deadline)} // ✅ display as local
               onChange={(e) => setEditingTask({ ...editingTask, deadline: e.target.value })}
               className="styled-input"
             />
@@ -312,7 +324,7 @@ function TeacherTasks() {
           </div>
         )}
 
-        {/* === Tasks List === */}
+        {/* === Task List === */}
         {tasks.length > 0 && (
           <div className="section-card">
             <h3 className="card-title">📋 Task List</h3>
@@ -324,20 +336,18 @@ function TeacherTasks() {
                       <h4>{t.title}</h4>
                       <p>{t.description}</p>
                       <small>
-                        Due: {new Date(t.deadline).toLocaleString("en-GB")}
+                        Due:{" "}
+                        {new Date(t.deadline).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
                       </small>
                     </div>
                     <div className="task-buttons">
-                      <button
-                        className="btn btn-blue"
-                        onClick={() => setEditingTask(t)}
-                      >
+                      <button className="btn btn-blue" onClick={() => setEditingTask(t)}>
                         ✏️ Edit
                       </button>
-                      <button
-                        className="btn btn-red"
-                        onClick={() => deleteTask(t._id)}
-                      >
+                      <button className="btn btn-red" onClick={() => deleteTask(t._id)}>
                         🗑 Delete
                       </button>
                       <button
@@ -356,7 +366,7 @@ function TeacherTasks() {
                     </div>
                   </div>
 
-                  {/* === Submissions Section === */}
+                  {/* Submissions */}
                   {expandedTask === t._id && (
                     <div className="submissions">
                       <div className="submission-table">
@@ -371,21 +381,15 @@ function TeacherTasks() {
                           const sub = submissions[t._id]?.find(
                             (sub) => sub.studentId?._id === s._id
                           );
-
-                          // Determine displayed status text
                           const statusText = sub ? "Submitted" : "Not Submitted";
-
-                          console.log("Student:", s.name, "| Status:", statusText);
 
                           return (
                             <div key={s._id} className="submission-row">
                               <span>{s.name}</span>
                               <span>{s.email}</span>
                               <span className={sub ? "present" : "absent"}>{statusText}</span>
-
                               <span>
                                 {statusText === "Not Submitted" ? (
-                                  // ✅ If the displayed status is "Not Submitted"
                                   <button
                                     className="btn btn-yellow small-btn"
                                     onClick={() => markAsSubmitted(t._id, s._id)}
@@ -393,7 +397,6 @@ function TeacherTasks() {
                                     Mark as Submitted
                                   </button>
                                 ) : (
-                                  // ✅ Otherwise, show the normal "View" button
                                   <button
                                     className="btn btn-purple small-btn"
                                     onClick={() =>
@@ -407,7 +410,7 @@ function TeacherTasks() {
                                 )}
                               </span>
 
-                              {/* === Grading Panel === */}
+                              {/* Grading */}
                               {sub && expandedStudent === s._id && (
                                 <div className="grading-box">
                                   <p>
@@ -432,10 +435,7 @@ function TeacherTasks() {
                                         placeholder={`Grade /${t.gradeOutOf}`}
                                         value={grades[sub._id] || ""}
                                         onChange={(e) =>
-                                          setGrades({
-                                            ...grades,
-                                            [sub._id]: e.target.value,
-                                          })
+                                          setGrades({ ...grades, [sub._id]: e.target.value })
                                         }
                                         className="styled-input"
                                       />
@@ -444,10 +444,7 @@ function TeacherTasks() {
                                         placeholder="Comments"
                                         value={comments[sub._id] || ""}
                                         onChange={(e) =>
-                                          setComments({
-                                            ...comments,
-                                            [sub._id]: e.target.value,
-                                          })
+                                          setComments({ ...comments, [sub._id]: e.target.value })
                                         }
                                         className="styled-input"
                                       />
@@ -478,8 +475,6 @@ function TeacherTasks() {
                       </div>
                     </div>
                   )}
-
-
                 </li>
               ))}
             </ul>
