@@ -6,9 +6,9 @@ import {
   Clock,
   ChartBar,
   PlayCircle,
-  LockSimple,
   CheckCircle,
   ArrowClockwise,
+  XCircle,
 } from "phosphor-react";
 import StudentSidebar from "../../components/StudentSidebar";
 import "./StudentQuizList.css";
@@ -17,7 +17,7 @@ function StudentQuizList() {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [startingQuizId, setStartingQuizId] = useState(null); // prevent double click
+  const [startingQuizId, setStartingQuizId] = useState(null);
   const navigate = useNavigate();
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -52,18 +52,15 @@ function StudentQuizList() {
     });
   };
 
-  // 🔹 Handle Start Quiz click
   const handleStartQuiz = async (quizId) => {
-    if (startingQuizId) return; // prevent multiple clicks
+    if (startingQuizId) return;
     setStartingQuizId(quizId);
 
     try {
-      const res = await axios.post(
+      await axios.post(
         `${process.env.REACT_APP_API_URL}/api/quiz-student/${quizId}/start`,
         { studentId }
       );
-
-      console.log("✅ Quiz start recorded:", res.data);
       navigate(`/student/take-quiz/${quizId}`);
     } catch (err) {
       console.error("❌ Error starting quiz:", err.response?.data || err.message);
@@ -95,55 +92,52 @@ function StudentQuizList() {
                 const startTime = quiz.startTime ? new Date(quiz.startTime) : null;
                 const endTime = quiz.endTime ? new Date(quiz.endTime) : null;
 
-                let status, label, colorClass, icon, disabled, onClick;
+                // Detect if the student attended/submitted the quiz
+                const hasSubmitted =
+                  quiz.alreadySubmitted ||
+                  quiz.score !== undefined ||
+                  quiz.submissionId ||
+                  quiz.hasSubmitted;
 
-                // 🟢 Completed quiz
-                if (quiz.alreadySubmitted) {
-                  status = "completed";
-                  label = "View Results";
-                  colorClass = "btn-green";
-                  icon = <ChartBar size={18} />;
-                  onClick = () => navigate(`/student/quiz-result/${quiz._id}`);
-                }
+                let label, colorClass, icon, onClick, isMissed = false;
 
-                // 🔒 Closed quiz (always overrides)
-                else if (endTime && now > endTime) {
-                  status = "closed";
-                  label = "Quiz Closed";
-                  colorClass = "btn-red";
-                  icon = <LockSimple size={18} />;
-                  disabled = true;
-                }
-
-                // 🕒 Upcoming quiz
-                else if (startTime && now < startTime) {
-                  status = "upcoming";
+                // 🕒 Not started yet
+                if (startTime && now < startTime) {
                   label = "Opening Soon";
                   colorClass = "btn-gray";
                   icon = <Clock size={18} />;
-                  disabled = true;
+                  onClick = null;
                 }
-
-                // 🟡 Continue quiz (started but not submitted)
-                else if (quiz.hasStarted && !quiz.alreadySubmitted) {
-                  status = "in-progress";
+                // 🟡 In progress
+                else if (quiz.hasStarted && !hasSubmitted && now < endTime) {
                   label = "Continue Quiz";
                   colorClass = "btn-yellow";
                   icon = <ArrowClockwise size={18} />;
                   onClick = () => navigate(`/student/take-quiz/${quiz._id}`);
                 }
-
-                // 🔵 Not started
-                else {
-                  status = "active";
+                // 🔵 Can start now
+                else if (!quiz.hasStarted && now >= startTime && now <= endTime) {
                   label = startingQuizId === quiz._id ? "Starting..." : "Start Quiz";
                   colorClass = "btn-blue";
                   icon = <PlayCircle size={18} />;
                   onClick = () => handleStartQuiz(quiz._id);
                 }
+                // ✅ Submitted (any time)
+                else if (hasSubmitted) {
+                  label = "View Results";
+                  colorClass = "btn-green";
+                  icon = <ChartBar size={18} />;
+                  onClick = () => navigate(`/student/quiz-result/${quiz._id}`);
+                }
+                // ❌ Missed quiz (ended without submission)
+                else if (endTime && now > endTime && !hasSubmitted) {
+                  label = "Quiz Not Attended";
+                  isMissed = true;
+                  icon = <XCircle size={18} color="#999" />;
+                }
 
                 return (
-                  <li key={quiz._id} className={`quiz-card ${status}`}>
+                  <li key={quiz._id} className="quiz-card">
                     <div className="quiz-header">
                       <BookOpen size={22} color="#0b3c49" />
                       <div>
@@ -167,7 +161,8 @@ function StudentQuizList() {
                       )}
                     </div>
 
-                    {quiz.alreadySubmitted && (
+                    {/* ✅ Always show score if available */}
+                    {hasSubmitted && quiz.score !== undefined && (
                       <p className="quiz-score">
                         <CheckCircle size={16} /> Score:{" "}
                         <b>
@@ -176,13 +171,20 @@ function StudentQuizList() {
                       </p>
                     )}
 
-                    <button
-                      className={`btn ${colorClass}`}
-                      onClick={onClick}
-                      disabled={disabled || startingQuizId === quiz._id}
-                    >
-                      {icon} <span>{label}</span>
-                    </button>
+                    {/* 🧠 Missed quiz message */}
+                    {isMissed ? (
+                      <p className="missed-message">
+                        <XCircle size={18} color="#999" /> Quiz Not Attended
+                      </p>
+                    ) : (
+                      <button
+                        className={`btn ${colorClass}`}
+                        onClick={onClick}
+                        disabled={!onClick || startingQuizId === quiz._id}
+                      >
+                        {icon} <span>{label}</span>
+                      </button>
+                    )}
                   </li>
                 );
               })}
