@@ -10,6 +10,7 @@
   flex: 1;
   padding: 2rem;
   transition: margin-left 0.3s ease;
+  overflow-x: hidden; /* prevent horizontal scroll */
 }
 
 .allstudents-container.full-width {
@@ -71,26 +72,32 @@
 
 /* === Table === */
 .table-wrapper {
-  overflow-x: auto;
+  width: 100%;
+  overflow-x: hidden; /* disable horizontal scroll */
 }
 
 .styled-table {
   width: 100%;
   border-collapse: collapse;
   background-color: #ffffff;
+  table-layout: fixed; /* ensures table fits within container */
+  word-wrap: break-word; /* wraps long text instead of causing scroll */
+}
+
+.styled-table th,
+.styled-table td {
+  text-align: left;
+  padding: 0.6rem;
+  border-bottom: 1px solid #ddd;
+  font-size: 0.95rem;
+  vertical-align: middle;
+  white-space: normal; /* allow wrapping */
 }
 
 .styled-table th {
   background-color: #0b3c49;
   color: #f5f1eb;
-  text-align: left;
-  padding: 0.75rem;
   cursor: pointer;
-}
-
-.styled-table td {
-  padding: 0.75rem;
-  border-bottom: 1px solid #ddd;
 }
 
 .styled-input {
@@ -111,6 +118,7 @@
   gap: 0.3rem;
   font-size: 0.9rem;
   transition: all 0.2s ease;
+  white-space: nowrap; /* keep button text in one line */
 }
 
 .btn-blue {
@@ -164,12 +172,19 @@
   color: #fff;
 }
 
-/* === Responsive === */
+/* === Responsive Adjustments === */
+@media (max-width: 1200px) {
+  .styled-table th,
+  .styled-table td {
+    font-size: 0.85rem;
+    padding: 0.4rem;
+  }
+}
+
 @media (max-width: 992px) {
   .filter-bar {
     flex-direction: column;
   }
-
   .filter-item {
     width: 100%;
   }
@@ -182,10 +197,12 @@
 
   .styled-table th,
   .styled-table td {
-    padding: 0.5rem;
+    padding: 0.35rem;
+    font-size: 0.8rem;
   }
 
   .btn {
-    padding: 0.3rem 0.6rem;
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
   }
 }

@@ -58,15 +58,18 @@ function CreateSchool({ teacherId }) {
 
   const handleDelete = async (id) => {
     try {
-      await axios.delete(`${process.env.REACT_APP_API_URL}/api/school/${id}`);
+      await axios.delete(`${process.env.REACT_APP_API_URL}/api/school/${id}/${teacherId}`);
+      toast.dismiss(); // 👈 close all open toasts (especially the confirmation)
       toast.success("🗑 School deleted successfully!");
       setPendingDelete(null);
       fetchSchools();
     } catch (err) {
       console.error("❌ Error deleting school:", err);
+      toast.dismiss();
       toast.error("Failed to delete school");
     }
   };
+
 
   const askDelete = (id, name) => {
     setPendingDelete({ id, name });

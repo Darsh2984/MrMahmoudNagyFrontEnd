@@ -61,7 +61,7 @@ function TeacherSidebar({ sidebarOpen, setSidebarOpen }) {
               <UsersThree size={20} weight="duotone" /> <span>Attendance</span>
             </li>
             <li onClick={() => navigate("/teacher-tasks")}>
-              <FileText size={20} weight="duotone" /> <span>Tasks & Homework</span>
+              <FileText size={20} weight="duotone" /> <span>Homework / Exams</span>
             </li>
             <li onClick={() => navigate("/videomanager")}>
               <VideoCamera size={20} weight="duotone" /> <span>Upload Videos</span>

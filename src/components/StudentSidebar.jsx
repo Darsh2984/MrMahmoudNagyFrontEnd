@@ -39,7 +39,7 @@ function StudentSidebar({ sidebarOpen, setSidebarOpen }) {
               <House size={20} weight="duotone" /> <span>Dashboard</span>
             </li>
             <li onClick={() => navigate("/student-tasks")}>
-              <ClipboardText size={20} weight="duotone" /> <span>My Tasks</span>
+              <ClipboardText size={20} weight="duotone" /> <span>Homework / Exams</span>
             </li>
             <li onClick={() => navigate("/student-quizzes")}>
               <PencilLine size={20} weight="duotone" /> <span>My Quizzes</span>

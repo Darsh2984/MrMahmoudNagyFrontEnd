@@ -107,13 +107,13 @@ function Register() {
           </div>
 
           <div className="form-group">
-            <label>School</label>
+            <label>Group</label>
             <select
               value={form.schoolId}
               onChange={(e) => setForm({ ...form, schoolId: e.target.value })}
               required
             >
-              <option value="">-- Select School --</option>
+              <option value="">-- Select Group --</option>
               {schools.map((s) => (
                 <option key={s._id} value={s._id}>
                   {s.name}
