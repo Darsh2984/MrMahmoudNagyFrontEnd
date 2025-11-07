@@ -77,13 +77,13 @@ function SpecialRegister() {
 
   return (
     <div className="physics-register-layout">
-      <div className="physics-register-card">
-        {/* Title Block - Deep Teal Background */}
+      <div className="physics-register-card fade-up">
+        {/* Title Block */}
         <div className="physics-title-block">
-          {/* Atom Icon: Cream White */}
-          <Atom size={32} weight="fill" color="#f5f1eb" /> 
+          <Atom size={32} weight="fill" color="#f5f1eb" className="floating-atom" /> 
           <h2 className="physics-title-text">STUDENT REGISTRATION</h2>
         </div>
+
         
         <form onSubmit={handleRegister} className="physics-register-form">
           <div className="form-grid">
