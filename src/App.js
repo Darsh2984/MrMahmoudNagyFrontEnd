@@ -33,6 +33,8 @@ import TeacherAddAssistant from "./pages/Teacher/TeacherAddAssistant";
 import AllStudentsData from "./pages/AllStudentsData";
 import TeacherAttendancePage from "./pages/Teacher/TeacherAttendancePage";
 import TeacherInClassQuizzes from "./pages/Teacher/TeacherInClassQuizzes";
+import SpecialRegister from "./pages/SpecialRegister";
+
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -45,6 +47,8 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/SpecialRegister" element={<SpecialRegister />} />
+
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
         <Route path="/set-password" element={<SetPassword />} />
