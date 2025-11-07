@@ -24,17 +24,16 @@ function TeacherTasks() {
   const [comments, setComments] = useState({});
   const [correctedFiles, setCorrectedFiles] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [editDeadline, setEditDeadline] = useState("");
+
 
   const user = JSON.parse(localStorage.getItem("user"));
   const navigate = useNavigate();
 
   // ----------------- TIMEZONE HELPERS -----------------
-  // Convert local input (from datetime-local) -> UTC ISO for backend
   function localToUTC(localString) {
     if (!localString) return null;
-    // localString is like "2025-10-29T18:00"
-    const local = new Date(localString);
-    return new Date(local.getTime() - local.getTimezoneOffset() * 60000).toISOString();
+    return new Date(localString).toISOString();
   }
 
   // Convert UTC ISO from DB -> local string for input display
@@ -96,7 +95,7 @@ function TeacherTasks() {
         teacherId: user.id,
         yearId: selectedYear,
         groups: selectedGroups,
-        deadline: localToUTC(deadline), // ✅ convert local → UTC before sending
+        deadline,
         gradeOutOf,
       });
 
@@ -126,15 +125,28 @@ function TeacherTasks() {
     try {
       await axios.put(
         `${process.env.REACT_APP_API_URL}/api/tasks/task/${editingTask._id}`,
-        { ...editingTask, deadline: localToUTC(editingTask.deadline) } // ✅ local → UTC
+        {
+          ...editingTask,
+          // convert local input → UTC string only now
+          deadline: localToUTC(editDeadline),
+        }
       );
+
       toast.success("✅ Task updated");
-      setTasks((prev) => prev.map((t) => (t._id === editingTask._id ? editingTask : t)));
+      setTasks((prev) =>
+        prev.map((t) =>
+          t._id === editingTask._id
+            ? { ...editingTask, deadline: localToUTC(editDeadline) }
+            : t
+        )
+      );
       setEditingTask(null);
-    } catch {
+    } catch (err) {
+      console.error("❌ Update Task Error:", err);
       toast.error("❌ Failed to update task");
     }
   };
+
 
   // ----------------- DELETE TASK -----------------
   const deleteTask = async (taskId) => {
@@ -303,8 +315,8 @@ function TeacherTasks() {
             />
             <input
               type="datetime-local"
-              value={utcToLocalInput(editingTask.deadline)} // ✅ display as local
-              onChange={(e) => setEditingTask({ ...editingTask, deadline: e.target.value })}
+              value={editDeadline}
+              onChange={(e) => setEditDeadline(e.target.value)}
               className="styled-input"
             />
             <input
@@ -344,7 +356,10 @@ function TeacherTasks() {
                       </small>
                     </div>
                     <div className="task-buttons">
-                      <button className="btn btn-blue" onClick={() => setEditingTask(t)}>
+                      <button className="btn btn-blue" onClick={() => {
+                        setEditingTask(t);
+                        setEditDeadline(utcToLocalInput(t.deadline)); // show local version
+                      }}>
                         ✏️ Edit
                       </button>
                       <button className="btn btn-red" onClick={() => deleteTask(t._id)}>
