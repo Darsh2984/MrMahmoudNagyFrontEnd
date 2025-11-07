@@ -28,9 +28,19 @@ function Register() {
     const fetchSchools = async () => {
       try {
         const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/school/all`);
-        const sorted = res.data.sort((a, b) =>
+        // Exclude specific groups by name
+        const excludedGroups = [
+          "Private Group Cambridge Core",
+          "Private Group Cambridge O-Level",
+          "Private Group Edexcel O-level",
+        ];
+
+        const filtered = res.data.filter((s) => !excludedGroups.includes(s.name));
+
+        const sorted = filtered.sort((a, b) =>
           a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
         );
+
         setSchools(sorted);
       } catch {
         toast.error("❌ Failed to load schools");
@@ -127,11 +137,20 @@ function Register() {
             <PhoneInput
               country={"eg"}
               value={form.studentPhone}
-              onChange={(phone) => setForm({ ...form, studentPhone: phone })}
+              onChange={(phone, country) => {
+                if (country.countryCode === "eg" && phone.startsWith("20") && phone[2] === "0") {
+                  toast.warn("⚠️ For Egypt, do not include 0 after the country code (+20).", {
+                    position: "top-center",
+                    autoClose: 3000,
+                  });
+                  return; // ❌ prevent saving invalid number
+                }
+                setForm({ ...form, studentPhone: phone });
+              }}
               inputStyle={{ width: "100%" }}
               enableSearch
               countryCodeEditable={false}
-              inputProps={{ required: true }} // ✅ enforce required
+              inputProps={{ required: true }}
             />
           </div>
 
@@ -150,11 +169,20 @@ function Register() {
             <PhoneInput
               country={"eg"}
               value={form.parentPhone}
-              onChange={(phone) => setForm({ ...form, parentPhone: phone })}
+              onChange={(phone, country) => {
+                if (country.countryCode === "eg" && phone.startsWith("20") && phone[2] === "0") {
+                  toast.warn("⚠️ For Egypt, do not include 0 after the country code (+20).", {
+                    position: "top-center",
+                    autoClose: 3000,
+                  });
+                  return;
+                }
+                setForm({ ...form, parentPhone: phone });
+              }}
               inputStyle={{ width: "100%" }}
               enableSearch
               countryCodeEditable={false}
-              inputProps={{ required: true }} // ✅ enforce required
+              inputProps={{ required: true }}
             />
           </div>
 
