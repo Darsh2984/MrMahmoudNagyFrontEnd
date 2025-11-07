@@ -95,7 +95,7 @@ function TeacherTasks() {
         teacherId: user.id,
         yearId: selectedYear,
         groups: selectedGroups,
-        deadline,
+        deadline: localToUTC(deadline),
         gradeOutOf,
       });
 
