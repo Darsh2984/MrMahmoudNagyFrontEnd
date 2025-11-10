@@ -24,14 +24,15 @@ function SessionAttendance({ sessionId }) {
   };
 
   const toggleAttendance = (studentId) => {
-    setAttendance((prev) =>
-      prev.map((a) =>
-        a.studentId._id === studentId
-          ? { ...a, status: a.status === "Present" ? "Absent" : "Present" }
-          : a
-      )
-    );
-  };
+  setAttendance((prev) =>
+    prev.map((a) =>
+      a.studentId && a.studentId._id === studentId
+        ? { ...a, status: a.status === "Present" ? "Absent" : "Present" }
+        : a
+    )
+  );
+};
+
 
   const saveAttendance = async () => {
     try {
