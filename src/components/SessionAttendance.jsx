@@ -35,21 +35,26 @@ function SessionAttendance({ sessionId }) {
 
 
   const saveAttendance = async () => {
-    try {
-      await axios.put(
-        `${process.env.REACT_APP_API_URL}/api/session/${session._id}/attendance`,
-        {
-          attendance: attendance.map((a) => ({
+  try {
+    const response = await axios.put(
+      `${process.env.REACT_APP_API_URL}/api/session/${session._id}/attendance`,
+      {
+        attendance: attendance
+          .filter(a => a.studentId && a.studentId._id) // 🛡 filter nulls
+          .map(a => ({
             studentId: a.studentId._id,
             status: a.status,
           })),
-        }
-      );
-      toast.success("✅ Attendance updated");
-    } catch (err) {
-      toast.error("❌ Failed to update attendance");
-    }
-  };
+      }
+    );
+    console.log("✅ Server response:", response.data);
+    toast.success("✅ Attendance updated");
+  } catch (err) {
+    console.error("❌ Update failed:", err.response?.data || err.message);
+    toast.error(`❌ Failed to update attendance: ${err.response?.data?.msg || err.message}`);
+  }
+};
+
 
   if (!session) return <p className="text-muted">Loading session...</p>;
 
