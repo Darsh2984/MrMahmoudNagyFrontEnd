@@ -34,7 +34,15 @@ import AllStudentsData from "./pages/AllStudentsData";
 import TeacherAttendancePage from "./pages/Teacher/TeacherAttendancePage";
 import TeacherInClassQuizzes from "./pages/Teacher/TeacherInClassQuizzes";
 import SpecialRegister from "./pages/SpecialRegister";
-
+import SpecialStudentDashboard from "./pages/SpecialStudent/SpecialStudentDashboard";
+import SpecialStudentTasks from "./pages/SpecialStudent/SpecialStudentTasks";
+import SpecialStudentQuizList from "./pages/SpecialStudent/SpecialStudentQuizList";
+import SpecialStudentMaterialViewer from "./pages/SpecialStudent/SpecialStudentMaterialViewer";
+import SpecialStudentPerformance from "./pages/SpecialStudent/SpecialStudentPerformance";
+import SpecialStudentVideoViewer from "./pages/SpecialStudent/SpecialStudentVideoViewer";
+import SpecialStudentQuizResult from "./pages/SpecialStudent/SpecialStudentQuizResult";
+import QuizStopUpload from "./pages/Teacher/QuizStopUpload";
+import QuizStopList from "./components/QuizStopList";
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -61,6 +69,8 @@ function App() {
 {/* =================== Student Only Routes =================== */}
         <Route path="/complete-parent/:studentId" element={<CompleteParentDetails />}/>
         <Route path="/student-quizzes" element={<StudentQuizList />}/>
+        <Route path="/specialstudent-quizzes" element={<SpecialStudentQuizList />}/>
+
         <Route
           path="/student/take-quiz/:quizId"
           element={
@@ -78,10 +88,26 @@ function App() {
           }
         />
         <Route
+          path="/specialstudent/quiz-result/:quizId"
+          element={
+            <PrivateRoute allowedRoles={["student"]}>
+              <SpecialStudentQuizResult />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/StudentVideoViewer"
           element={
             <PrivateRoute allowedRoles={["student"]}>
               <StudentVideoViewer />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/SpecialStudentVideoViewer"
+          element={
+            <PrivateRoute allowedRoles={["student"]}>
+              <SpecialStudentVideoViewer />
             </PrivateRoute>
           }
         />
@@ -94,10 +120,26 @@ function App() {
           }
         />
         <Route
+          path="/SpecialStudentMaterialViewer"
+          element={
+            <PrivateRoute allowedRoles={["student"]}>
+              <SpecialStudentMaterialViewer />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/student-performance"
           element={
             <PrivateRoute allowedRoles={["student"]}>
               <StudentPerformance />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/specialstudent-performance"
+          element={
+            <PrivateRoute allowedRoles={["student"]}>
+              <SpecialStudentPerformance />
             </PrivateRoute>
           }
         />
@@ -110,9 +152,23 @@ function App() {
           }
         />
         <Route
+          path="/specialstudent-tasks"
+          element={
+            <PrivateRoute allowedRoles={["student"]}>
+              <SpecialStudentTasks />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/student-dashboard"
           element={
               <StudentDashboard />
+          }
+        />
+        <Route
+          path="/specialstudent-dashboard"
+          element={
+              <SpecialStudentDashboard />
           }
         />
         <Route
@@ -123,7 +179,7 @@ function App() {
             </PrivateRoute>
           }
         />
-
+        
 
 
         {/* =================== Teacher Only Routes =================== */}
@@ -144,6 +200,14 @@ function App() {
           }
         />
         <Route
+          path="/quizstopupload-question"
+          element={
+            <PrivateRoute allowedRoles={["teacher"]}>
+              <QuizStopUpload />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/questions"
           element={
             <PrivateRoute allowedRoles={["teacher"]}>
@@ -152,10 +216,18 @@ function App() {
           }
         />
         <Route
-          path="/createquiz"
+          path="/questions"
           element={
             <PrivateRoute allowedRoles={["teacher"]}>
-              <CreateQuiz />
+              <QuestionList />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/quizstop-list"
+          element={
+            <PrivateRoute allowedRoles={["teacher"]}>
+              <QuizStopList />
             </PrivateRoute>
           }
         />

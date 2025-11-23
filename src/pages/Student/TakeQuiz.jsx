@@ -22,29 +22,58 @@ function TakeQuiz() {
   }, [quizId]);
 
   const fetchQuiz = async () => {
-    try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/quiz/id/${quizId}`);
-      const q = res.data;
-      setQuiz(q);
+  try {
+    const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/quiz/id/${quizId}`);
+    const q = res.data;
+    setQuiz(q);
 
-      // Check if timer already started in localStorage
-      const savedStart = localStorage.getItem(`quizStart_${quizId}`);
-      const now = Date.now();
-      let remaining;
+    const now = Date.now();
+    const quizStartTime = new Date(q.startTime).getTime();
+    const quizEndTime = new Date(q.endTime).getTime();
+    const quizDuration = q.duration * 60 * 1000; // in ms
 
-      if (savedStart) {
-        const elapsed = Math.floor((now - parseInt(savedStart)) / 1000);
-        remaining = q.duration * 60 - elapsed;
-      } else {
-        localStorage.setItem(`quizStart_${quizId}`, now.toString());
-        remaining = q.duration * 60;
+    // If student never opened quiz before
+    let localStart = localStorage.getItem(`quizStart_${quizId}`);
+
+    // Case 1: Student enters within allowed time window
+    if (!localStart) {
+      // Set local start time ONLY IF quiz window still active
+      if (now >= quizStartTime && now <= quizEndTime) {
+        localStart = now.toString();
+        localStorage.setItem(`quizStart_${quizId}`, localStart);
       }
-
-      setTimeLeft(remaining > 0 ? remaining : 0);
-    } catch (err) {
-      console.error("❌ Error fetching quiz:", err);
     }
-  };
+
+    // Load saved answers if they exist
+    const saved = localStorage.getItem(`quizAnswers_${quizId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setAnswers(parsed);
+      } catch (e) {
+        console.error("Error reading saved answers", e);
+      }
+    }
+
+    // Calculate elapsed time
+    const elapsed = Math.floor((now - parseInt(localStart)) / 1000);
+
+    // Time left = quizDuration - elapsed time
+    let remaining = Math.floor(q.duration * 60 - elapsed);
+
+    // 🔥 IMPORTANT:
+    // If past endTime → student missed the quiz
+    if (now > quizEndTime) remaining = 0;
+
+    // If duration exceeded → remaining = 0
+    if (remaining < 0) remaining = 0;
+
+    setTimeLeft(remaining);
+  } catch (err) {
+    console.error("❌ Error fetching quiz:", err);
+  }
+};
+
 
   // === Timer (persists across refresh) ===
   useEffect(() => {
@@ -60,31 +89,56 @@ function TakeQuiz() {
 
   // === Select Answer ===
   const handleAnswer = (qId, ans) => {
-    setAnswers((prev) => ({ ...prev, [qId]: ans }));
-  };
+  const updated = { ...answers, [qId]: ans };
+  setAnswers(updated);
+
+  // Save to localStorage
+  localStorage.setItem(`quizAnswers_${quizId}`, JSON.stringify(updated));
+};
 
   // === Submit ===
-  const handleSubmit = async () => {
-    if (submitting) return;
-    setSubmitting(true);
-    try {
-      await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/quiz-student/${quizId}/submit`,
-        {
-          studentId,
-          answers: Object.entries(answers).map(([questionId, answer]) => ({
-            questionId,
-            answer,
-          })),
-        }
-      );
-      localStorage.removeItem(`quizStart_${quizId}`);
+const handleSubmit = async () => {
+  if (submitting) return;
+  setSubmitting(true);
+  try {
+    await axios.post(
+      `${process.env.REACT_APP_API_URL}/api/quiz-student/${quizId}/submit`,
+      {
+        studentId,
+        answers: Object.entries(answers).map(([questionId, answer]) => ({
+          questionId,
+          answer,
+        })),
+      }
+    );
+
+    localStorage.removeItem(`quizStart_${quizId}`);
+    localStorage.removeItem(`quizAnswers_${quizId}`);
+
+
+    // ✅ Check if this student belongs to a "special" school
+    const privateSchoolIds = [
+      "690b792c94012d7bf8823387", // Private Group Cambridge Core
+      "690b793994012d7bf882338c", // Private Group Cambridge O-Level
+      "690b794894012d7bf8823391", // Private Group Edexcel O-Level
+    ];
+
+    // Some backends store schoolId as Object or string — handle both safely
+    const schoolId =
+      typeof user.schoolId === "object" ? user.schoolId._id : user.schoolId;
+
+    // ✅ Navigate to correct result page
+    if (privateSchoolIds.includes(schoolId)) {
+      navigate(`/specialstudent/quiz-result/${quizId}`);
+    } else {
       navigate(`/student/quiz-result/${quizId}`);
-    } catch (err) {
-      console.error("❌ Error submitting quiz:", err);
-      setSubmitting(false);
     }
-  };
+  } catch (err) {
+    console.error("❌ Error submitting quiz:", err);
+    setSubmitting(false);
+  }
+};
+
 
   const formatTime = (seconds) => {
     if (seconds <= 0) return "00:00";

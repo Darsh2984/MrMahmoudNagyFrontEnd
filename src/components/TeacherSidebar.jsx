@@ -45,6 +45,9 @@ function TeacherSidebar({ sidebarOpen, setSidebarOpen }) {
             <li onClick={() => navigate("/questions")}>
               <FileText size={20} weight="duotone" /> <span>Questions</span>
             </li>
+            <li onClick={() => navigate("/quizstop-list")}>
+              <FileText size={20} weight="duotone" /> <span>Quiz Stop Questions</span>
+            </li>
             <li onClick={() => navigate("/createquiz")}>
               <ListChecks size={20} weight="duotone" /> <span>Create Quiz</span>
             </li>

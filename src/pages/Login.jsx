@@ -17,54 +17,75 @@ function Login() {
   }, []);
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_URL}/api/auth/login`,
-        { email: email.toLowerCase(), password }
-      );
+  e.preventDefault();
+  try {
+    const res = await axios.post(
+      `${process.env.REACT_APP_API_URL}/api/auth/login`,
+      { email: email.toLowerCase(), password }
+    );
 
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.user));
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("user", JSON.stringify(res.data.user));
 
-      toast.success("✅ Login successful!", {
-        position: "top-center",
-        autoClose: 1500,
-      });
+    toast.success("✅ Login successful!", {
+      position: "top-center",
+      autoClose: 1500,
+    });
 
-      if (res.data.user.role === "teacher") {
-        navigate("/teacher-dashboard");
-      } else if (res.data.user.role === "student") {
-        if (res.data.parentDetailsRequired) {
-          navigate(`/complete-parent/${res.data.studentId}`);
-        } else if (!res.data.user.groupId) {
-          navigate("/accessdenied");
-        } else {
-          navigate("/student-dashboard");
-        }
-      } else if (res.data.user.role === "parent") {
-        navigate("/parent-dashboard");
+    const user = res.data.user;
+
+    // ✅ Always normalize to string
+    const schoolId =
+      user.schoolId
+        ? typeof user.schoolId === "object"
+          ? user.schoolId._id?.toString()
+          : user.schoolId.toString()
+        : null;
+    const privateSchoolIds = [
+      "690b792c94012d7bf8823387", // Private Group Cambridge Core
+      "690b793994012d7bf882338c", // Private Group Cambridge O-Level
+      "690b794894012d7bf8823391", // Private Group Edexcel O-Level
+    ];
+
+    console.log("Normalized schoolId:", schoolId); // 👈 Debug line
+    console.log("Private IDs:", privateSchoolIds);
+
+    if (user.role === "teacher") {
+      navigate("/teacher-dashboard");
+    } else if (user.role === "student") {
+      if (res.data.parentDetailsRequired) {
+        navigate(`/complete-parent/${res.data.studentId}`);
+      } else if (!user.groupId) {
+        navigate("/accessdenied");
+      } else if (privateSchoolIds.includes(schoolId)) {
+        navigate("/specialstudent-dashboard");
       } else {
-        navigate("/dashboard");
+        navigate("/student-dashboard");
       }
-    } catch (err) {
-      console.error("❌ Login failed:", err);
-
-      if (err.response?.data?.activationRequired) {
-        navigate("/set-password", { state: { email: err.response.data.email } });
-        return;
-      }
-
-      if (err.response?.data?.parentDetailsRequired) {
-        navigate(`/complete-parent/${err.response.data.studentId}`);
-        return;
-      }
-
-      toast.error("❌ Invalid credentials. Please try again.", {
-        position: "top-center",
-      });
+    } else if (user.role === "parent") {
+      navigate("/parent-dashboard");
+    } else {
+      navigate("/dashboard");
     }
-  };
+  } catch (err) {
+    console.error("❌ Login failed:", err);
+
+    if (err.response?.data?.activationRequired) {
+      navigate("/set-password", { state: { email: err.response.data.email } });
+      return;
+    }
+
+    if (err.response?.data?.parentDetailsRequired) {
+      navigate(`/complete-parent/${err.response.data.studentId}`);
+      return;
+    }
+
+    toast.error("❌ Invalid credentials. Please try again.", {
+      position: "top-center",
+    });
+  }
+};
+
 
   return (
     <div className="login-page-layout">

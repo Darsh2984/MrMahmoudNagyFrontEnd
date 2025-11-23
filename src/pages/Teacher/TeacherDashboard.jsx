@@ -80,6 +80,7 @@ function TeacherDashboard() {
           {[
             { icon: <BookOpen size={24} />, title: "Manage Units", path: "/manage-units" },
             { icon: <PencilSimple size={24} />, title: "Upload MCQs", path: "/upload-question" },
+            { icon: <PencilSimple size={24} />, title: "Upload Video Stop Questions", path: "/quizstopupload-question" },
             { icon: <PlusCircle size={24} />, title: "Create Quiz", path: "/createquiz" },
             { icon: <ClipboardText size={24} />, title: "Quiz Lists", path: "/quizlist" },
             { icon: <FolderSimple size={24} />, title: "Tasks & Homework", path: "/teacher-tasks" },

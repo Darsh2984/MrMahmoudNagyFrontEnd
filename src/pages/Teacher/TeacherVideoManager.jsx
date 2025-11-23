@@ -33,6 +33,25 @@ export default function TeacherVideoManager() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
+  const [showCheckpointModal, setShowCheckpointModal] = useState(false);
+  const [existingStops, setExistingStops] = useState([]); // existing stops from DB
+  const [selectedVideoId, setSelectedVideoId] = useState("");
+  const [selectedVideoTitle, setSelectedVideoTitle] = useState("");
+  const [stops, setStops] = useState([
+  { timeInSeconds: "", selectedQuestionIds: [] },
+]);
+  const [checkpoint, setCheckpoint] = useState({
+    timeInSeconds: "",
+    questions: [
+      {
+        question: "",
+        options: ["", "", "", ""],
+        correctAnswerIndex: 0,
+      },
+    ],
+  });
+  const [availableQuestions, setAvailableQuestions] = useState([]); // fetched from DB
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -185,6 +204,83 @@ export default function TeacherVideoManager() {
     );
   };
 
+  const openCheckpointModal = async (videoId, title) => {
+  const video = videos.find((v) => v._id === videoId);
+  setSelectedVideoId(videoId);
+  setSelectedVideoTitle(title);
+  setCheckpoint({ timeInSeconds: "" });
+  setSelectedQuestionIds([]);
+  setExistingStops([]);
+
+  try {
+    // 🟢 Load QUIZ-STOP questions (new source)
+    if (video.unitId?._id && video.yearId?._id) {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/quizstop/questions/unit/${video.unitId._id}/${video.yearId._id}`
+      );
+
+      setAvailableQuestions(res.data || []);
+    } else {
+      setAvailableQuestions([]);
+      toast.warning("⚠️ Missing unit/year information for this video.");
+    }
+
+    // 🟢 Load existing video stops (same as before)
+    const stopsRes = await axios.get(
+      `${process.env.REACT_APP_API_URL}/api/videocheckpoint/${videoId}`
+    );
+    setExistingStops(stopsRes.data || []);
+  } catch (err) {
+    console.error("❌ Error loading data:", err);
+    toast.error("Failed to load quiz stops or quiz-stop questions");
+  }
+
+  setShowCheckpointModal(true);
+};
+
+
+
+
+
+  const addQuestion = () => {
+    setCheckpoint({
+      ...checkpoint,
+      questions: [
+        ...checkpoint.questions,
+        { question: "", options: ["", "", "", ""], correctAnswerIndex: 0 },
+      ],
+    });
+  };
+
+  const removeQuestion = (index) => {
+    const updated = [...checkpoint.questions];
+    updated.splice(index, 1);
+    setCheckpoint({ ...checkpoint, questions: updated });
+  };
+
+  const saveCheckpoint = async () => {
+    if (!checkpoint.timeInSeconds || selectedQuestionIds.length === 0) {
+      toast.warning("⚠️ Please select at least one question and a time");
+      return;
+    }
+
+    try {
+      await axios.post(`${process.env.REACT_APP_API_URL}/api/videocheckpoint`, {
+        videoId: selectedVideoId,
+        timeInSeconds: checkpoint.timeInSeconds,
+        questionIds: selectedQuestionIds, // <-- updated
+      });
+      toast.success("✅ Quiz Stop saved successfully!");
+      setShowCheckpointModal(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("❌ Failed to save quiz stop");
+    }
+  };
+
+
+  
+
   return (
     <div className={`video-layout ${sidebarOpen ? "with-sidebar" : "full-width"}`}>
       <TeacherSidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
@@ -324,6 +420,7 @@ export default function TeacherVideoManager() {
           <h2 className="video-title">
             <FilmStrip size={22} weight="fill" color="#8baa91" /> Uploaded Videos
           </h2>
+
           {videos.length === 0 ? (
             <p className="video-empty">No videos uploaded yet.</p>
           ) : (
@@ -335,6 +432,7 @@ export default function TeacherVideoManager() {
                     <b>Unit:</b> {v.unitId?.name} <br />
                     <b>Chapter:</b> {v.chapterId?.name}
                   </p>
+
                   <video
                     src={v.videoUrl}
                     controls
@@ -342,14 +440,222 @@ export default function TeacherVideoManager() {
                     disablePictureInPicture
                     style={{ width: "100%", borderRadius: "6px" }}
                   />
-                  <button onClick={() => handleDelete(v._id)} className="video-btn video-btn-red">
-                    <Trash size={16} /> Delete
-                  </button>
+
+                  {/* --- Actions --- */}
+                  <div className="video-actions">
+                    <button
+                      onClick={() => handleDelete(v._id)}
+                      className="video-btn video-btn-red"
+                    >
+                      <Trash size={16} /> Delete
+                    </button>
+
+                    <button
+                      onClick={() => openCheckpointModal(v._id, v.title)}
+                      className="video-btn video-btn-green"
+                    >
+                      <FilmSlate size={16} /> Add Quiz Stops
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
+
+          {/* --- Checkpoint Modal --- */}
+          {showCheckpointModal && (
+          <div className="checkpoint-overlay">
+            <div className="checkpoint-modal">
+              <h3>
+                🎯 Add Quiz Stops for{" "}
+                <span style={{ color: "#0b3c49" }}>{selectedVideoTitle}</span>
+              </h3>
+              {/* 🟣 EXISTING STOPS LIST */}
+              {existingStops.length > 0 && (
+                <div className="existing-stops-list">
+                  <h4>📋 Existing Quiz Stops</h4>
+                  {existingStops.map((cp) => (
+                    <div key={cp._id} className="existing-stop-item">
+                      <p>
+                        <b>Time:</b> {cp.timeInSeconds}s
+                      </p>
+                      <div className="existing-stop-questions">
+                        {cp.questions.map((q, i) => (
+                          <div key={i} className="existing-question-thumb">
+                            <img
+                              src={q.imageUrl}
+                              alt="question"
+                              style={{
+                                width: "80px",
+                                borderRadius: "4px",
+                                marginRight: "6px",
+                              }}
+                            />
+                            <small>Ans: {q.correctAnswer}</small>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        className="video-btn video-btn-red"
+                        onClick={async () => {
+                          try {
+                            await axios.delete(
+                              `${process.env.REACT_APP_API_URL}/api/videocheckpoint/${cp._id}`
+                            );
+                            setExistingStops((prev) =>
+                              prev.filter((s) => s._id !== cp._id)
+                            );
+                            toast.success(`🗑 Stop at ${cp.timeInSeconds}s deleted`);
+                          } catch (err) {
+                            console.error(err);
+                            toast.error("❌ Failed to delete stop");
+                          }
+                        }}
+                      >
+                        Delete Stop
+                      </button>
+                      <hr style={{ border: "1px dashed #ccc", margin: "10px 0" }} />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {stops.map((stop, index) => (
+                <div key={index} className="checkpoint-block">
+                  <label>⏱ Time (in seconds) for Stop {index + 1}</label>
+                  <input
+                    type="number"
+                    value={stop.timeInSeconds}
+                    onChange={(e) => {
+                      const updated = [...stops];
+                      updated[index].timeInSeconds = e.target.value;
+                      setStops(updated);
+                    }}
+                    className="video-input"
+                  />
+
+                  <h4>🧠 Select Questions for this Stop</h4>
+
+                  {availableQuestions.length === 0 ? (
+                    <p style={{ color: "#777", fontStyle: "italic" }}>
+                      No questions found for this year/unit/chapter.
+                    </p>
+                  ) : (
+                    <div className="question-list">
+                      {availableQuestions.map((q) => (
+                        <div key={q._id} className="question-item">
+                          <label>
+                            <input
+                              type="checkbox"
+                              checked={stop.selectedQuestionIds.includes(q._id)}
+                              onChange={(e) => {
+                                const updated = [...stops];
+                                if (e.target.checked)
+                                  updated[index].selectedQuestionIds.push(q._id);
+                                else
+                                  updated[index].selectedQuestionIds =
+                                    updated[index].selectedQuestionIds.filter(
+                                      (id) => id !== q._id
+                                    );
+                                setStops(updated);
+                              }}
+                            />
+                            <img
+                              src={q.imageUrl}
+                              alt="question"
+                              style={{
+                                width: "120px",
+                                height: "auto",
+                                borderRadius: "4px",
+                                marginRight: "8px",
+                              }}
+                            />
+                            <span>
+                              <b>Correct Answer:</b> {q.correctAnswer}
+                            </span>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    className="video-btn video-btn-red"
+                    onClick={() => {
+                      const updated = [...stops];
+                      updated.splice(index, 1);
+                      setStops(updated);
+                    }}
+                    style={{ marginTop: "8px" }}
+                  >
+                    🗑 Remove Stop
+                  </button>
+
+                  <hr style={{ margin: "1.2rem 0", border: "1px dashed #ccc" }} />
+                </div>
+              ))}
+
+              <div className="checkpoint-actions">
+                <button
+                  className="video-btn video-btn-green"
+                  onClick={() =>
+                    setStops([
+                      ...stops,
+                      { timeInSeconds: "", selectedQuestionIds: [] },
+                    ])
+                  }
+                >
+                  ➕ Add Another Stop
+                </button>
+
+                <button
+                  className="video-btn video-btn-blue"
+                  onClick={async () => {
+                    try {
+                      for (const stop of stops) {
+                        if (
+                          !stop.timeInSeconds ||
+                          !stop.selectedQuestionIds.length
+                        ) {
+                          toast.warning("⚠️ Each stop must have time & at least one question");
+                          return;
+                        }
+
+                        await axios.post(
+                          `${process.env.REACT_APP_API_URL}/api/videocheckpoint`,
+                          {
+                            videoId: selectedVideoId,
+                            timeInSeconds: stop.timeInSeconds,
+                            questionIds: stop.selectedQuestionIds,
+                          }
+                        );
+                      }
+
+                      toast.success("✅ All quiz stops saved!");
+                      setShowCheckpointModal(false);
+                      setStops([{ timeInSeconds: "", selectedQuestionIds: [] }]);
+                    } catch (err) {
+                      console.error(err);
+                      toast.error("❌ Failed to save stops");
+                    }
+                  }}
+                >
+                  💾 Save All Stops
+                </button>
+
+                <button
+                  className="video-btn video-btn-red"
+                  onClick={() => setShowCheckpointModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         </div>
+
       </main>
     </div>
   );

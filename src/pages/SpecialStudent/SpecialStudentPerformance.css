@@ -1,0 +1,202 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --orange: #d77e42;
+  --charcoal: #33312e;
+}
+
+/* --- PAGE LAYOUT --- */
+.special-student-performance {
+  min-height: 100vh;
+  background: linear-gradient(160deg, var(--cream) 50%, var(--teal) 50%);
+  padding: 3rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+}
+
+/* --- HEADER --- */
+.special-header {
+  text-align: center;
+  color: var(--teal);
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.back-btn {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--teal);
+  transition: 0.3s;
+}
+
+.back-btn:hover {
+  color: var(--orange);
+}
+
+.special-header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.3rem;
+}
+
+.special-header p {
+  color: var(--green);
+}
+
+.header-underline {
+  width: 80px;
+  height: 4px;
+  background-color: var(--orange);
+  margin: 1rem auto 0 auto;
+  border-radius: 10px;
+}
+
+/* --- PERFORMANCE SECTION --- */
+.performance-section {
+  width: 100%;
+  max-width: 1100px;
+}
+
+.performance-grid {
+  display: grid;
+  gap: 20px;
+}
+
+/* --- CARDS --- */
+.perf-card {
+  background: #fff;
+  padding: 1.2rem 1.4rem;
+  border-radius: 10px;
+  border: 1px solid var(--green);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ✅ Hover – subtle lift and border change, NOT full color inversion */
+.perf-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--teal);
+  box-shadow: 0 4px 10px rgba(11, 60, 73, 0.15);
+  background: #f8fdf9; /* a soft green tint instead of full dark green */
+}
+
+.perf-card h3 {
+  color: var(--teal);
+  margin-bottom: 0.6rem;
+}
+
+.perf-card:hover h3 {
+  color: var(--teal);
+}
+
+.perf-card ul {
+  list-style: none;
+  padding: 0;
+}
+
+.perf-card li {
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+/* --- STATUS COLORS --- */
+.present {
+  color: var(--green);
+}
+
+.absent {
+  color: var(--red);
+}
+
+.submitted {
+  color: var(--green);
+}
+
+.missed {
+  color: var(--red);
+}
+
+/* --- TABLES --- */
+.styled-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 0.95rem;
+}
+
+.styled-table th,
+.styled-table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: center;
+}
+
+.styled-table th {
+  background-color: var(--green);
+  color: white;
+}
+
+/* --- CHARTS --- */
+.charts-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 30px;
+  margin-top: 2rem;
+}
+
+.chart-card {
+  width: 480px;
+  height: 300px;
+  background: #fff;
+  border: 1px solid var(--green);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: 1rem;
+}
+
+.chart-card h3 {
+  text-align: center;
+  color: var(--teal);
+  margin-bottom: 10px;
+}
+
+/* --- STATUS MESSAGES --- */
+.loading-msg,
+.error-msg {
+  text-align: center;
+  font-weight: bold;
+  margin-top: 1.5rem;
+}
+
+.loading-msg {
+  color: var(--charcoal);
+}
+
+.error-msg {
+  color: var(--red);
+}
+
+/* --- RESPONSIVE --- */
+@media (max-width: 768px) {
+  .special-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .chart-card {
+    width: 100%;
+    height: 250px;
+  }
+}
