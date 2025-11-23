@@ -92,56 +92,64 @@ function StudentQuizList() {
                 const startTime = quiz.startTime ? new Date(quiz.startTime) : null;
                 const endTime = quiz.endTime ? new Date(quiz.endTime) : null;
 
-                // Detect if the student attended/submitted the quiz
+
+                let label, colorClass, icon, onClick, isMissed = false;
+                const hasLocalProgress = localStorage.getItem(`quizStart_${quiz._id}`);
                 const hasSubmitted =
                   quiz.alreadySubmitted ||
                   quiz.score !== undefined ||
                   quiz.submissionId ||
                   quiz.hasSubmitted;
 
-                let label, colorClass, icon, onClick, isMissed = false;
-                const hasLocalProgress = localStorage.getItem(`quizStart_${quiz._id}`);
+                /* ===========================================================
+                🔥 1) Highest priority: Student already started locally
+                =========================================================== */
                 if (hasLocalProgress && !hasSubmitted && endTime && now < endTime) {
-                    label = "Continue Quiz";
-                    colorClass = "btn-yellow";
-                    icon = <ArrowClockwise size={18} />;
-                    onClick = () => navigate(`/student/take-quiz/${quiz._id}`);
-                }
-
-                // 🕒 Not started yet
-                if (startTime && now < startTime) {
-                  label = "Opening Soon";
-                  colorClass = "btn-gray";
-                  icon = <Clock size={18} />;
-                  onClick = null;
-                }
-                // 🟡 In progress
-                else if (quiz.hasStarted && !hasSubmitted && now < endTime) {
                   label = "Continue Quiz";
                   colorClass = "btn-yellow";
                   icon = <ArrowClockwise size={18} />;
                   onClick = () => navigate(`/student/take-quiz/${quiz._id}`);
                 }
-                // 🔵 Can start now
-                else if (!quiz.hasStarted && now >= startTime && now <= endTime) {
-                  label = startingQuizId === quiz._id ? "Starting..." : "Start Quiz";
-                  colorClass = "btn-blue";
-                  icon = <PlayCircle size={18} />;
-                  onClick = () => handleStartQuiz(quiz._id);
-                }
-                // ✅ Submitted (any time)
+
+                /* ===========================================================
+                🔥 2) If student submitted → DO NOT override Continue Quiz
+                =========================================================== */
                 else if (hasSubmitted) {
                   label = "View Results";
                   colorClass = "btn-green";
                   icon = <ChartBar size={18} />;
                   onClick = () => navigate(`/student/quiz-result/${quiz._id}`);
                 }
-                // ❌ Missed quiz (ended without submission)
-                else if (endTime && now > endTime && !hasSubmitted) {
+
+                /* ===========================================================
+                🔥 3) Quiz not open yet
+                =========================================================== */
+                else if (startTime && now < startTime) {
+                  label = "Opening Soon";
+                  colorClass = "btn-gray";
+                  icon = <Clock size={18} />;
+                  onClick = null;
+                }
+
+                /* ===========================================================
+                🔥 4) Quiz can START NOW
+                =========================================================== */
+                else if (now >= startTime && now <= endTime) {
+                  label = startingQuizId === quiz._id ? "Starting..." : "Start Quiz";
+                  colorClass = "btn-blue";
+                  icon = <PlayCircle size={18} />;
+                  onClick = () => handleStartQuiz(quiz._id);
+                }
+
+                /* ===========================================================
+                🔥 5) Quiz missed
+                =========================================================== */
+                else {
                   label = "Quiz Not Attended";
                   isMissed = true;
                   icon = <XCircle size={18} color="#999" />;
                 }
+
 
                 return (
                   <li key={quiz._id} className="quiz-card">
