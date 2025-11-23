@@ -6,10 +6,11 @@ import {
   Clock,
   ChartBar,
   PlayCircle,
-  CheckCircle,
   ArrowClockwise,
   XCircle,
+  CheckCircle,
 } from "phosphor-react";
+
 import StudentSidebar from "../../components/StudentSidebar";
 import "./StudentQuizList.css";
 
@@ -18,8 +19,8 @@ function StudentQuizList() {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [startingQuizId, setStartingQuizId] = useState(null);
-  const navigate = useNavigate();
 
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
   const studentId = user?.id;
 
@@ -27,6 +28,9 @@ function StudentQuizList() {
     if (studentId) fetchQuizzes();
   }, [studentId]);
 
+  // -----------------------------
+  // FETCH QUIZZES FROM BACKEND
+  // -----------------------------
   const fetchQuizzes = async () => {
     try {
       const res = await axios.get(
@@ -34,7 +38,7 @@ function StudentQuizList() {
       );
       setQuizzes(res.data);
     } catch (err) {
-      console.error("❌ Error fetching quizzes:", err.response?.data || err.message);
+      console.error("Error loading quizzes:", err);
     } finally {
       setLoading(false);
     }
@@ -43,7 +47,6 @@ function StudentQuizList() {
   const formatLocalDate = (dateString) => {
     if (!dateString) return "—";
     return new Date(dateString).toLocaleString("en-GB", {
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       year: "numeric",
       month: "short",
       day: "2-digit",
@@ -52,6 +55,9 @@ function StudentQuizList() {
     });
   };
 
+  // -----------------------------
+  // START QUIZ
+  // -----------------------------
   const handleStartQuiz = async (quizId) => {
     if (startingQuizId) return;
     setStartingQuizId(quizId);
@@ -61,10 +67,12 @@ function StudentQuizList() {
         `${process.env.REACT_APP_API_URL}/api/quiz-student/${quizId}/start`,
         { studentId }
       );
+
+      // Navigate immediately
       navigate(`/student/take-quiz/${quizId}`);
     } catch (err) {
-      console.error("❌ Error starting quiz:", err.response?.data || err.message);
-      alert(err.response?.data?.msg || "Failed to start quiz. Please try again.");
+      console.error("Error starting quiz:", err.response?.data);
+      alert(err.response?.data?.msg || "Failed to start quiz.");
     } finally {
       setStartingQuizId(null);
     }
@@ -77,14 +85,14 @@ function StudentQuizList() {
       <main className={`student-main ${sidebarOpen ? "expanded" : "collapsed"}`}>
         <header className="dashboard-header">
           <h2>My Quizzes</h2>
-          <p>View available quizzes, track scores, and start new ones</p>
+          <p>View available quizzes and start or continue your attempts</p>
         </header>
 
         <section className="section-card">
           {loading ? (
-            <p>⏳ Loading quizzes...</p>
+            <p>Loading quizzes...</p>
           ) : quizzes.length === 0 ? (
-            <p>No quizzes available yet.</p>
+            <p>No quizzes available.</p>
           ) : (
             <ul className="quiz-list">
               {quizzes.map((quiz) => {
@@ -92,38 +100,36 @@ function StudentQuizList() {
                 const startTime = quiz.startTime ? new Date(quiz.startTime) : null;
                 const endTime = quiz.endTime ? new Date(quiz.endTime) : null;
 
+                const hasStarted = quiz.hasStarted;          // from backend ONLY
+                const submitted = quiz.alreadySubmitted;     // from backend ONLY
 
                 let label, colorClass, icon, onClick, isMissed = false;
-                const hasLocalProgress = localStorage.getItem(`quizStart_${quiz._id}`);
-                const hasSubmitted =
-                  quiz.alreadySubmitted ||
-                  quiz.score !== undefined ||
-                  quiz.submissionId ||
-                  quiz.hasSubmitted;
 
-                /* ===========================================================
-                🔥 1) Highest priority: Student already started locally
-                =========================================================== */
-                if (hasLocalProgress && !hasSubmitted && endTime && now < endTime) {
-                  label = "Continue Quiz";
-                  colorClass = "btn-yellow";
-                  icon = <ArrowClockwise size={18} />;
-                  onClick = () => navigate(`/student/take-quiz/${quiz._id}`);
-                }
-
-                /* ===========================================================
-                🔥 2) If student submitted → DO NOT override Continue Quiz
-                =========================================================== */
-                else if (hasSubmitted) {
+                // ===============================
+                // 1) SUBMITTED → View Results
+                // ===============================
+                if (submitted) {
                   label = "View Results";
                   colorClass = "btn-green";
                   icon = <ChartBar size={18} />;
-                  onClick = () => navigate(`/student/quiz-result/${quiz._id}`);
+                  onClick = () =>
+                    navigate(`/student/quiz-result/${quiz._id}`);
                 }
 
-                /* ===========================================================
-                🔥 3) Quiz not open yet
-                =========================================================== */
+                // ===============================
+                // 2) STARTED BUT NOT SUBMITTED → Continue
+                // ===============================
+                else if (hasStarted && now <= endTime) {
+                  label = "Continue Quiz";
+                  colorClass = "btn-yellow";
+                  icon = <ArrowClockwise size={18} />;
+                  onClick = () =>
+                    navigate(`/student/take-quiz/${quiz._id}`);
+                }
+
+                // ===============================
+                // 3) Before quiz opens
+                // ===============================
                 else if (startTime && now < startTime) {
                   label = "Opening Soon";
                   colorClass = "btn-gray";
@@ -131,9 +137,9 @@ function StudentQuizList() {
                   onClick = null;
                 }
 
-                /* ===========================================================
-                🔥 4) Quiz can START NOW
-                =========================================================== */
+                // ===============================
+                // 4) Can start NOW
+                // ===============================
                 else if (now >= startTime && now <= endTime) {
                   label = startingQuizId === quiz._id ? "Starting..." : "Start Quiz";
                   colorClass = "btn-blue";
@@ -141,15 +147,14 @@ function StudentQuizList() {
                   onClick = () => handleStartQuiz(quiz._id);
                 }
 
-                /* ===========================================================
-                🔥 5) Quiz missed
-                =========================================================== */
+                // ===============================
+                // 5) Missed the quiz
+                // ===============================
                 else {
                   label = "Quiz Not Attended";
                   isMissed = true;
                   icon = <XCircle size={18} color="#999" />;
                 }
-
 
                 return (
                   <li key={quiz._id} className="quiz-card">
@@ -162,22 +167,17 @@ function StudentQuizList() {
                     </div>
 
                     <div className="quiz-info">
-                      {quiz.startTime && (
-                        <p>
-                          <Clock size={16} /> <b>Starts:</b>{" "}
-                          {formatLocalDate(quiz.startTime)}
-                        </p>
-                      )}
-                      {quiz.endTime && (
-                        <p>
-                          <Clock size={16} /> <b>Ends:</b>{" "}
-                          {formatLocalDate(quiz.endTime)}
-                        </p>
-                      )}
+                      <p>
+                        <Clock size={16} /> <b>Starts:</b>{" "}
+                        {formatLocalDate(quiz.startTime)}
+                      </p>
+                      <p>
+                        <Clock size={16} /> <b>Ends:</b>{" "}
+                        {formatLocalDate(quiz.endTime)}
+                      </p>
                     </div>
 
-                    {/* ✅ Always show score if available */}
-                    {hasSubmitted && quiz.score !== undefined && (
+                    {submitted && quiz.score !== undefined && (
                       <p className="quiz-score">
                         <CheckCircle size={16} /> Score:{" "}
                         <b>
@@ -186,7 +186,6 @@ function StudentQuizList() {
                       </p>
                     )}
 
-                    {/* 🧠 Missed quiz message */}
                     {isMissed ? (
                       <p className="missed-message">
                         <XCircle size={18} color="#999" /> Quiz Not Attended
@@ -195,7 +194,7 @@ function StudentQuizList() {
                       <button
                         className={`btn ${colorClass}`}
                         onClick={onClick}
-                        disabled={!onClick || startingQuizId === quiz._id}
+                        disabled={!onClick}
                       >
                         {icon} <span>{label}</span>
                       </button>
