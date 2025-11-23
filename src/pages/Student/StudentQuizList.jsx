@@ -100,6 +100,13 @@ function StudentQuizList() {
                   quiz.hasSubmitted;
 
                 let label, colorClass, icon, onClick, isMissed = false;
+                const hasLocalProgress = localStorage.getItem(`quizStart_${quiz._id}`);
+                if (hasLocalProgress && !hasSubmitted && endTime && now < endTime) {
+                    label = "Continue Quiz";
+                    colorClass = "btn-yellow";
+                    icon = <ArrowClockwise size={18} />;
+                    onClick = () => navigate(`/student/take-quiz/${quiz._id}`);
+                }
 
                 // 🕒 Not started yet
                 if (startTime && now < startTime) {
