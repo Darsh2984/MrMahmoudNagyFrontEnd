@@ -208,6 +208,14 @@ function App() {
           }
         />
         <Route
+          path="/createquiz"
+          element={
+            <PrivateRoute allowedRoles={["teacher"]}>
+              <CreateQuiz />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="/questions"
           element={
             <PrivateRoute allowedRoles={["teacher"]}>
