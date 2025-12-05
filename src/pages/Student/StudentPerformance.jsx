@@ -184,26 +184,40 @@ const inClassQuizData = prepareChartData(performance?.inClassQuizzes);
                         <th>Quiz Name</th>
                         <th>Date</th>
                         <th>Score</th>
+                        <th>Percentage</th>
+                        <th>Grade</th>
                       </tr>
                     </thead>
                     <tbody>
                       {performance.inClassQuizzes.map((q, i) => (
                         <tr key={i}>
                           <td>{q.quizName}</td>
+
                           <td>{formatDate(q.date)}</td>
-                          <td
-                            style={{
-                              color: q.score !== null ? "#2c3e50" : "red",
-                            }}
-                          >
-                            {q.score !== null
-                              ? `${q.score}/${q.total}`
-                              : "Not Graded"}
+
+                          {/* SCORE COLUMN */}
+                          <td style={{ color: q.score !== null ? "#2c3e50" : "red" }}>
+                            {q.score !== null ? (
+                              <strong>{q.score}/{q.total}</strong>
+                            ) : (
+                              "Not Graded"
+                            )}
+                          </td>
+
+                          {/* PERCENTAGE COLUMN */}
+                          <td style={{ color: q.percentage !== null ? "#0d47a1" : "red" }}>
+                            {q.percentage !== null ? `${q.percentage}%` : "—"}
+                          </td>
+
+                          {/* LETTER GRADE COLUMN */}
+                          <td style={{ color: "#2c3e50" }}>
+                            {q.letterGrade ? q.letterGrade : "—"}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+
                 )}
                 {/* === Performance Trend Charts === */}
 <div

@@ -373,9 +373,6 @@ const inClassQuizData = prepareChartData(data?.inClassQuizzes);
 
   </div>
 )}
-
-
-
           </div>
         )}
       </main>

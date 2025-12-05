@@ -367,6 +367,30 @@ export default function TeacherInClassQuizzes() {
                   }}
                   className="inclass-input"
                 />
+                <input
+                  type="number"
+                  placeholder="Percentage"
+                  value={s.percentage || ""}
+                  onChange={(e) => {
+                    const updated = [...grades];
+                    updated[idx].percentage = e.target.value;
+                    setGrades(updated);
+                  }}
+                  className="inclass-input"
+                />
+                <input
+                  type="text"
+                  placeholder="Letter Grade (A, B, C...)"
+                  value={s.letterGrade || ""}
+                  onChange={(e) => {
+                    const updated = [...grades];
+                    updated[idx].letterGrade = e.target.value;
+                    setGrades(updated);
+                  }}
+                  className="inclass-input"
+                />
+
+
               </div>
             ))}
 
