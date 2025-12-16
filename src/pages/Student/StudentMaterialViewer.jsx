@@ -1,16 +1,12 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 import StudentSidebar from "../../components/StudentSidebar";
-import "./StudentMaterialViewer.css"; // ✅ new css file
+import "./StudentMaterialViewer.css";
 import {
-  UploadSimple,
-  Trash,
   MagnifyingGlassPlus,
   MagnifyingGlassMinus,
   ArrowCounterClockwise,
   BookOpen,
-  FileArrowUp,
 } from "phosphor-react";
 
 export default function StudentMaterialViewer() {
@@ -19,13 +15,11 @@ export default function StudentMaterialViewer() {
   const [chapters, setChapters] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [filter, setFilter] = useState({ unitId: "", chapterId: "" });
-  const [zoomLevels, setZoomLevels] = useState({});
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (user?.role === "student" && user.id) fetchStudentYear(user.id);
@@ -60,7 +54,9 @@ export default function StudentMaterialViewer() {
 
   const fetchChapters = async (unitId) => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_URL}/api/chapter/${unitId}`
+      );
       setChapters(res.data);
     } catch {
       setError("❌ Failed to load chapters.");
@@ -70,9 +66,8 @@ export default function StudentMaterialViewer() {
   const fetchMaterials = async (yearId) => {
     setLoading(true);
     try {
-      const studentId = user?.id;
       const res = await axios.get(
-        `${process.env.REACT_APP_API_URL}/api/material/student/${studentId}/year/${yearId}`
+        `${process.env.REACT_APP_API_URL}/api/material/student/${user.id}/year/${yearId}`
       );
       setMaterials(res.data);
     } catch {
@@ -80,16 +75,6 @@ export default function StudentMaterialViewer() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleZoom = (id, action) => {
-    setZoomLevels((prev) => {
-      const current = prev[id] || 1;
-      if (action === "in") return { ...prev, [id]: Math.min(current + 0.2, 2) };
-      if (action === "out") return { ...prev, [id]: Math.max(current - 0.2, 0.5) };
-      if (action === "reset") return { ...prev, [id]: 1 };
-      return prev;
-    });
   };
 
   const filteredMaterials = materials.filter((m) => {
@@ -105,13 +90,13 @@ export default function StudentMaterialViewer() {
       <main className={`student-main ${sidebarOpen ? "expanded" : "collapsed"}`}>
         <header className="dashboard-header">
           <h2>📑 Course Materials</h2>
-          <p>View and study all provided course PDFs</p>
+          <p>View and study all provided PDFs</p>
         </header>
 
         <section className="section-card">
           {error && <p className="error-msg">{error}</p>}
 
-          {/* === Filters === */}
+          {/* Filters */}
           <div className="filter-box">
             <div className="filter-item">
               <label>📘 Select Unit</label>
@@ -137,7 +122,9 @@ export default function StudentMaterialViewer() {
                 <label>📖 Select Chapter</label>
                 <select
                   value={filter.chapterId}
-                  onChange={(e) => setFilter({ ...filter, chapterId: e.target.value })}
+                  onChange={(e) =>
+                    setFilter({ ...filter, chapterId: e.target.value })
+                  }
                 >
                   <option value="">-- All Chapters --</option>
                   {chapters.map((c) => (
@@ -150,48 +137,48 @@ export default function StudentMaterialViewer() {
             )}
           </div>
 
-          {/* === Materials === */}
+          {/* Materials */}
           {loading ? (
             <p className="loading-msg">⏳ Loading materials...</p>
           ) : filteredMaterials.length === 0 ? (
             <p className="no-data">⚠️ No materials found</p>
           ) : (
             <div className="material-grid">
-              {filteredMaterials.map((m) => {
-                const zoom = zoomLevels[m._id] || 1;
-                return (
-                  <div key={m._id} className="material-card">
-                    <h4>{m.title}</h4>
-                    <p className="material-meta">
-                      <b>Unit:</b> {m.unitId?.name || "—"} <br />
-                      <b>Chapter:</b> {m.chapterId?.name || "—"}
-                    </p>
+              {filteredMaterials.map((m) => (
+                <div key={m._id} className="material-card">
+                  <h4>{m.title}</h4>
+                  <p className="material-meta">
+                    <b>Unit:</b> {m.unitId?.name || "—"} <br />
+                    <b>Chapter:</b> {m.chapterId?.name || "—"}
+                  </p>
 
-                    <div className="zoom-controls">
-                      <button onClick={() => handleZoom(m._id, "out")} title="Zoom Out">
-                        <MagnifyingGlassMinus size={18} />
-                      </button>
-                      <button onClick={() => handleZoom(m._id, "in")} title="Zoom In">
-                        <MagnifyingGlassPlus size={18} />
-                      </button>
-                      <button onClick={() => handleZoom(m._id, "reset")} title="Reset Zoom">
-                        <ArrowCounterClockwise size={18} />
-                      </button>
-                    </div>
+                  {/* Native PDF Viewer */}
+                  <div className="pdf-native">
+                    <a
+                      href={m.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="open-pdf-btn"
+                    >
+                      <BookOpen size={18} /> Open PDF (Fullscreen)
+                    </a>
 
-                    <div className="pdf-viewer-wrapper">
-                      <iframe
-                        src={`${m.fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                        title={m.title}
-                        style={{
-                          transform: `scale(${zoom})`,
-                          transformOrigin: "0 0",
-                        }}
-                      ></iframe>
-                    </div>
+                    <object
+                      data={m.fileUrl}
+                      type="application/pdf"
+                      width="100%"
+                      height="500px"
+                    >
+                      <p>
+                        PDF preview not supported.{" "}
+                        <a href={m.fileUrl} target="_blank" rel="noreferrer">
+                          Open PDF
+                        </a>
+                      </p>
+                    </object>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           )}
         </section>
