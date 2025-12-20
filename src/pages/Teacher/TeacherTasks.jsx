@@ -25,6 +25,8 @@ function TeacherTasks() {
   const [correctedFiles, setCorrectedFiles] = useState({});
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editDeadline, setEditDeadline] = useState("");
+  const [editingSubmission, setEditingSubmission] = useState({}); 
+
 
 
   const user = JSON.parse(localStorage.getItem("user"));
@@ -204,6 +206,17 @@ function TeacherTasks() {
       toast.error(err.response?.data?.msg || "❌ Failed to mark as submitted");
     }
   };
+
+  const removeCorrectedFile = async (submissionId) => {
+  try {
+    await axios.delete(`${process.env.REACT_APP_API_URL}/api/tasks/submission/${submissionId}/corrected`);
+    toast.success("✅ Corrected file removed");
+    if (expandedTask) fetchSubmissions(expandedTask);
+  } catch (err) {
+    toast.error(err.response?.data?.msg || "❌ Failed to remove corrected file");
+  }
+};
+
 
   // ----------------- UI -----------------
   return (
@@ -396,6 +409,8 @@ function TeacherTasks() {
                           const sub = submissions[t._id]?.find(
                             (sub) => sub.studentId?._id === s._id
                           );
+                          const isGraded = sub?.grade !== undefined && sub?.grade !== null;
+                          const isEditing = !!editingSubmission[sub?._id];
                           const statusText = sub ? "Submitted" : "Not Submitted";
 
                           return (
@@ -427,6 +442,7 @@ function TeacherTasks() {
 
                               {/* Grading */}
                               {sub && expandedStudent === s._id && (
+                                
                                 <div className="grading-box">
                                   <p>
                                     📄{" "}
@@ -438,50 +454,133 @@ function TeacherTasks() {
                                       <em>No file uploaded (manually marked)</em>
                                     )}
                                   </p>
-
-                                  {sub.grade !== undefined && sub.grade !== null ? (
+                            
+                                  
+                                  <div className="grading-box">
                                     <p>
-                                      Grade: {sub.grade}/{t.gradeOutOf}
+                                      📄{" "}
+                                      {sub.fileUrl ? (
+                                        <a href={sub.fileUrl} target="_blank" rel="noreferrer">
+                                          View Submitted File
+                                        </a>
+                                      ) : (
+                                        <em>No file uploaded (manually marked)</em>
+                                      )}
                                     </p>
-                                  ) : (
-                                    <div className="grading-form">
-                                      <input
-                                        type="number"
-                                        placeholder={`Grade /${t.gradeOutOf}`}
-                                        value={grades[sub._id] || ""}
-                                        onChange={(e) =>
-                                          setGrades({ ...grades, [sub._id]: e.target.value })
-                                        }
-                                        className="styled-input"
-                                      />
-                                      <input
-                                        type="text"
-                                        placeholder="Comments"
-                                        value={comments[sub._id] || ""}
-                                        onChange={(e) =>
-                                          setComments({ ...comments, [sub._id]: e.target.value })
-                                        }
-                                        className="styled-input"
-                                      />
-                                      <input
-                                        type="file"
-                                        accept="application/pdf"
-                                        onChange={(e) =>
-                                          setCorrectedFiles({
-                                            ...correctedFiles,
-                                            [sub._id]: e.target.files[0],
-                                          })
-                                        }
-                                        className="styled-input"
-                                      />
-                                      <button
-                                        onClick={() => gradeSubmission(sub._id)}
-                                        className="btn btn-green"
-                                      >
-                                        Submit Grade
-                                      </button>
-                                    </div>
-                                  )}
+
+                                    {/* Corrected file (if exists) */}
+                                    {sub.correctedFileUrl && (
+                                      <p>
+                                        ✅ Corrected File:{" "}
+                                        <a href={sub.correctedFileUrl} target="_blank" rel="noreferrer">
+                                          View Corrected File
+                                        </a>
+                                      </p>
+                                    )}
+
+                                    {/* VIEW MODE */}
+                                    {isGraded && !isEditing && (
+                                      <div style={{ marginTop: 10 }}>
+                                        <p>
+                                          <b>Grade:</b> {sub.grade}/{t.gradeOutOf}
+                                        </p>
+                                        {sub.comments && (
+                                          <p>
+                                            <b>Comments:</b> {sub.comments}
+                                          </p>
+                                        )}
+
+                                        <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                                          <button
+                                            className="btn btn-blue"
+                                            onClick={() => {
+                                              // Prefill inputs
+                                              setGrades((prev) => ({ ...prev, [sub._id]: sub.grade ?? "" }));
+                                              setComments((prev) => ({ ...prev, [sub._id]: sub.comments ?? "" }));
+                                              setEditingSubmission((prev) => ({ ...prev, [sub._id]: true }));
+                                            }}
+                                          >
+                                            ✏️ Edit Grade
+                                          </button>
+
+                                          {sub.correctedFileUrl && (
+                                            <button
+                                              className="btn btn-red"
+                                              onClick={() => removeCorrectedFile(sub._id)}
+                                            >
+                                              🗑 Remove Corrected File
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* EDIT MODE (also used for first-time grading) */}
+                                    {(!isGraded || isEditing) && (
+                                      <div className="grading-form" style={{ marginTop: 10 }}>
+                                        <input
+                                          type="number"
+                                          placeholder={`Grade /${t.gradeOutOf}`}
+                                          value={grades[sub._id] ?? ""}
+                                          onChange={(e) =>
+                                            setGrades((prev) => ({ ...prev, [sub._id]: e.target.value }))
+                                          }
+                                          className="styled-input"
+                                        />
+
+                                        <input
+                                          type="text"
+                                          placeholder="Comments"
+                                          value={comments[sub._id] ?? ""}
+                                          onChange={(e) =>
+                                            setComments((prev) => ({ ...prev, [sub._id]: e.target.value }))
+                                          }
+                                          className="styled-input"
+                                        />
+
+                                        <input
+                                          type="file"
+                                          accept="application/pdf"
+                                          onChange={(e) =>
+                                            setCorrectedFiles((prev) => ({
+                                              ...prev,
+                                              [sub._id]: e.target.files?.[0],
+                                            }))
+                                          }
+                                          className="styled-input"
+                                        />
+
+                                        <div style={{ display: "flex", gap: 10 }}>
+                                          <button
+                                            onClick={async () => {
+                                              await gradeSubmission(sub._id);
+                                              setEditingSubmission((prev) => ({ ...prev, [sub._id]: false }));
+                                              setCorrectedFiles((prev) => ({ ...prev, [sub._id]: undefined }));
+                                            }}
+                                            className="btn btn-green"
+                                          >
+                                            💾 Save
+                                          </button>
+
+                                          {isEditing && (
+                                            <button
+                                              className="btn btn-red"
+                                              onClick={() => {
+                                                setEditingSubmission((prev) => ({ ...prev, [sub._id]: false }));
+                                                // optional: revert inputs
+                                                setGrades((prev) => ({ ...prev, [sub._id]: "" }));
+                                                setComments((prev) => ({ ...prev, [sub._id]: "" }));
+                                                setCorrectedFiles((prev) => ({ ...prev, [sub._id]: undefined }));
+                                              }}
+                                            >
+                                              Cancel
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
                                 </div>
                               )}
                             </div>
