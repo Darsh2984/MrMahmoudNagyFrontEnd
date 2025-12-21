@@ -26,6 +26,8 @@ function TeacherTasks() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editDeadline, setEditDeadline] = useState("");
   const [editingSubmission, setEditingSubmission] = useState({}); 
+  const [uploadingSubmission, setUploadingSubmission] = useState({});
+
 
 
 
@@ -173,25 +175,34 @@ function TeacherTasks() {
   };
 
   const gradeSubmission = async (submissionId) => {
-    const formData = new FormData();
-    formData.append("grade", grades[submissionId] || "");
-    formData.append("comments", comments[submissionId] || "");
-    if (correctedFiles[submissionId]) {
-      formData.append("file", correctedFiles[submissionId]);
-    }
+  if (uploadingSubmission[submissionId]) return;
 
-    try {
-      await axios.put(
-        `${process.env.REACT_APP_API_URL}/api/tasks/submission/${submissionId}/grade`,
-        formData,
-        { headers: { "Content-Type": "multipart/form-data" } }
-      );
-      toast.success("✅ Submission graded");
-      if (expandedTask) fetchSubmissions(expandedTask);
-    } catch {
-      toast.error("❌ Failed to grade submission");
-    }
-  };
+  setUploadingSubmission(prev => ({ ...prev, [submissionId]: true }));
+
+  const formData = new FormData();
+  formData.append("grade", grades[submissionId] || "");
+  formData.append("comments", comments[submissionId] || "");
+
+  if (correctedFiles[submissionId]) {
+    formData.append("file", correctedFiles[submissionId]);
+  }
+
+  try {
+    await axios.put(
+      `${process.env.REACT_APP_API_URL}/api/tasks/submission/${submissionId}/grade`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+
+    toast.success("✅ Submission graded");
+    if (expandedTask) fetchSubmissions(expandedTask);
+  } catch (err) {
+    toast.error("❌ Failed to grade submission");
+  } finally {
+    setUploadingSubmission(prev => ({ ...prev, [submissionId]: false }));
+  }
+};
+
 
   const markAsSubmitted = async (taskId, studentId) => {
     try {
@@ -552,14 +563,15 @@ function TeacherTasks() {
 
                                         <div style={{ display: "flex", gap: 10 }}>
                                           <button
+                                            disabled={uploadingSubmission[sub._id]}
                                             onClick={async () => {
                                               await gradeSubmission(sub._id);
-                                              setEditingSubmission((prev) => ({ ...prev, [sub._id]: false }));
-                                              setCorrectedFiles((prev) => ({ ...prev, [sub._id]: undefined }));
+                                              setEditingSubmission(prev => ({ ...prev, [sub._id]: false }));
+                                              setCorrectedFiles(prev => ({ ...prev, [sub._id]: undefined }));
                                             }}
-                                            className="btn btn-green"
+                                            className={`btn btn-green ${uploadingSubmission[sub._id] ? "disabled" : ""}`}
                                           >
-                                            💾 Save
+                                            {uploadingSubmission[sub._id] ? "Uploading..." : "💾 Save"}
                                           </button>
 
                                           {isEditing && (
