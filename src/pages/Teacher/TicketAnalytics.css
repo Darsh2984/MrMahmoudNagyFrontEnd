@@ -1,0 +1,115 @@
+.ticket-analytics-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--cream);
+}
+
+.ticket-analytics-main {
+  flex-grow: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.ticket-analytics-main.expanded {
+  margin-left: 250px;
+}
+
+.ticket-analytics-main.collapsed {
+  margin-left: 80px;
+}
+
+.ticket-analytics-header h2 {
+  color: var(--teal);
+}
+
+.ticket-analytics-header p {
+  color: var(--green);
+}
+
+.ticket-analytics-table {
+  width: 100%;
+  background: white;
+  border-radius: 10px;
+  margin-top: 1.5rem;
+  border-collapse: collapse;
+}
+
+.ticket-analytics-table th,
+.ticket-analytics-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.ticket-analytics-table th {
+  background: var(--green);
+  color: white;
+}
+
+.ticket-analytics-table td.open {
+  color: var(--orange);
+  font-weight: bold;
+}
+
+.ticket-analytics-table td.closed {
+  color: var(--green);
+  font-weight: bold;
+}
+
+.assistant-analytics-card {
+  background: white;
+  border-radius: 10px;
+  margin-top: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  overflow: hidden;
+}
+
+.assistant-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.2rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.assistant-summary h3 {
+  color: var(--teal);
+}
+
+.summary-stats span {
+  margin-left: 12px;
+  font-weight: bold;
+}
+
+.summary-stats .open {
+  color: var(--orange);
+}
+
+.summary-stats .closed {
+  color: var(--green);
+}
+
+.assistant-tickets-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.assistant-tickets-table th,
+.assistant-tickets-table td {
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.assistant-tickets-table th {
+  background: var(--green);
+  color: white;
+}
+
+.assistant-tickets-table td.open {
+  color: var(--orange);
+}
+
+.assistant-tickets-table td.closed {
+  color: var(--green);
+}
+

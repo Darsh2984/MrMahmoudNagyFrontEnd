@@ -1,0 +1,125 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --charcoal: #33312e;
+}
+
+/* Layout */
+.student-create-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.student-create-main {
+  flex-grow: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  transition: margin-left 0.3s ease;
+}
+
+.student-create-main.expanded {
+  margin-left: 250px;
+}
+
+.student-create-main.collapsed {
+  margin-left: 80px;
+}
+
+/* Header */
+.student-create-header {
+  margin-bottom: 1.5rem;
+}
+
+.student-create-header h2 {
+  color: var(--teal);
+  margin-bottom: 0.2rem;
+}
+
+.student-create-header p {
+  color: var(--green);
+}
+
+/* Card */
+.student-create-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.8rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  max-width: 650px;
+}
+
+/* Form */
+.create-ticket-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.create-ticket-form label {
+  font-weight: 600;
+  color: var(--charcoal);
+}
+
+.create-ticket-form input,
+.create-ticket-form textarea,
+.create-ticket-form select {
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+}
+
+.create-ticket-form input:focus,
+.create-ticket-form textarea:focus,
+.create-ticket-form select:focus {
+  outline: none;
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px rgba(11, 60, 73, 0.15);
+}
+
+.category-description {
+  font-size: 0.9rem;
+  color: var(--green);
+  background: #eef4f1;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
+/* Button */
+.create-ticket-form button {
+  margin-top: 1rem;
+  background: var(--teal);
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.create-ticket-form button:hover:not(:disabled) {
+  background: #062b34;
+}
+
+.create-ticket-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .student-create-main.expanded,
+  .student-create-main.collapsed {
+    margin-left: 0;
+    padding: 1rem;
+  }
+
+  .student-create-card {
+    max-width: 100%;
+  }
+}

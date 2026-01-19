@@ -1,0 +1,91 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --charcoal: #33312e;
+}
+
+/* Layout */
+.ticket-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.ticket-main {
+  flex-grow: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  transition: margin-left 0.3s ease;
+}
+
+.ticket-expanded {
+  margin-left: 250px;
+}
+
+.ticket-collapsed {
+  margin-left: 80px;
+}
+
+/* Header */
+.ticket-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.ticket-header h2 {
+  color: var(--teal);
+}
+
+.ticket-status {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.ticket-status.open {
+  background: var(--green);
+  color: white;
+}
+
+.ticket-status.closed {
+  background: var(--red);
+  color: white;
+}
+
+/* Chat Card */
+.ticket-chat-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Close Button */
+.ticket-close-btn {
+  margin-top: 1.5rem;
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.ticket-close-btn:hover {
+  opacity: 0.9;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .ticket-expanded,
+  .ticket-collapsed {
+    margin-left: 0;
+    padding: 1rem;
+  }
+}

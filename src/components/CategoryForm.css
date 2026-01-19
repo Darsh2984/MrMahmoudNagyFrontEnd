@@ -1,0 +1,115 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --charcoal: #33312e;
+}
+
+/* Card */
+.category-form-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 600px;
+}
+
+/* Title */
+.category-form-title {
+  color: var(--teal);
+  margin-bottom: 1.2rem;
+}
+
+/* Groups */
+.category-form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+
+.category-form-group label {
+  font-weight: 600;
+  color: var(--charcoal);
+  margin-bottom: 6px;
+}
+
+.category-form-group input,
+.category-form-group textarea,
+.category-form-group select {
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 0.95rem;
+}
+
+.category-form-group select {
+  min-height: 120px;
+}
+
+.category-form-group small {
+  margin-top: 4px;
+  color: #666;
+  font-size: 0.8rem;
+}
+
+/* Actions */
+.category-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 1.2rem;
+}
+
+.btn-save {
+  background: var(--teal);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-cancel {
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.btn-save:hover,
+.btn-cancel:hover {
+  opacity: 0.9;
+}
+
+/* Assistants checkbox list */
+.assistant-checkbox-list {
+  border: 1px solid var(--green);
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  background: #fafafa;
+}
+
+.assistant-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.assistant-checkbox-item input {
+  accent-color: var(--teal);
+  cursor: pointer;
+}
+
+
+/* Mobile */
+@media (max-width: 600px) {
+  .category-form-actions {
+    flex-direction: column;
+  }
+}

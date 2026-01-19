@@ -13,6 +13,8 @@ import {
   SignOut,
   X,
   List,
+  ChatCircle,
+  Chat,
 } from "phosphor-react";
 import "./StudentSidebar.css";
 
@@ -56,6 +58,10 @@ function StudentSidebar({ sidebarOpen, setSidebarOpen }) {
             <li onClick={() => navigate("/MaterialViewer")}>
               <BookOpen size={20} weight="duotone" /> <span>Course Materials</span>
             </li>
+            <li onClick={() => navigate("/student/create-ticket")}>
+              <Chat size={20} weight="duotone" /> <span>Contact Support Team</span>
+            </li>
+            
             <li
               onClick={() =>
                 window.open(

@@ -1,0 +1,149 @@
+:root {
+  --cream: #f5f1eb;
+  --teal: #0b3c49;
+  --green: #8baa91;
+  --red: #c85d47;
+  --charcoal: #33312e;
+}
+
+/* Layout */
+.teacher-categories-layout {
+  display: flex;
+  height: 100vh;
+  background: var(--cream);
+  overflow: hidden;
+}
+
+.teacher-categories-main {
+  flex-grow: 1;
+  padding: 2rem;
+  overflow-y: auto;
+  transition: margin-left 0.3s ease;
+}
+
+.teacher-categories-main.expanded {
+  margin-left: 250px;
+}
+
+.teacher-categories-main.collapsed {
+  margin-left: 80px;
+}
+
+/* Header */
+.teacher-categories-header {
+  margin-bottom: 1.5rem;
+}
+
+.teacher-categories-header h2 {
+  color: var(--teal);
+  margin-bottom: 0.2rem;
+}
+
+.teacher-categories-header p {
+  color: var(--green);
+}
+
+/* Card */
+.teacher-categories-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+/* Table */
+.teacher-categories-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.teacher-categories-table th,
+.teacher-categories-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+.teacher-categories-table th {
+  color: var(--teal);
+}
+
+/* Buttons */
+.btn-edit {
+  background: var(--green);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-right: 6px;
+}
+
+.btn-danger {
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-edit:hover,
+.btn-danger:hover {
+  opacity: 0.85;
+}
+
+
+.btn-success {
+  background: var(--green);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-danger {
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.btn-toggle {
+  margin-right: 8px;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.status-badge.active {
+  background: rgba(139, 170, 145, 0.2);
+  color: var(--green);
+}
+
+.status-badge.inactive {
+  background: rgba(200, 93, 71, 0.2);
+  color: var(--red);
+}
+
+
+/* Mobile */
+@media (max-width: 768px) {
+  .teacher-categories-main.expanded,
+  .teacher-categories-main.collapsed {
+    margin-left: 0;
+    padding: 1rem;
+  }
+
+  .teacher-categories-table {
+    font-size: 0.9rem;
+  }
+}

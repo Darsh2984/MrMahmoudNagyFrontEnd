@@ -43,6 +43,14 @@ import SpecialStudentVideoViewer from "./pages/SpecialStudent/SpecialStudentVide
 import SpecialStudentQuizResult from "./pages/SpecialStudent/SpecialStudentQuizResult";
 import QuizStopUpload from "./pages/Teacher/QuizStopUpload";
 import QuizStopList from "./components/QuizStopList";
+import TicketCategories from "./pages/Teacher/TicketCategories";
+import CreateTicket from "./pages/Student/CreateTicket";
+import TicketThread from "./pages/Student/TicketThread";
+import MyTickets from "./pages/Student/MyTickets";
+import AssistantTickets from "./pages/Teacher/AssistantTickets";
+import TicketAnalytics from "./pages/Teacher/TicketAnalytics";
+
+
 
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -63,6 +71,11 @@ function App() {
         <Route path="/AccessDenied" element={<AccessDenied />} />
         <Route path="/teacher/add-assistant" element={<TeacherAddAssistant />} />
         <Route path="/all-students" element={<AllStudentsData />} />
+        <Route path="/teacher/ticket-categories" element={<TicketCategories />} />
+        <Route path="/tickets/:id"element={<TicketThread />}/>
+        <Route path="/teacher/tickets" element={<AssistantTickets />} />
+        <Route path="/student/tickets" element={<MyTickets />} />
+
 
 
 
@@ -70,6 +83,18 @@ function App() {
         <Route path="/complete-parent/:studentId" element={<CompleteParentDetails />}/>
         <Route path="/student-quizzes" element={<StudentQuizList />}/>
         <Route path="/specialstudent-quizzes" element={<SpecialStudentQuizList />}/>
+
+     <Route
+          path="/student/create-ticket"
+          element={
+            <PrivateRoute allowedRoles={["student"]}>
+              <CreateTicket />
+            </PrivateRoute>
+          }
+        />
+
+
+
 
         <Route
           path="/student/take-quiz/:quizId"
@@ -183,6 +208,16 @@ function App() {
 
 
         {/* =================== Teacher Only Routes =================== */}
+        
+        <Route
+          path="/teacher/ticket-analytics"
+          element={
+            <PrivateRoute allowedRoles={["teacher"]}>
+              <TicketAnalytics />
+            </PrivateRoute>
+          }
+        />
+        
         <Route
           path="/manage-units"
           element={

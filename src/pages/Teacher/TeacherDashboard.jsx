@@ -15,6 +15,7 @@ import {
   Student,
   FileArrowDown,
   LinkSimple,
+  ChartBar,
 } from "phosphor-react";
 import "react-toastify/dist/ReactToastify.css";
 import "./TeacherDashboard.css";
@@ -25,6 +26,10 @@ function TeacherDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [zoomLinks, setZoomLinks] = useState({});
   const navigate = useNavigate();
+ const user = JSON.parse(localStorage.getItem("user"));
+  const isAdminTeacher =
+    user?.role === "teacher" && user?.assistantOf === null;
+
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -32,6 +37,7 @@ function TeacherDashboard() {
       setTeacherId(user.id);
       fetchYears(user.id);
     }
+     
   }, []);
 
   const fetchYears = async (id) => {
@@ -76,22 +82,50 @@ function TeacherDashboard() {
         </header>
 
         {/* QUICK ACTIONS */}
-        <section className="card-grid">
-          {[
-            { icon: <BookOpen size={24} />, title: "Manage Units", path: "/manage-units" },
-            { icon: <PencilSimple size={24} />, title: "Upload MCQs", path: "/upload-question" },
-            { icon: <PencilSimple size={24} />, title: "Upload Video Stop Questions", path: "/quizstopupload-question" },
-            { icon: <PlusCircle size={24} />, title: "Create Quiz", path: "/createquiz" },
-            { icon: <ClipboardText size={24} />, title: "Quiz Lists", path: "/quizlist" },
-            { icon: <FolderSimple size={24} />, title: "Tasks & Homework", path: "/teacher-tasks" },
-            { icon: <Student size={24} />, title: "Student Data", path: "/all-students" },
-          ].map((card, i) => (
-            <div key={i} className="dashboard-card" onClick={() => navigate(card.path)}>
-              {card.icon}
-              <h4>{card.title}</h4>
-            </div>
-          ))}
-        </section>
+          <section className="card-grid">
+            {[
+              { icon: <BookOpen size={24} />, title: "Manage Units", path: "/manage-units" },
+              { icon: <PencilSimple size={24} />, title: "Upload MCQs", path: "/upload-question" },
+              { icon: <PencilSimple size={24} />, title: "Upload Video Stop Questions", path: "/quizstopupload-question" },
+              { icon: <PlusCircle size={24} />, title: "Create Quiz", path: "/createquiz" },
+              { icon: <ClipboardText size={24} />, title: "Quiz Lists", path: "/quizlist" },
+              { icon: <FolderSimple size={24} />, title: "Tasks & Homework", path: "/teacher-tasks" },
+              { icon: <Student size={24} />, title: "Student Data", path: "/all-students" },
+
+              // ✅ Visible for BOTH teacher & assistants
+              {
+                icon: <ClipboardText size={24} />,
+                title: "System Support Chats",
+                path: "/teacher/tickets",
+              },
+
+              // ✅ Visible ONLY for admin teacher
+              ...(isAdminTeacher
+                ? [
+                    {
+                      icon: <FolderSimple size={24} />,
+                      title: "System Support Categories",
+                      path: "/teacher/ticket-categories",
+                    },
+
+                    {
+                      icon: <ChartBar size={24} />,
+                      title: "Support Analytics",
+                      path: "/teacher/ticket-analytics",
+                    }
+                  ]
+                : []),
+            ].map((card, i) => (
+              <div
+                key={i}
+                className="dashboard-card"
+                onClick={() => navigate(card.path)}
+              >
+                {card.icon}
+                <h4>{card.title}</h4>
+              </div>
+            ))}
+          </section>
 
         {/* EXPORT BUTTON */}
         <div className="export-container">
