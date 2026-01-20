@@ -61,7 +61,9 @@ function StudentSidebar({ sidebarOpen, setSidebarOpen }) {
             <li onClick={() => navigate("/student/create-ticket")}>
               <Chat size={20} weight="duotone" /> <span>Contact Support Team</span>
             </li>
-            
+            <li onClick={() => navigate("/student/tickets")}>
+              <Chat size={20} weight="duotone" /> <span>My Support Tickets</span>
+            </li>
             <li
               onClick={() =>
                 window.open(

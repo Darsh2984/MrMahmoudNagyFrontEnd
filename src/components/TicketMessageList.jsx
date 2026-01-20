@@ -27,8 +27,10 @@ export default function TicketMessageList({ messages }) {
               </div>
 
               {/* ✅ TEXT */}
-              {msg.type === "text" && (
-                <div className="ticket-message-content">{msg.message}</div>
+             {(msg.type === "text" || !msg.type) && msg.message && (
+                <div className="ticket-message-content">
+                  {msg.message}
+                </div>
               )}
 
               {/* ✅ IMAGE */}

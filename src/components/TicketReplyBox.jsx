@@ -7,9 +7,8 @@ export default function TicketReplyBox({ ticketId }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
 
-  const sendText = async (e) => {
-    e.preventDefault();
-    if (!text.trim()) return;
+  const sendText = async () => {
+    if (!text.trim() || sending) return;
 
     setSending(true);
     try {
@@ -24,13 +23,20 @@ export default function TicketReplyBox({ ticketId }) {
     }
   };
 
+  const handleKeyDown = (e) => {
+    // Enter = send | Shift+Enter = new line
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendText();
+    }
+  };
+
   const sendFile = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const formData = new FormData();
     formData.append("file", file);
-    formData.append("type", "file");
 
     try {
       await api.post(
@@ -46,34 +52,32 @@ export default function TicketReplyBox({ ticketId }) {
   };
 
   return (
-    <form onSubmit={sendText} className="ticket-reply-container">
+    <form
+      className="ticket-reply-container"
+      onSubmit={(e) => e.preventDefault()}
+    >
       <textarea
         className="ticket-reply-input"
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="Type your message..."
         rows={3}
         disabled={sending}
       />
 
       <div className="ticket-reply-actions">
-        <label className="file-btn">
+        <label className="file-btn" title="Attach file">
           📎
-          <input
-            type="file"
-            hidden
-            onChange={sendFile}
-          />
+          <input type="file" hidden onChange={sendFile} />
         </label>
 
-        <VoiceRecorder
-          ticketId={ticketId}
-          disabled={sending}
-        />
+        <VoiceRecorder ticketId={ticketId} disabled={sending} />
 
         <button
-          type="submit"
+          type="button"
           className="ticket-reply-send"
+          onClick={sendText}
           disabled={sending || !text.trim()}
         >
           {sending ? "Sending..." : "Send"}
