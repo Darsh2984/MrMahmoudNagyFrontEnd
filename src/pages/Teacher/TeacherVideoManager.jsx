@@ -40,6 +40,7 @@ export default function TeacherVideoManager() {
   const [stops, setStops] = useState([
   { timeInSeconds: "", selectedQuestionIds: [] },
 ]);
+
   const [checkpoint, setCheckpoint] = useState({
     timeInSeconds: "",
     questions: [
@@ -52,6 +53,9 @@ export default function TeacherVideoManager() {
   });
   const [availableQuestions, setAvailableQuestions] = useState([]); // fetched from DB
   const [selectedQuestionIds, setSelectedQuestionIds] = useState([]);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editVideo, setEditVideo] = useState(null);
+  const [editUrl, setEditUrl] = useState("");
 
   useEffect(() => {
     const user = JSON.parse(localStorage.getItem("user"));
@@ -202,6 +206,28 @@ export default function TeacherVideoManager() {
       </div>,
       { autoClose: false, closeOnClick: false, draggable: false, position: "top-center" }
     );
+  };
+
+  const openEditModal = (video) => {
+    setEditVideo(video);
+    setEditUrl(video.videoUrl);
+    setShowEditModal(true);
+  };
+
+  const saveEdit = async () => {
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_URL}/api/video/${editVideo._id}`,
+        { videoUrl: editUrl }
+      );
+
+      toast.success("✅ Video updated successfully");
+      setShowEditModal(false);
+      fetchVideos(form.yearId);
+    } catch (err) {
+      console.error(err);
+      toast.error("❌ Failed to update video");
+    }
   };
 
   const openCheckpointModal = async (videoId, title) => {
@@ -444,6 +470,12 @@ export default function TeacherVideoManager() {
                   {/* --- Actions --- */}
                   <div className="video-actions">
                     <button
+                      onClick={() => openEditModal(v)}
+                      className="video-btn video-btn-blue"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
                       onClick={() => handleDelete(v._id)}
                       className="video-btn video-btn-red"
                     >
@@ -646,6 +678,39 @@ export default function TeacherVideoManager() {
                 <button
                   className="video-btn video-btn-red"
                   onClick={() => setShowCheckpointModal(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* --- Edit Video Modal --- */}
+        {showEditModal && (
+          <div className="checkpoint-overlay">
+            <div className="checkpoint-modal">
+              <h3>Edit Video URL</h3>
+
+              <input
+                type="text"
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+                className="video-input"
+                placeholder="Paste new Bunny CDN URL"
+              />
+
+              <div className="checkpoint-actions">
+                <button
+                  className="video-btn video-btn-blue"
+                  onClick={saveEdit}
+                >
+                  💾 Save
+                </button>
+
+                <button
+                  className="video-btn video-btn-red"
+                  onClick={() => setShowEditModal(false)}
                 >
                   Cancel
                 </button>
