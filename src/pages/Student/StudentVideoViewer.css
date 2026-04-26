@@ -147,6 +147,33 @@
   color: var(--red);
 }
 
+
+.video-thumbnail {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: #111;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.play-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tap-to-play {
+  color: rgba(255,255,255,0.7);
+  font-size: 13px;
+}
+
+
 /* --- RESPONSIVE --- */
 @media (max-width: 768px) {
   .student-main.expanded,
