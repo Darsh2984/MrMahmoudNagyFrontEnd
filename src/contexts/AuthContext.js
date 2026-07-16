@@ -31,8 +31,13 @@ export function AuthProvider({ children }) {
   async function login(email, password) {
     const res = await api.post("/auth/login", { email, password });
     await setToken(res.data.token);
-    setUser(res.data.user);
-    return res.data.user;
+    // The login response's user object is minimal and doesn't include
+    // groupMemberships — fetch the full profile via /me right away so
+    // the group-gating check in app/(app)/_layout.js works immediately,
+    // not just after an app relaunch.
+    const meRes = await api.get("/auth/me");
+    setUser(meRes.data);
+    return meRes.data;
   }
 
   async function logout() {
