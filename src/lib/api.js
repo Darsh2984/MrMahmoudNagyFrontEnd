@@ -1,19 +1,27 @@
 import axios from "axios";
-import Constants from "expo-constants";
-import { getToken } from "./storage";
+import { Platform } from "react-native";
 
-const baseURL = Constants.expoConfig?.extra?.apiUrl || "http://localhost:6000";
+function getApiBaseUrl() {
+  const configuredUrl =
+    process.env.EXPO_PUBLIC_API_URL?.trim();
 
-export const api = axios.create({ baseURL: `${baseURL}/api` });
-
-// Attach the JWT (if we have one) to every request — mirrors the old
-// frontend's services/api.js interceptor pattern.
-api.interceptors.request.use(async (config) => {
-  const token = await getToken();
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/+$/, "");
   }
-  return config;
+
+  if (Platform.OS === "android") {
+    return "http://10.0.2.2:5000/api";
+  }
+
+  return "http://localhost:5000/api";
+}
+
+const api = axios.create({
+  baseURL: getApiBaseUrl(),
+  timeout: 30000,
+  headers: {
+    Accept: "application/json",
+  },
 });
 
 export default api;
