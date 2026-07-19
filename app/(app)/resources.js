@@ -6,7 +6,6 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
-  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
   View,
 } from "react-native";
 
+import { useRouter } from "expo-router";
 import { Screen } from "../../src/components/layout/Screen";
 import { Card } from "../../src/components/ui/Card";
 import api from "../../src/lib/api";
@@ -32,6 +32,7 @@ const LEVELS = {
 };
 
 export default function Resources() {
+  const router = useRouter();
   const [yearId, setYearId] = useState(null);
   const [level, setLevel] = useState(LEVELS.UNITS);
 
@@ -395,14 +396,9 @@ export default function Resources() {
   }
 
   async function openResource(item) {
-    const resourceUrl =
-      item.kind === "video"
-        ? item.videoUrl
-        : item.fileUrl;
-
-    if (!resourceUrl) {
+    if (!item?.id || !item?.kind) {
       setError(
-        "This resource does not have a valid link."
+        "This resource cannot be opened."
       );
       return;
     }
@@ -411,21 +407,12 @@ export default function Resources() {
     setError("");
 
     try {
-      const canOpen = await Linking.canOpenURL(
-        resourceUrl
+      router.push(
+        `/resource-viewer/${item.kind}/${item.id}`
       );
-
-      if (!canOpen) {
-        setError(
-          "This resource link cannot be opened on this device."
-        );
-        return;
-      }
-
-      await Linking.openURL(resourceUrl);
     } catch {
       setError(
-        "Couldn't open this resource. Please try again."
+        "Couldn't open this resource."
       );
     } finally {
       setOpeningResourceId(null);
@@ -758,7 +745,7 @@ function ResourceRow({
             </Text>
 
             <Text style={styles.externalArrow}>
-              ↗
+              ›
             </Text>
           </>
         ) : (

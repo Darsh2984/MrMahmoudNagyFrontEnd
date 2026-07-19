@@ -14,20 +14,20 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-import { Screen } from "../../src/components/layout/Screen";
-import { Card } from "../../src/components/ui/Card";
-import { Button } from "../../src/components/ui/Button";
-import { Badge } from "../../src/components/ui/Badge";
-import { useAuth } from "../../src/contexts/AuthContext";
-import api from "../../src/lib/api";
-import { formatDate } from "../../src/utils/formatDate";
+import { Screen } from "../../../src/components/layout/Screen";
+import { Card } from "../../../src/components/ui/Card";
+import { Button } from "../../../src/components/ui/Button";
+import { Badge } from "../../../src/components/ui/Badge";
+import { useAuth } from "../../../src/contexts/AuthContext";
+import api from "../../../src/lib/api";
+import { formatDate } from "../../../src/utils/formatDate";
 
 import {
   colors,
   radius,
   spacing,
   typography,
-} from "../../src/theme";
+} from "../../../src/theme";
 
 export default function MyTasks() {
   const { user } = useAuth();
@@ -184,10 +184,8 @@ export default function MyTasks() {
   }, [loadTasks]);
 
   function openTask(taskId) {
-    router.push(
-      `/(app)/my-tasks/${taskId}`
-    );
-  }
+    router.push(`/my-tasks/${taskId}`);
+    }
 
   if (loading) {
     return (

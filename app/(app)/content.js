@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Modal,
   Platform,
   Pressable,
@@ -11,6 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 
@@ -52,6 +54,7 @@ function getApiError(error, fallback) {
 }
 
 export default function Content() {
+  const router = useRouter();
   const { width } = useWindowDimensions();
   const isWide = width >= 980;
   const isCompact = width < 620;
@@ -73,6 +76,24 @@ export default function Content() {
 
   const [materialTitle, setMaterialTitle] = useState("");
   const [videoTitle, setVideoTitle] = useState("");
+
+  const [editingResource, setEditingResource] =
+    useState(null);
+
+  const [editTitle, setEditTitle] =
+    useState("");
+
+  const [editFile, setEditFile] =
+    useState(null);
+
+  const [editModalVisible, setEditModalVisible] =
+    useState(false);
+
+  const [savingResource, setSavingResource] =
+    useState(false);
+
+  const [deletingResourceId, setDeletingResourceId] =
+    useState(null);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -426,6 +447,205 @@ export default function Content() {
     }
   }
 
+  function openResourceViewer(item) {
+  router.push(
+    `/resource-viewer/${item.kind}/${item.id}`
+  );
+}
+
+function openEditResource(item) {
+  clearMessages();
+
+  setEditingResource(item);
+  setEditTitle(item.title || "");
+  setEditFile(null);
+  setEditModalVisible(true);
+}
+
+function closeEditResource() {
+  if (savingResource) return;
+
+  setEditModalVisible(false);
+  setEditingResource(null);
+  setEditTitle("");
+  setEditFile(null);
+}
+
+async function chooseReplacementFile() {
+  if (!editingResource) return;
+
+  const pickerType =
+    editingResource.kind === "video"
+      ? ["video/*"]
+      : [
+          "application/pdf",
+          "image/*",
+        ];
+
+  const result =
+    await DocumentPicker.getDocumentAsync({
+      type: pickerType,
+      copyToCacheDirectory: true,
+      multiple: false,
+    });
+
+  if (
+    result.canceled ||
+    !result.assets?.length
+  ) {
+    return;
+  }
+
+  setEditFile(result.assets[0]);
+}
+
+async function saveResourceChanges() {
+  if (!editingResource) return;
+
+  const normalizedTitle =
+    editTitle.trim();
+
+  if (!normalizedTitle) {
+    setError(
+      "Enter a title for the resource."
+    );
+    return;
+  }
+
+  setSavingResource(true);
+  setError("");
+
+  try {
+    const formData = new FormData();
+
+    formData.append(
+      "title",
+      normalizedTitle
+    );
+
+    if (editFile) {
+      await appendPickedFile(
+        formData,
+        editFile
+      );
+    }
+
+    await api.patch(
+      `/resources/${editingResource.kind}/${editingResource.id}`,
+      formData
+    );
+
+    const topic =
+      crumbs[crumbs.length - 1];
+
+    await loadResources(
+      {
+        id: topic.id,
+        name: topic.label,
+      },
+      crumbs
+    );
+
+    setEditModalVisible(false);
+    setEditingResource(null);
+    setEditTitle("");
+    setEditFile(null);
+
+    setSuccess(
+      `${
+        editingResource.kind === "video"
+          ? "Video"
+          : "Material"
+      } updated successfully.`
+    );
+  } catch (requestError) {
+    setError(
+      getApiError(
+        requestError,
+        "Couldn't update the resource."
+      )
+    );
+  } finally {
+    setSavingResource(false);
+  }
+}
+
+async function deleteResource(item) {
+  setDeletingResourceId(item.id);
+  setError("");
+
+  try {
+    await api.delete(
+      `/resources/${item.kind}/${item.id}`
+    );
+
+    const topic =
+      crumbs[crumbs.length - 1];
+
+    await loadResources(
+      {
+        id: topic.id,
+        name: topic.label,
+      },
+      crumbs
+    );
+
+    setSuccess(
+      `${
+        item.kind === "video"
+          ? "Video"
+          : "Material"
+      } deleted successfully.`
+    );
+  } catch (requestError) {
+    setError(
+      getApiError(
+        requestError,
+        "Couldn't delete the resource."
+      )
+    );
+  } finally {
+    setDeletingResourceId(null);
+  }
+}
+
+  function confirmDeleteResource(item) {
+    const resourceType =
+      item.kind === "video"
+        ? "video"
+        : "material";
+
+    if (Platform.OS === "web") {
+      const confirmed =
+        window.confirm(
+          `Delete "${item.title}"? This will permanently remove the ${resourceType} file.`
+        );
+
+      if (confirmed) {
+        deleteResource(item);
+      }
+
+      return;
+    }
+
+    Alert.alert(
+      `Delete ${resourceType}`,
+      `Delete "${item.title}"? This will permanently remove the uploaded file.`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () =>
+            deleteResource(item),
+        },
+      ]
+    );
+}
+
   function renderYearSelector() {
     if (!years.length) {
       return (
@@ -658,8 +878,14 @@ export default function Content() {
   }
 
   function renderItem(item) {
-    const isResource = level === "resources";
-    const isVideo = item.kind === "video";
+    const isResource =
+      level === "resources";
+
+    const isVideo =
+      item.kind === "video";
+
+    const isDeleting =
+      deletingResourceId === item.id;
 
     const iconName = isResource
       ? isVideo
@@ -681,13 +907,18 @@ export default function Content() {
       <Pressable
         key={item.id}
         onPress={() => {
-          if (!isResource) handleOpenItem(item);
+          if (!isResource) {
+            handleOpenItem(item);
+          }
         }}
         disabled={isResource}
         style={({ pressed }) => [
           styles.itemPressable,
-          isWide && styles.itemPressableWide,
-          pressed && !isResource && styles.itemPressed,
+          isWide &&
+            styles.itemPressableWide,
+          pressed &&
+            !isResource &&
+            styles.itemPressed,
         ]}
       >
         <Card style={styles.itemCard}>
@@ -695,13 +926,18 @@ export default function Content() {
             <View
               style={[
                 styles.itemIcon,
-                isVideo && styles.videoIcon,
+                isVideo &&
+                  styles.videoIcon,
               ]}
             >
               <Ionicons
                 name={iconName}
                 size={24}
-                color={isVideo ? colors.warning : colors.primary}
+                color={
+                  isVideo
+                    ? colors.warning
+                    : colors.primary
+                }
               />
             </View>
 
@@ -717,18 +953,126 @@ export default function Content() {
           </View>
 
           <View style={styles.itemTextBlock}>
-            <Text numberOfLines={2} style={styles.itemTitle}>
+            <Text
+              numberOfLines={2}
+              style={styles.itemTitle}
+            >
               {item.name || item.title}
             </Text>
 
             <View style={styles.itemTypeRow}>
-              <Text style={styles.itemType}>{itemType}</Text>
+              <Text style={styles.itemType}>
+                {itemType}
+              </Text>
 
               {!isResource ? (
-                <Text style={styles.itemInstruction}>Open</Text>
+                <Text
+                  style={
+                    styles.itemInstruction
+                  }
+                >
+                  Open
+                </Text>
               ) : null}
             </View>
           </View>
+
+          {isResource ? (
+            <View
+              style={
+                styles.resourceActions
+              }
+            >
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  openResourceViewer(item)
+                }
+                style={({ pressed }) => [
+                  styles.resourceActionButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="eye-outline"
+                  size={17}
+                  color={colors.primary}
+                />
+
+                <Text
+                  style={
+                    styles.resourceActionText
+                  }
+                >
+                  View
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  openEditResource(item)
+                }
+                style={({ pressed }) => [
+                  styles.resourceActionButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="create-outline"
+                  size={17}
+                  color={colors.primary}
+                />
+
+                <Text
+                  style={
+                    styles.resourceActionText
+                  }
+                >
+                  Edit
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                disabled={isDeleting}
+                onPress={() =>
+                  confirmDeleteResource(item)
+                }
+                style={({ pressed }) => [
+                  styles.resourceActionButton,
+                  styles.deleteActionButton,
+                  pressed &&
+                    !isDeleting &&
+                    styles.pressed,
+                  isDeleting &&
+                    styles.disabledAction,
+                ]}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.danger}
+                  />
+                ) : (
+                  <Ionicons
+                    name="trash-outline"
+                    size={17}
+                    color={colors.danger}
+                  />
+                )}
+
+                <Text
+                  style={[
+                    styles.resourceActionText,
+                    styles.deleteActionText,
+                  ]}
+                >
+                  Delete
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
         </Card>
       </Pressable>
     );
@@ -1037,6 +1381,164 @@ export default function Content() {
                 variant="warning"
                 onPress={handleCreate}
                 loading={creating}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+            <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeEditResource}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={closeEditResource}
+          />
+
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIcon}>
+                <Ionicons
+                  name="create-outline"
+                  size={23}
+                  color={colors.primary}
+                />
+              </View>
+
+              <View style={styles.modalHeadingCopy}>
+                <Text style={styles.modalTitle}>
+                  Edit{" "}
+                  {editingResource?.kind ===
+                  "video"
+                    ? "video"
+                    : "material"}
+                </Text>
+
+                <Text style={styles.mutedText}>
+                  Change the title or choose a
+                  replacement file.
+                </Text>
+              </View>
+
+              <Pressable
+                accessibilityLabel="Close"
+                onPress={closeEditResource}
+                style={({ pressed }) => [
+                  styles.modalClose,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="close"
+                  size={22}
+                  color={colors.textPrimary}
+                />
+              </Pressable>
+            </View>
+
+            <Text style={styles.inputLabel}>
+              Resource title
+            </Text>
+
+            <TextInput
+              value={editTitle}
+              onChangeText={setEditTitle}
+              placeholder="Resource title"
+              placeholderTextColor={
+                colors.textMuted
+              }
+              style={styles.input}
+            />
+
+            <View
+              style={
+                styles.replacementFileBox
+              }
+            >
+              <View style={styles.fileInfo}>
+                <Ionicons
+                  name={
+                    editFile
+                      ? "checkmark-circle-outline"
+                      : "attach-outline"
+                  }
+                  size={21}
+                  color={colors.primary}
+                />
+
+                <View style={styles.fileInfoText}>
+                  <Text
+                    style={
+                      styles.fileInfoTitle
+                    }
+                  >
+                    {editFile
+                      ? editFile.name
+                      : "Keep current file"}
+                  </Text>
+
+                  <Text
+                    style={styles.mutedText}
+                  >
+                    {editFile
+                      ? "This file will replace the current upload."
+                      : "Choosing a new file is optional."}
+                  </Text>
+                </View>
+              </View>
+
+              <Button
+                title={
+                  editFile
+                    ? "Choose another file"
+                    : "Replace file"
+                }
+                variant="outline"
+                onPress={
+                  chooseReplacementFile
+                }
+                disabled={savingResource}
+              />
+
+              {editFile ? (
+                <Pressable
+                  onPress={() =>
+                    setEditFile(null)
+                  }
+                  style={({ pressed }) => [
+                    styles.removeReplacementButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text
+                    style={
+                      styles.removeReplacementText
+                    }
+                  >
+                    Keep current file instead
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View style={styles.modalActions}>
+              <Button
+                title="Cancel"
+                variant="outline"
+                onPress={closeEditResource}
+                disabled={savingResource}
+              />
+
+              <Button
+                title="Save changes"
+                variant="warning"
+                onPress={
+                  saveResourceChanges
+                }
+                loading={savingResource}
               />
             </View>
           </View>
@@ -1710,5 +2212,84 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.76,
+  },
+
+    resourceActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+
+  resourceActionButton: {
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+  },
+
+  resourceActionText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+
+  deleteActionButton: {
+    borderColor: colors.danger + "44",
+    backgroundColor: colors.danger + "08",
+  },
+
+  deleteActionText: {
+    color: colors.danger,
+  },
+
+  disabledAction: {
+    opacity: 0.5,
+  },
+
+  replacementFileBox: {
+    gap: spacing.md,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
+  },
+
+  fileInfo: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+
+  fileInfoText: {
+    flex: 1,
+  },
+
+  fileInfoTitle: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+    marginBottom: 3,
+  },
+
+  removeReplacementButton: {
+    alignSelf: "flex-start",
+    paddingVertical: spacing.xs,
+  },
+
+  removeReplacementText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.danger,
   },
 });
