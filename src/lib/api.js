@@ -1,5 +1,6 @@
 import axios from "axios";
 import { Platform } from "react-native";
+import { getToken } from "./storage";
 
 function getApiBaseUrl() {
   const configuredUrl =
@@ -23,5 +24,22 @@ const api = axios.create({
     Accept: "application/json",
   },
 });
+
+api.interceptors.request.use(
+  async (config) => {
+    const token = await getToken();
+
+    if (token) {
+      config.headers =
+        config.headers || {};
+
+      config.headers.Authorization =
+        `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export default api;
