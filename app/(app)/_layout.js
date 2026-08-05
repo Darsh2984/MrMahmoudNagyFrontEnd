@@ -163,6 +163,12 @@ function getNavItems(
         activeIcon: "person-add",
       },
       {
+        label: "Assistant Performance",
+        route: "/(app)/assistant-performance",
+        icon: "stats-chart-outline",
+        activeIcon: "stats-chart",
+      },
+      {
         label: "Schools",
         route: "/(app)/schools",
         icon: "business-outline",
