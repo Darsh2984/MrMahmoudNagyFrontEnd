@@ -4,62 +4,162 @@ import React, {
   useMemo,
   useState,
 } from "react";
+
 import {
   ActivityIndicator,
   Linking,
   Platform,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
+
 import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
+
 import * as DocumentPicker from "expo-document-picker";
 
 import { Screen } from "../../../src/components/layout/Screen";
 import { Card } from "../../../src/components/ui/Card";
 import { Button } from "../../../src/components/ui/Button";
 import { Badge } from "../../../src/components/ui/Badge";
+
 import { useAuth } from "../../../src/contexts/AuthContext";
+
 import api from "../../../src/lib/api";
+
 import { formatDate } from "../../../src/utils/formatDate";
 
-import {
-  colors,
-  radius,
-  spacing,
-  typography,
-} from "../../../src/theme";
+import { colors } from "../../../src/theme";
+
+import { styles } from "./[taskId].styles";
+
+const MAX_HOMEWORK_FILES = 20;
 
 function getErrorMessage(error, fallback) {
   return (
     error?.response?.data?.msg ||
     error?.response?.data?.message ||
+    error?.message ||
     fallback
   );
 }
 
+function formatFileSize(bytes) {
+  const size = Number(bytes);
+
+  if (!Number.isFinite(size) || size <= 0) {
+    return "Unknown size";
+  }
+
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(
+    size /
+    (1024 * 1024)
+  ).toFixed(1)} MB`;
+}
+
+async function appendAssetToFormData(
+  formData,
+  asset,
+) {
+  const filename =
+    asset.name ||
+    `homework-${Date.now()}`;
+
+  const contentType =
+    asset.mimeType ||
+    asset.type ||
+    "application/octet-stream";
+
+  if (
+    Platform.OS === "web" &&
+    asset.file
+  ) {
+    formData.append(
+      "files",
+      asset.file,
+      filename,
+    );
+
+    return;
+  }
+
+  if (Platform.OS === "web") {
+    const response = await fetch(
+      asset.uri,
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `The file "${filename}" could not be prepared for upload.`,
+      );
+    }
+
+    const blob =
+      await response.blob();
+
+    formData.append(
+      "files",
+      blob,
+      filename,
+    );
+
+    return;
+  }
+
+  formData.append("files", {
+    uri: asset.uri,
+    name: filename,
+    type: contentType,
+  });
+}
+
 export default function MyTaskDetail() {
-  const params = useLocalSearchParams();
-  const router = useRouter();
-  const { user } = useAuth();
+  const params =
+    useLocalSearchParams();
 
-  const rawTaskId = params.taskId;
-  const taskId = Array.isArray(rawTaskId)
-    ? rawTaskId[0]
-    : rawTaskId;
+  const router =
+    useRouter();
 
-  const [task, setTask] = useState(null);
-  const [mySubmission, setMySubmission] =
+  const { user } =
+    useAuth();
+
+  const rawTaskId =
+    params.taskId;
+
+  const taskId =
+    Array.isArray(rawTaskId)
+      ? rawTaskId[0]
+      : rawTaskId;
+
+  const [task, setTask] =
     useState(null);
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] =
-    useState(false);
+  const [
+    mySubmission,
+    setMySubmission,
+  ] = useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
+
   const [uploading, setUploading] =
     useState(false);
 
@@ -69,159 +169,224 @@ export default function MyTaskDetail() {
   ] = useState(false);
 
   const [
-    openingSubmissionFile,
-    setOpeningSubmissionFile,
-  ] = useState(false);
+    openingSubmissionFileId,
+    setOpeningSubmissionFileId,
+  ] = useState(null);
 
   const [
-    openingCorrectedFile,
-    setOpeningCorrectedFile,
-  ] = useState(false);
+    openingCorrectedFileId,
+    setOpeningCorrectedFileId,
+  ] = useState(null);
 
-  const [error, setError] = useState("");
+  const [
+    deletingFileId,
+    setDeletingFileId,
+  ] = useState(null);
+
+  const [error, setError] =
+    useState("");
+
   const [success, setSuccess] =
     useState("");
 
-  const isPastDeadline = useMemo(() => {
-    if (!task?.deadline) {
-      return false;
-    }
+  const isPastDeadline =
+    useMemo(() => {
+      if (!task?.deadline) {
+        return false;
+      }
 
-    const deadline = new Date(
-      task.deadline
-    ).getTime();
+      const deadline =
+        new Date(
+          task.deadline,
+        ).getTime();
 
-    return (
-      Number.isFinite(deadline) &&
-      deadline < Date.now()
+      return (
+        Number.isFinite(deadline) &&
+        deadline < Date.now()
+      );
+    }, [task?.deadline]);
+
+  const submissionFiles =
+    useMemo(() => {
+      return Array.isArray(
+        mySubmission?.files,
+      )
+        ? mySubmission.files
+        : [];
+    }, [mySubmission?.files]);
+
+  const correctedFiles =
+    useMemo(() => {
+      return Array.isArray(
+        mySubmission?.correctedFiles,
+      )
+        ? mySubmission.correctedFiles
+        : [];
+    }, [
+      mySubmission?.correctedFiles,
+    ]);
+
+  const canModifySubmission =
+    useMemo(() => {
+      if (!mySubmission) {
+        if (!isPastDeadline) {
+          return true;
+        }
+
+        return Boolean(
+          task?.allowLateSubmission,
+        );
+      }
+
+      if (
+        mySubmission.grade != null
+      ) {
+        return false;
+      }
+
+      if (
+        mySubmission.canModify ===
+        false
+      ) {
+        return false;
+      }
+
+      if (!isPastDeadline) {
+        return true;
+      }
+
+      return Boolean(
+        task?.allowLateSubmission,
+      );
+    }, [
+      isPastDeadline,
+      mySubmission,
+      task?.allowLateSubmission,
+    ]);
+
+  const status =
+    useMemo(() => {
+      if (
+        mySubmission?.grade != null
+      ) {
+        return {
+          label: "Graded",
+          tone: "success",
+          icon:
+            "checkmark-done-outline",
+          helper:
+            "Your homework has been reviewed and graded.",
+        };
+      }
+
+      if (mySubmission) {
+        return {
+          label: "Submitted",
+          tone: "info",
+          icon:
+            "cloud-done-outline",
+          helper:
+            canModifySubmission
+              ? "Your homework is waiting for grading. You may still update its files."
+              : "Your submission is waiting for grading and is currently locked.",
+        };
+      }
+
+      if (
+        isPastDeadline &&
+        !task?.allowLateSubmission
+      ) {
+        return {
+          label: "Closed",
+          tone: "danger",
+          icon:
+            "lock-closed-outline",
+          helper:
+            "The deadline passed and late submissions are not allowed.",
+        };
+      }
+
+      if (isPastDeadline) {
+        return {
+          label: "Overdue",
+          tone: "warning",
+          icon:
+            "alert-circle-outline",
+          helper:
+            "The deadline passed, but late submission is still allowed.",
+        };
+      }
+
+      return {
+        label: "Pending",
+        tone: "neutral",
+        icon: "time-outline",
+        helper:
+          "Submit your completed homework before the deadline.",
+      };
+    }, [
+      canModifySubmission,
+      isPastDeadline,
+      mySubmission,
+      task?.allowLateSubmission,
+    ]);
+
+  const load =
+    useCallback(
+      async ({
+        silent = false,
+      } = {}) => {
+        if (
+          !taskId ||
+          !user?.id
+        ) {
+          return;
+        }
+
+        if (silent) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+
+        setError("");
+
+        try {
+          const [
+            taskResponse,
+            submissionResponse,
+          ] = await Promise.all([
+            api.get(
+              `/tasks/${taskId}`,
+            ),
+
+            api.get(
+              `/submissions/task/${taskId}/mine`,
+            ),
+          ]);
+
+          setTask(
+            taskResponse.data,
+          );
+
+          setMySubmission(
+            submissionResponse.data
+              ?.submission || null,
+          );
+        } catch (requestError) {
+          setError(
+            getErrorMessage(
+              requestError,
+              "Couldn't load this homework.",
+            ),
+          );
+        } finally {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      },
+      [taskId, user?.id],
     );
-  }, [task?.deadline]);
-
-  const canSubmit = useMemo(() => {
-    if (mySubmission) {
-      return false;
-    }
-
-    if (!isPastDeadline) {
-      return true;
-    }
-
-    return Boolean(
-      task?.allowLateSubmission
-    );
-  }, [
-    isPastDeadline,
-    mySubmission,
-    task?.allowLateSubmission,
-  ]);
-
-  const status = useMemo(() => {
-    if (mySubmission?.grade != null) {
-      return {
-        label: "Graded",
-        tone: "success",
-        icon: "checkmark-done-outline",
-        helper:
-          "Your homework has been reviewed and graded.",
-      };
-    }
-
-    if (mySubmission) {
-      return {
-        label: "Submitted",
-        tone: "info",
-        icon: "cloud-done-outline",
-        helper:
-          "Your submission is waiting for grading.",
-      };
-    }
-
-    if (
-      isPastDeadline &&
-      !task?.allowLateSubmission
-    ) {
-      return {
-        label: "Closed",
-        tone: "danger",
-        icon: "lock-closed-outline",
-        helper:
-          "The deadline passed and late submissions are not allowed.",
-      };
-    }
-
-    if (isPastDeadline) {
-      return {
-        label: "Overdue",
-        tone: "warning",
-        icon: "alert-circle-outline",
-        helper:
-          "The deadline passed, but late submission is still allowed.",
-      };
-    }
-
-    return {
-      label: "Pending",
-      tone: "neutral",
-      icon: "time-outline",
-      helper:
-        "Submit your completed homework before the deadline.",
-    };
-  }, [
-    isPastDeadline,
-    mySubmission,
-    task?.allowLateSubmission,
-  ]);
-
-  const load = useCallback(
-    async ({ silent = false } = {}) => {
-      if (!taskId || !user?.id) {
-        return;
-      }
-
-      if (silent) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      setError("");
-
-      try {
-        const response = await api.get(
-          `/tasks/${taskId}`
-        );
-
-        const loadedTask = response.data;
-        const submissions = Array.isArray(
-          loadedTask?.submissions
-        )
-          ? loadedTask.submissions
-          : [];
-
-        const mine = submissions.find(
-          (submission) =>
-            submission.student?.id ===
-              user.id ||
-            submission.studentId ===
-              user.id
-        );
-
-        setTask(loadedTask);
-        setMySubmission(mine || null);
-      } catch (requestError) {
-        setError(
-          getErrorMessage(
-            requestError,
-            "Couldn't load this homework."
-          )
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [taskId, user?.id]
-  );
 
   useEffect(() => {
     load();
@@ -234,12 +399,13 @@ export default function MyTaskDetail() {
 
   async function openExternalFile(
     url,
-    setOpening
+    setOpening,
   ) {
     if (!url) {
       setError(
-        "This file does not have a valid link."
+        "This file does not have a valid link.",
       );
+
       return;
     }
 
@@ -248,19 +414,21 @@ export default function MyTaskDetail() {
 
     try {
       const supported =
-        await Linking.canOpenURL(url);
+        await Linking.canOpenURL(
+          url,
+        );
 
       if (!supported) {
-        setError(
-          "This file cannot be opened on this device."
+        throw new Error(
+          "This file cannot be opened on this device.",
         );
-        return;
       }
 
       await Linking.openURL(url);
-    } catch {
+    } catch (requestError) {
       setError(
-        "Couldn't open the file. Please try again."
+        requestError?.message ||
+          "Couldn't open the file. Please try again.",
       );
     } finally {
       setOpening(false);
@@ -270,7 +438,7 @@ export default function MyTaskDetail() {
   async function submitHomework() {
     if (
       uploading ||
-      !canSubmit ||
+      !canModifySubmission ||
       !taskId
     ) {
       return;
@@ -284,75 +452,212 @@ export default function MyTaskDetail() {
           type: [
             "application/pdf",
             "image/*",
+
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+
+            "text/plain",
           ],
-          multiple: false,
+
+          multiple: true,
+
           copyToCacheDirectory: true,
         });
 
-      if (result.canceled) {
+      if (
+        result.canceled ||
+        !result.assets?.length
+      ) {
         return;
       }
 
-      const file = result.assets?.[0];
+      const existingFileCount =
+        submissionFiles.length;
 
-      if (!file?.uri) {
-        setError(
-          "The selected file could not be read."
+      const remainingSlots =
+        Math.max(
+          0,
+          MAX_HOMEWORK_FILES -
+            existingFileCount,
         );
+
+      if (
+        result.assets.length >
+        remainingSlots
+      ) {
+        setError(
+          remainingSlots > 0
+            ? `You may upload only ${remainingSlots} more ${
+                remainingSlots === 1
+                  ? "file"
+                  : "files"
+              }.`
+            : `This submission already contains the maximum of ${MAX_HOMEWORK_FILES} files.`,
+        );
+
         return;
       }
 
-      const formData = new FormData();
+      const formData =
+        new FormData();
 
-      formData.append(
-        "file",
-        createUploadFile(file)
-      );
+      for (const asset of result.assets) {
+        await appendAssetToFormData(
+          formData,
+          asset,
+        );
+      }
 
       setUploading(true);
 
-      await api.post(
-        `/submissions/task/${taskId}`,
-        formData,
-        {
-          headers: {
-            "Content-Type":
-              "multipart/form-data",
-          },
-        }
-      );
+      const response =
+        await api.post(
+          `/submissions/task/${taskId}`,
+          formData,
+        );
+
+      if (
+        response.data?.submission
+      ) {
+        setMySubmission(
+          response.data
+            .submission,
+        );
+      }
 
       setSuccess(
-        "Your homework was submitted successfully."
+        mySubmission
+          ? "Additional homework files were uploaded successfully."
+          : "Your homework was submitted successfully.",
       );
-
-      await load({
-        silent: true,
-      });
     } catch (requestError) {
       setError(
         getErrorMessage(
           requestError,
-          "Couldn't submit your homework."
-        )
+          "Couldn't upload your homework files.",
+        ),
       );
     } finally {
       setUploading(false);
     }
   }
 
+  async function deleteHomeworkFile(
+    fileId,
+  ) {
+    if (
+      !mySubmission?.id ||
+      !fileId ||
+      deletingFileId ||
+      !canModifySubmission
+    ) {
+      return;
+    }
+
+    clearMessages();
+    setDeletingFileId(fileId);
+
+    try {
+      const response =
+        await api.delete(
+          `/submissions/${mySubmission.id}/files/${fileId}`,
+        );
+
+      setMySubmission(
+        response.data
+          ?.submission || null,
+      );
+
+      setSuccess(
+        "Homework file deleted.",
+      );
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          "Couldn't delete the homework file.",
+        ),
+      );
+    } finally {
+      setDeletingFileId(null);
+    }
+  }
+
+  function openSubmissionFile(
+    file,
+  ) {
+    openExternalFile(
+      file.fileUrl,
+      (opening) =>
+        setOpeningSubmissionFileId(
+          opening
+            ? file.id
+            : null,
+        ),
+    );
+  }
+
+  function openLegacySubmissionFile() {
+    openExternalFile(
+      mySubmission?.fileUrl,
+      (opening) =>
+        setOpeningSubmissionFileId(
+          opening
+            ? "legacy"
+            : null,
+        ),
+    );
+  }
+
+  function openCorrectedFile(
+    file,
+  ) {
+    openExternalFile(
+      file.fileUrl,
+      (opening) =>
+        setOpeningCorrectedFileId(
+          opening
+            ? file.id
+            : null,
+        ),
+    );
+  }
+
+  function openLegacyCorrectedFile() {
+    openExternalFile(
+      mySubmission
+        ?.correctedFileUrl,
+      (opening) =>
+        setOpeningCorrectedFileId(
+          opening
+            ? "legacy-corrected"
+            : null,
+        ),
+    );
+  }
+
   if (loading) {
     return (
       <Screen
         scroll={false}
-        style={styles.centeredScreen}
+        style={
+          styles.centeredScreen
+        }
       >
         <ActivityIndicator
           size="large"
           color={colors.primary}
         />
 
-        <Text style={styles.loadingText}>
+        <Text
+          style={styles.loadingText}
+        >
           Loading homework...
         </Text>
       </Screen>
@@ -363,31 +668,21 @@ export default function MyTaskDetail() {
     return (
       <Screen>
         <View style={styles.page}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.back()}
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed &&
-                styles.pressedOpacity,
-            ]}
+          <BackButton
+            onPress={() =>
+              router.back()
+            }
+          />
+
+          <Card
+            style={
+              styles.notFoundCard
+            }
           >
-            <Ionicons
-              name="arrow-back"
-              size={18}
-              color={colors.primary}
-            />
-
-            <Text
-              style={styles.backButtonText}
-            >
-              Back to my tasks
-            </Text>
-          </Pressable>
-
-          <Card style={styles.notFoundCard}>
             <View
-              style={styles.notFoundIcon}
+              style={
+                styles.notFoundIcon
+              }
             >
               <Ionicons
                 name="alert-circle-outline"
@@ -397,31 +692,41 @@ export default function MyTaskDetail() {
             </View>
 
             <Text
-              style={styles.notFoundTitle}
+              style={
+                styles.notFoundTitle
+              }
             >
               Homework unavailable
             </Text>
 
             <Text
-              style={styles.notFoundText}
+              style={
+                styles.notFoundText
+              }
             >
               {error ||
                 "The homework could not be loaded or may no longer exist."}
             </Text>
 
             <View
-              style={styles.notFoundActions}
+              style={
+                styles.notFoundActions
+              }
             >
               <Button
                 title="Try again"
                 variant="secondary"
-                onPress={() => load()}
+                onPress={() =>
+                  load()
+                }
               />
 
               <Button
                 title="Go back"
                 variant="outline"
-                onPress={() => router.back()}
+                onPress={() =>
+                  router.back()
+                }
               />
             </View>
           </Card>
@@ -433,35 +738,23 @@ export default function MyTaskDetail() {
   return (
     <Screen>
       <View style={styles.page}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed &&
-              styles.pressedOpacity,
-          ]}
-        >
-          <Ionicons
-            name="arrow-back"
-            size={18}
-            color={colors.primary}
-          />
-
-          <Text
-            style={styles.backButtonText}
-          >
-            Back to my tasks
-          </Text>
-        </Pressable>
+        <BackButton
+          onPress={() =>
+            router.back()
+          }
+        />
 
         {error ? (
           <MessageBanner
             type="error"
             message={error}
-            onDismiss={() => setError("")}
+            onDismiss={() =>
+              setError("")
+            }
             onRetry={() =>
-              load({ silent: true })
+              load({
+                silent: true,
+              })
             }
           />
         ) : null}
@@ -477,8 +770,12 @@ export default function MyTaskDetail() {
         ) : null}
 
         <Card style={styles.heroCard}>
-          <View style={styles.heroContent}>
-            <View style={styles.heroIcon}>
+          <View
+            style={styles.heroContent}
+          >
+            <View
+              style={styles.heroIcon}
+            >
               <Ionicons
                 name="book-outline"
                 size={30}
@@ -486,28 +783,38 @@ export default function MyTaskDetail() {
               />
             </View>
 
-            <View style={styles.heroCopy}>
-              <Text style={styles.eyebrow}>
+            <View
+              style={styles.heroCopy}
+            >
+              <Text
+                style={styles.eyebrow}
+              >
                 HOMEWORK TASK
               </Text>
 
-              <Text style={styles.pageTitle}>
+              <Text
+                style={styles.pageTitle}
+              >
                 {task.title}
               </Text>
 
               <Text
-                style={styles.pageDescription}
+                style={
+                  styles.pageDescription
+                }
               >
                 {task.description?.trim() ||
                   "No additional instructions were provided."}
               </Text>
 
               <View
-                style={styles.heroBadges}
+                style={
+                  styles.heroBadges
+                }
               >
                 <Badge
                   label={`Due ${formatDate(
-                    task.deadline
+                    task.deadline,
                   )}`}
                   tone={
                     isPastDeadline
@@ -531,7 +838,8 @@ export default function MyTaskDetail() {
 
                 <Badge
                   label={`Grade out of ${
-                    task.gradeOutOf ?? "—"
+                    task.gradeOutOf ??
+                    "—"
                   }`}
                   tone="info"
                 />
@@ -546,12 +854,16 @@ export default function MyTaskDetail() {
                     : "Open homework file"
                 }
                 variant="outline"
-                loading={openingTaskFile}
-                disabled={openingTaskFile}
+                loading={
+                  openingTaskFile
+                }
+                disabled={
+                  openingTaskFile
+                }
                 onPress={() =>
                   openExternalFile(
                     task.taskFileUrl,
-                    setOpeningTaskFile
+                    setOpeningTaskFile,
                   )
                 }
               />
@@ -560,24 +872,40 @@ export default function MyTaskDetail() {
         </Card>
 
         <View style={styles.workspace}>
-          <View style={styles.mainColumn}>
-            <Card style={styles.detailsCard}>
-              <View style={styles.cardHeader}>
+          <View
+            style={styles.mainColumn}
+          >
+            <Card
+              style={
+                styles.detailsCard
+              }
+            >
+              <View
+                style={styles.cardHeader}
+              >
                 <View
-                  style={styles.cardHeaderIcon}
+                  style={
+                    styles.cardHeaderIcon
+                  }
                 >
                   <Ionicons
                     name="reader-outline"
                     size={22}
-                    color={colors.primary}
+                    color={
+                      colors.primary
+                    }
                   />
                 </View>
 
                 <View
-                  style={styles.cardHeaderCopy}
+                  style={
+                    styles.cardHeaderCopy
+                  }
                 >
                   <Text
-                    style={styles.cardTitle}
+                    style={
+                      styles.cardTitle
+                    }
                   >
                     Task details
                   </Text>
@@ -587,14 +915,16 @@ export default function MyTaskDetail() {
                       styles.cardSubtitle
                     }
                   >
-                    Review the task information
-                    and attached files before
-                    submitting.
+                    Review the task
+                    information and attached
+                    files before submitting.
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.divider} />
+              <View
+                style={styles.divider}
+              />
 
               <View
                 style={styles.detailGrid}
@@ -604,7 +934,7 @@ export default function MyTaskDetail() {
                   label="Deadline"
                   value={
                     formatDate(
-                      task.deadline
+                      task.deadline,
                     ) || "No deadline"
                   }
                   tone={
@@ -618,7 +948,8 @@ export default function MyTaskDetail() {
                   icon="trophy-outline"
                   label="Maximum grade"
                   value={`${
-                    task.gradeOutOf ?? "—"
+                    task.gradeOutOf ??
+                    "—"
                   } marks`}
                 />
 
@@ -638,16 +969,22 @@ export default function MyTaskDetail() {
                 />
               </View>
 
-              <View style={styles.divider} />
+              <View
+                style={styles.divider}
+              />
 
               <Text
-                style={styles.sectionLabel}
+                style={
+                  styles.sectionLabel
+                }
               >
                 Instructions
               </Text>
 
               <Text
-                style={styles.instructions}
+                style={
+                  styles.instructions
+                }
               >
                 {task.description?.trim() ||
                   "No additional instructions were provided for this homework."}
@@ -662,67 +999,91 @@ export default function MyTaskDetail() {
                   onPress={() =>
                     openExternalFile(
                       task.taskFileUrl,
-                      setOpeningTaskFile
+                      setOpeningTaskFile,
                     )
                   }
-                  style={({ pressed }) => [
+                  style={({
+                    pressed,
+                  }) => [
                     styles.fileCard,
+
                     pressed &&
                       styles.pressedOpacity,
                   ]}
                 >
                   <View
-                    style={styles.fileIcon}
+                    style={
+                      styles.fileIcon
+                    }
                   >
                     <Ionicons
                       name="document-text-outline"
                       size={22}
-                      color={colors.primary}
+                      color={
+                        colors.primary
+                      }
                     />
                   </View>
 
                   <View
-                    style={styles.fileInfo}
+                    style={
+                      styles.fileInfo
+                    }
                   >
                     <Text
-                      style={styles.fileTitle}
+                      style={
+                        styles.fileTitle
+                      }
                     >
                       Homework attachment
                     </Text>
 
                     <Text
-                      style={styles.fileSubtitle}
+                      style={
+                        styles.fileSubtitle
+                      }
                     >
-                      Open the task file or
-                      additional instructions
+                      Open the task file
+                      or additional
+                      instructions
                     </Text>
                   </View>
 
                   {openingTaskFile ? (
                     <ActivityIndicator
                       size="small"
-                      color={colors.primary}
+                      color={
+                        colors.primary
+                      }
                     />
                   ) : (
                     <Ionicons
                       name="open-outline"
                       size={19}
-                      color={colors.primary}
+                      color={
+                        colors.primary
+                      }
                     />
                   )}
                 </Pressable>
               ) : (
                 <View
-                  style={styles.noFileBox}
+                  style={
+                    styles.noFileBox
+                  }
                 >
                   <Ionicons
                     name="document-outline"
                     size={20}
-                    color={colors.textMuted}
+                    color={
+                      colors.textMuted
+                    }
                   />
 
                   <Text
-                    style={styles.noFileText}
+                    style={
+                      styles.noFileText
+                    }
                   >
                     No homework file was
                     attached.
@@ -732,14 +1093,23 @@ export default function MyTaskDetail() {
             </Card>
           </View>
 
-          <View style={styles.sideColumn}>
-            <Card style={styles.submissionCard}>
+          <View
+            style={styles.sideColumn}
+          >
+            <Card
+              style={
+                styles.submissionCard
+              }
+            >
               <View
-                style={styles.submissionHeader}
+                style={
+                  styles.submissionHeader
+                }
               >
                 <View
                   style={[
                     styles.submissionIcon,
+
                     mySubmission &&
                       styles.submissionIconDone,
                   ]}
@@ -765,7 +1135,9 @@ export default function MyTaskDetail() {
                   }
                 >
                   <Text
-                    style={styles.cardTitle}
+                    style={
+                      styles.cardTitle
+                    }
                   >
                     Your submission
                   </Text>
@@ -776,151 +1148,93 @@ export default function MyTaskDetail() {
                     }
                   >
                     {mySubmission
-                      ? "Your homework has been received."
-                      : "Upload a PDF or image of your completed work."}
+                      ? "Your homework files have been received."
+                      : "Upload one or more files containing your completed work."}
                   </Text>
                 </View>
               </View>
 
-              <View style={styles.divider} />
+              <View
+                style={styles.divider}
+              />
 
-              <StatusPanel status={status} />
+              <StatusPanel
+                status={status}
+              />
 
               {mySubmission ? (
                 <SubmittedPanel
-                  submission={mySubmission}
+                  submission={
+                    mySubmission
+                  }
+                  files={
+                    submissionFiles
+                  }
+                  correctedFiles={
+                    correctedFiles
+                  }
                   gradeOutOf={
                     task.gradeOutOf
                   }
-                  openingSubmissionFile={
-                    openingSubmissionFile
+                  canModify={
+                    canModifySubmission
                   }
-                  openingCorrectedFile={
-                    openingCorrectedFile
+                  uploading={uploading}
+                  deletingFileId={
+                    deletingFileId
                   }
-                  onOpenSubmission={() =>
-                    openExternalFile(
-                      mySubmission.fileUrl,
-                      setOpeningSubmissionFile
-                    )
+                  openingSubmissionFileId={
+                    openingSubmissionFileId
                   }
-                  onOpenCorrected={() =>
-                    openExternalFile(
-                      mySubmission.correctedFileUrl,
-                      setOpeningCorrectedFile
-                    )
+                  openingCorrectedFileId={
+                    openingCorrectedFileId
+                  }
+                  onAddFiles={
+                    submitHomework
+                  }
+                  onDeleteFile={
+                    deleteHomeworkFile
+                  }
+                  onOpenSubmissionFile={
+                    openSubmissionFile
+                  }
+                  onOpenLegacySubmission={
+                    openLegacySubmissionFile
+                  }
+                  onOpenCorrectedFile={
+                    openCorrectedFile
+                  }
+                  onOpenLegacyCorrected={
+                    openLegacyCorrectedFile
                   }
                 />
-              ) : canSubmit ? (
-                <View>
-                  {isPastDeadline ? (
-                    <NoticeBox
-                      type="warning"
-                      title="Deadline passed"
-                      message="Late submissions are still allowed for this homework."
-                    />
-                  ) : null}
-
-                  <View
-                    style={styles.uploadInfo}
-                  >
-                    <View
-                      style={
-                        styles.uploadInfoIcon
-                      }
-                    >
-                      <Ionicons
-                        name="attach-outline"
-                        size={21}
-                        color={colors.primary}
-                      />
-                    </View>
-
-                    <View
-                      style={
-                        styles.uploadInfoCopy
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.uploadInfoTitle
-                        }
-                      >
-                        Accepted file types
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.uploadInfoText
-                        }
-                      >
-                        PDF, JPG, JPEG, PNG,
-                        or another supported
-                        image format.
-                      </Text>
-                    </View>
-                  </View>
-
-                  <Button
-                    title={
-                      uploading
-                        ? "Uploading..."
-                        : "Choose file and submit"
-                    }
-                    variant="secondary"
-                    loading={uploading}
-                    disabled={uploading}
-                    onPress={submitHomework}
-                    style={
-                      styles.submitButton
-                    }
-                  />
-
-                  <Text
-                    style={styles.uploadNote}
-                  >
-                    Check that you selected the
-                    correct completed homework
-                    before confirming the upload.
-                  </Text>
-                </View>
+              ) : canModifySubmission ? (
+                <InitialUploadPanel
+                  isPastDeadline={
+                    isPastDeadline
+                  }
+                  uploading={
+                    uploading
+                  }
+                  onUpload={
+                    submitHomework
+                  }
+                />
               ) : (
-                <View
-                  style={styles.closedPanel}
-                >
-                  <View
-                    style={styles.closedIcon}
-                  >
-                    <Ionicons
-                      name="lock-closed-outline"
-                      size={25}
-                      color={colors.danger}
-                    />
-                  </View>
-
-                  <Text
-                    style={styles.closedTitle}
-                  >
-                    Submissions are closed
-                  </Text>
-
-                  <Text
-                    style={styles.closedText}
-                  >
-                    The deadline has passed and
-                    late submissions are not
-                    allowed.
-                  </Text>
-                </View>
+                <ClosedSubmissionPanel />
               )}
 
               {refreshing ? (
                 <View
-                  style={styles.refreshingRow}
+                  style={
+                    styles.refreshingRow
+                  }
                 >
                   <ActivityIndicator
                     size="small"
-                    color={colors.primary}
+                    color={
+                      colors.primary
+                    }
                   />
 
                   <Text
@@ -940,6 +1254,802 @@ export default function MyTaskDetail() {
   );
 }
 
+function BackButton({ onPress }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.backButton,
+
+        pressed &&
+          styles.pressedOpacity,
+      ]}
+    >
+      <Ionicons
+        name="arrow-back"
+        size={18}
+        color={colors.primary}
+      />
+
+      <Text
+        style={
+          styles.backButtonText
+        }
+      >
+        Back to my tasks
+      </Text>
+    </Pressable>
+  );
+}
+
+function InitialUploadPanel({
+  isPastDeadline,
+  uploading,
+  onUpload,
+}) {
+  return (
+    <View>
+      {isPastDeadline ? (
+        <NoticeBox
+          type="warning"
+          title="Deadline passed"
+          message="Late submissions are still allowed. Files uploaded now will be marked as submitted after the deadline."
+        />
+      ) : null}
+
+      <View
+        style={styles.uploadInfo}
+      >
+        <View
+          style={
+            styles.uploadInfoIcon
+          }
+        >
+          <Ionicons
+            name="attach-outline"
+            size={21}
+            color={colors.primary}
+          />
+        </View>
+
+        <View
+          style={
+            styles.uploadInfoCopy
+          }
+        >
+          <Text
+            style={
+              styles.uploadInfoTitle
+            }
+          >
+            Accepted file types
+          </Text>
+
+          <Text
+            style={
+              styles.uploadInfoText
+            }
+          >
+            Upload multiple PDF, image,
+            Word, Excel, PowerPoint, or
+            text files.
+          </Text>
+        </View>
+      </View>
+
+      <Button
+        title={
+          uploading
+            ? "Uploading..."
+            : "Choose files and submit"
+        }
+        variant="secondary"
+        loading={uploading}
+        disabled={uploading}
+        onPress={onUpload}
+        style={
+          styles.submitButton
+        }
+      />
+
+      <Text
+        style={styles.uploadNote}
+      >
+        You can upload up to 20 files.
+        Check that every selected file
+        belongs to this homework.
+      </Text>
+    </View>
+  );
+}
+
+function ClosedSubmissionPanel() {
+  return (
+    <View
+      style={styles.closedPanel}
+    >
+      <View
+        style={styles.closedIcon}
+      >
+        <Ionicons
+          name="lock-closed-outline"
+          size={25}
+          color={colors.danger}
+        />
+      </View>
+
+      <Text
+        style={styles.closedTitle}
+      >
+        Submissions are closed
+      </Text>
+
+      <Text
+        style={styles.closedText}
+      >
+        The deadline has passed and late
+        submissions are not allowed.
+      </Text>
+    </View>
+  );
+}
+
+function SubmittedPanel({
+  submission,
+  files,
+  correctedFiles,
+  gradeOutOf,
+  canModify,
+  uploading,
+  deletingFileId,
+  openingSubmissionFileId,
+  openingCorrectedFileId,
+  onAddFiles,
+  onDeleteFile,
+  onOpenSubmissionFile,
+  onOpenLegacySubmission,
+  onOpenCorrectedFile,
+  onOpenLegacyCorrected,
+}) {
+  const hasGrade =
+    submission.grade != null;
+
+  return (
+    <View>
+      <NoticeBox
+        type="success"
+        title="Submission received"
+        message={
+          submission.submittedAt
+            ? `Last updated on ${formatDate(
+                submission.submittedAt,
+              )}`
+            : "Your homework was submitted successfully."
+        }
+      />
+
+      {submission.wasModifiedAfterDeadline ||
+      submission.lastModifiedAfterDeadline ? (
+        <NoticeBox
+          type="warning"
+          title="Modified after deadline"
+          message="One or more files were added or removed after the homework deadline."
+        />
+      ) : null}
+
+      {files.length ? (
+        <View
+          style={
+            styles.submissionFilesList
+          }
+        >
+          <View
+            style={
+              styles.fileListHeader
+            }
+          >
+            <Text
+              style={
+                styles.sectionLabel
+              }
+            >
+              Uploaded files
+            </Text>
+
+            <Text
+              style={
+                styles.fileCountText
+              }
+            >
+              {files.length}/
+              {MAX_HOMEWORK_FILES}
+            </Text>
+          </View>
+
+          {files.map(
+            (file, index) => (
+              <View
+                key={file.id}
+                style={
+                  styles.submittedFile
+                }
+              >
+                <View
+                  style={
+                    styles.submissionFileOrder
+                  }
+                >
+                  <Text
+                    style={
+                      styles.submissionFileOrderText
+                    }
+                  >
+                    {index + 1}
+                  </Text>
+                </View>
+
+                <Pressable
+                  accessibilityRole="link"
+                  onPress={() =>
+                    onOpenSubmissionFile(
+                      file,
+                    )
+                  }
+                  style={
+                    styles.fileInfo
+                  }
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      styles.fileTitle
+                    }
+                  >
+                    {file.originalName ||
+                      `Homework file ${
+                        index + 1
+                      }`}
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.fileSubtitle
+                    }
+                  >
+                    {formatFileSize(
+                      file.size,
+                    )}
+
+                    {file.uploadedAfterDeadline
+                      ? " · Uploaded after deadline"
+                      : ""}
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="link"
+                  disabled={
+                    openingSubmissionFileId ===
+                    file.id
+                  }
+                  onPress={() =>
+                    onOpenSubmissionFile(
+                      file,
+                    )
+                  }
+                  style={
+                    styles.fileActionButton
+                  }
+                >
+                  {openingSubmissionFileId ===
+                  file.id ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={
+                        colors.primary
+                      }
+                    />
+                  ) : (
+                    <Ionicons
+                      name="open-outline"
+                      size={19}
+                      color={
+                        colors.primary
+                      }
+                    />
+                  )}
+                </Pressable>
+
+                {canModify ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${
+                      file.originalName ||
+                      "homework file"
+                    }`}
+                    disabled={Boolean(
+                      deletingFileId,
+                    )}
+                    onPress={() =>
+                      onDeleteFile(
+                        file.id,
+                      )
+                    }
+                    style={[
+                      styles.deleteFileButton,
+
+                      Boolean(
+                        deletingFileId,
+                      ) &&
+                        styles.disabledControl,
+                    ]}
+                  >
+                    {deletingFileId ===
+                    file.id ? (
+                      <ActivityIndicator
+                        size="small"
+                        color={
+                          colors.danger
+                        }
+                      />
+                    ) : (
+                      <Ionicons
+                        name="trash-outline"
+                        size={19}
+                        color={
+                          colors.danger
+                        }
+                      />
+                    )}
+                  </Pressable>
+                ) : null}
+              </View>
+            ),
+          )}
+        </View>
+      ) : submission.fileUrl ? (
+        <Pressable
+          accessibilityRole="link"
+          disabled={
+            openingSubmissionFileId ===
+            "legacy"
+          }
+          onPress={
+            onOpenLegacySubmission
+          }
+          style={
+            styles.submittedFile
+          }
+        >
+          <View
+            style={styles.fileIcon}
+          >
+            <Ionicons
+              name="document-text-outline"
+              size={22}
+              color={colors.primary}
+            />
+          </View>
+
+          <View
+            style={styles.fileInfo}
+          >
+            <Text
+              style={styles.fileTitle}
+            >
+              Submitted homework
+            </Text>
+
+            <Text
+              style={
+                styles.fileSubtitle
+              }
+            >
+              Legacy single-file
+              submission
+            </Text>
+          </View>
+
+          {openingSubmissionFileId ===
+          "legacy" ? (
+            <ActivityIndicator
+              size="small"
+              color={colors.primary}
+            />
+          ) : (
+            <Ionicons
+              name="open-outline"
+              size={19}
+              color={colors.primary}
+            />
+          )}
+        </Pressable>
+      ) : (
+        <View
+          style={styles.noFilesPanel}
+        >
+          <Ionicons
+            name="documents-outline"
+            size={28}
+            color={colors.textMuted}
+          />
+
+          <Text
+            style={
+              styles.noFilesTitle
+            }
+          >
+            No uploaded files found
+          </Text>
+
+          <Text
+            style={
+              styles.noFilesText
+            }
+          >
+            Add files while this
+            submission remains editable.
+          </Text>
+        </View>
+      )}
+
+      {canModify ? (
+        <View
+          style={
+            styles.modifySubmissionBox
+          }
+        >
+          <Text
+            style={
+              styles.modifySubmissionTitle
+            }
+          >
+            Update your submission
+          </Text>
+
+          <Text
+            style={
+              styles.modifySubmissionText
+            }
+          >
+            You may add more files or
+            delete uploaded files while
+            the homework remains ungraded
+            and modifications are allowed.
+          </Text>
+
+          <Button
+            title={
+              uploading
+                ? "Uploading..."
+                : "Add more files"
+            }
+            variant="secondary"
+            loading={uploading}
+            disabled={
+              uploading ||
+              Boolean(
+                deletingFileId,
+              ) ||
+              files.length >=
+                MAX_HOMEWORK_FILES
+            }
+            onPress={onAddFiles}
+            style={
+              styles.submitButton
+            }
+          />
+
+          {files.length >=
+          MAX_HOMEWORK_FILES ? (
+            <Text
+              style={
+                styles.maximumFilesText
+              }
+            >
+              The maximum of{" "}
+              {MAX_HOMEWORK_FILES} files
+              has been reached.
+            </Text>
+          ) : null}
+        </View>
+      ) : !hasGrade ? (
+        <NoticeBox
+          type="warning"
+          title="Submission locked"
+          message={
+            submission.modificationBlockedReason ||
+            "This submission can no longer be modified."
+          }
+        />
+      ) : null}
+
+      <View
+        style={styles.gradeBox}
+      >
+        <Text
+          style={styles.gradeLabel}
+        >
+          Grade
+        </Text>
+
+        {hasGrade ? (
+          <>
+            <View
+              style={
+                styles.gradeValueRow
+              }
+            >
+              <Text
+                style={
+                  styles.gradeValue
+                }
+              >
+                {submission.grade}
+              </Text>
+
+              <Text
+                style={
+                  styles.gradeMaximum
+                }
+              >
+                / {gradeOutOf}
+              </Text>
+            </View>
+
+            <Text
+              style={
+                styles.gradeStatus
+              }
+            >
+              Grading completed
+            </Text>
+
+            {submission.gradedBy?.name ? (
+              <Text
+                style={
+                  styles.gradeStatus
+                }
+              >
+                Graded by{" "}
+                {submission.gradedBy.name}
+              </Text>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <Text
+              style={
+                styles.pendingGrade
+              }
+            >
+              Not graded yet
+            </Text>
+
+            <Text
+              style={
+                styles.gradeStatus
+              }
+            >
+              Your teacher or assistant
+              will review your submission.
+            </Text>
+          </>
+        )}
+      </View>
+
+      {submission.comments ? (
+        <View
+          style={
+            styles.feedbackBox
+          }
+        >
+          <Text
+            style={
+              styles.feedbackLabel
+            }
+          >
+            Grader feedback
+          </Text>
+
+          <Text
+            style={
+              styles.feedbackText
+            }
+          >
+            {submission.comments}
+          </Text>
+        </View>
+      ) : null}
+
+      {correctedFiles.length ? (
+        <View
+          style={
+            styles.submissionFilesList
+          }
+        >
+          <View
+            style={
+              styles.fileListHeader
+            }
+          >
+            <Text
+              style={
+                styles.sectionLabel
+              }
+            >
+              Corrected files
+            </Text>
+
+            <Text
+              style={
+                styles.fileCountText
+              }
+            >
+              {correctedFiles.length}
+            </Text>
+          </View>
+
+          {correctedFiles.map(
+            (file, index) => (
+              <Pressable
+                key={file.id}
+                accessibilityRole="link"
+                disabled={
+                  openingCorrectedFileId ===
+                  file.id
+                }
+                onPress={() =>
+                  onOpenCorrectedFile(
+                    file,
+                  )
+                }
+                style={({
+                  pressed,
+                }) => [
+                  styles.correctedFile,
+
+                  pressed &&
+                    styles.pressedOpacity,
+                ]}
+              >
+                <View
+                  style={
+                    styles.correctedFileIcon
+                  }
+                >
+                  <Ionicons
+                    name="checkmark-done-outline"
+                    size={21}
+                    color={
+                      colors.secondary
+                    }
+                  />
+                </View>
+
+                <View
+                  style={styles.fileInfo}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      styles.fileTitle
+                    }
+                  >
+                    {file.originalName ||
+                      `Corrected file ${
+                        index + 1
+                      }`}
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.fileSubtitle
+                    }
+                  >
+                    {formatFileSize(
+                      file.size,
+                    )}
+
+                    {file.uploadedBy?.name
+                      ? ` · Returned by ${file.uploadedBy.name}`
+                      : ""}
+                  </Text>
+                </View>
+
+                {openingCorrectedFileId ===
+                file.id ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={
+                      colors.primary
+                    }
+                  />
+                ) : (
+                  <Ionicons
+                    name="open-outline"
+                    size={19}
+                    color={
+                      colors.primary
+                    }
+                  />
+                )}
+              </Pressable>
+            ),
+          )}
+        </View>
+      ) : submission.correctedFileUrl ? (
+        <Pressable
+          accessibilityRole="link"
+          disabled={
+            openingCorrectedFileId ===
+            "legacy-corrected"
+          }
+          onPress={
+            onOpenLegacyCorrected
+          }
+          style={({
+            pressed,
+          }) => [
+            styles.correctedFile,
+
+            pressed &&
+              styles.pressedOpacity,
+          ]}
+        >
+          <View
+            style={
+              styles.correctedFileIcon
+            }
+          >
+            <Ionicons
+              name="checkmark-done-outline"
+              size={21}
+              color={
+                colors.secondary
+              }
+            />
+          </View>
+
+          <View
+            style={styles.fileInfo}
+          >
+            <Text
+              style={styles.fileTitle}
+            >
+              Corrected homework
+            </Text>
+
+            <Text
+              style={
+                styles.fileSubtitle
+              }
+            >
+              Open the corrected file
+              returned by the grader
+            </Text>
+          </View>
+
+          {openingCorrectedFileId ===
+          "legacy-corrected" ? (
+            <ActivityIndicator
+              size="small"
+              color={colors.primary}
+            />
+          ) : (
+            <Ionicons
+              name="open-outline"
+              size={19}
+              color={colors.primary}
+            />
+          )}
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function DetailItem({
   icon,
   label,
@@ -954,8 +2064,12 @@ function DetailItem({
         : colors.primary;
 
   return (
-    <View style={styles.detailItem}>
-      <View style={styles.detailIcon}>
+    <View
+      style={styles.detailItem}
+    >
+      <View
+        style={styles.detailIcon}
+      >
         <Ionicons
           name={icon}
           size={19}
@@ -963,16 +2077,22 @@ function DetailItem({
         />
       </View>
 
-      <View style={styles.detailCopy}>
-        <Text style={styles.detailLabel}>
+      <View
+        style={styles.detailCopy}
+      >
+        <Text
+          style={styles.detailLabel}
+        >
           {label}
         </Text>
 
         <Text
           style={[
             styles.detailValue,
+
             tone === "danger" &&
               styles.detailValueDanger,
+
             tone === "success" &&
               styles.detailValueSuccess,
           ]}
@@ -998,13 +2118,19 @@ function StatusPanel({ status }) {
     <View
       style={[
         styles.statusPanel,
+
         {
-          borderColor: `${color}50`,
-          backgroundColor: `${color}10`,
+          borderColor:
+            `${color}50`,
+
+          backgroundColor:
+            `${color}10`,
         },
       ]}
     >
-      <View style={styles.statusIcon}>
+      <View
+        style={styles.statusIcon}
+      >
         <Ionicons
           name={status.icon}
           size={21}
@@ -1012,10 +2138,13 @@ function StatusPanel({ status }) {
         />
       </View>
 
-      <View style={styles.statusCopy}>
+      <View
+        style={styles.statusCopy}
+      >
         <Text
           style={[
             styles.statusLabel,
+
             {
               color,
             },
@@ -1024,198 +2153,14 @@ function StatusPanel({ status }) {
           {status.label}
         </Text>
 
-        <Text style={styles.statusHelper}>
+        <Text
+          style={
+            styles.statusHelper
+          }
+        >
           {status.helper}
         </Text>
       </View>
-    </View>
-  );
-}
-
-function SubmittedPanel({
-  submission,
-  gradeOutOf,
-  openingSubmissionFile,
-  openingCorrectedFile,
-  onOpenSubmission,
-  onOpenCorrected,
-}) {
-  const hasGrade =
-    submission.grade != null;
-
-  return (
-    <View>
-      <NoticeBox
-        type="success"
-        title="Submission received"
-        message={
-          submission.submittedAt ||
-          submission.createdAt
-            ? `Submitted on ${formatDate(
-                submission.submittedAt ||
-                  submission.createdAt
-              )}`
-            : "Your file was submitted successfully."
-        }
-      />
-
-      {submission.fileUrl ? (
-        <Pressable
-          accessibilityRole="link"
-          disabled={openingSubmissionFile}
-          onPress={onOpenSubmission}
-          style={({ pressed }) => [
-            styles.submittedFile,
-            pressed &&
-              styles.pressedOpacity,
-          ]}
-        >
-          <View style={styles.fileIcon}>
-            <Ionicons
-              name="document-text-outline"
-              size={22}
-              color={colors.primary}
-            />
-          </View>
-
-          <View style={styles.fileInfo}>
-            <Text style={styles.fileTitle}>
-              Submitted homework
-            </Text>
-
-            <Text
-              style={styles.fileSubtitle}
-            >
-              Review the file you uploaded
-            </Text>
-          </View>
-
-          {openingSubmissionFile ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-            />
-          ) : (
-            <Ionicons
-              name="open-outline"
-              size={19}
-              color={colors.primary}
-            />
-          )}
-        </Pressable>
-      ) : null}
-
-      <View style={styles.gradeBox}>
-        <Text style={styles.gradeLabel}>
-          Grade
-        </Text>
-
-        {hasGrade ? (
-          <>
-            <View
-              style={styles.gradeValueRow}
-            >
-              <Text
-                style={styles.gradeValue}
-              >
-                {submission.grade}
-              </Text>
-
-              <Text
-                style={styles.gradeMaximum}
-              >
-                / {gradeOutOf}
-              </Text>
-            </View>
-
-            <Text
-              style={styles.gradeStatus}
-            >
-              Grading completed
-            </Text>
-          </>
-        ) : (
-          <>
-            <Text
-              style={styles.pendingGrade}
-            >
-              Not graded yet
-            </Text>
-
-            <Text
-              style={styles.gradeStatus}
-            >
-              Your teacher or assistant will
-              review your submission.
-            </Text>
-          </>
-        )}
-      </View>
-
-      {submission.comments ? (
-        <View style={styles.feedbackBox}>
-          <Text
-            style={styles.feedbackLabel}
-          >
-            Teacher feedback
-          </Text>
-
-          <Text
-            style={styles.feedbackText}
-          >
-            {submission.comments}
-          </Text>
-        </View>
-      ) : null}
-
-      {submission.correctedFileUrl ? (
-        <Pressable
-          accessibilityRole="link"
-          disabled={openingCorrectedFile}
-          onPress={onOpenCorrected}
-          style={({ pressed }) => [
-            styles.correctedFile,
-            pressed &&
-              styles.pressedOpacity,
-          ]}
-        >
-          <View
-            style={styles.correctedFileIcon}
-          >
-            <Ionicons
-              name="checkmark-done-outline"
-              size={21}
-              color={colors.secondary}
-            />
-          </View>
-
-          <View style={styles.fileInfo}>
-            <Text style={styles.fileTitle}>
-              Corrected homework
-            </Text>
-
-            <Text
-              style={styles.fileSubtitle}
-            >
-              Open the corrected file
-              uploaded by your teacher
-            </Text>
-          </View>
-
-          {openingCorrectedFile ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-            />
-          ) : (
-            <Ionicons
-              name="open-outline"
-              size={19}
-              color={colors.primary}
-            />
-          )}
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -1228,17 +2173,22 @@ function NoticeBox({
   const isSuccess =
     type === "success";
 
-  const color = isSuccess
-    ? colors.secondary
-    : colors.warning;
+  const color =
+    isSuccess
+      ? colors.secondary
+      : colors.warning;
 
   return (
     <View
       style={[
         styles.noticeBox,
+
         {
-          borderColor: `${color}50`,
-          backgroundColor: `${color}10`,
+          borderColor:
+            `${color}50`,
+
+          backgroundColor:
+            `${color}10`,
         },
       ]}
     >
@@ -1252,10 +2202,13 @@ function NoticeBox({
         color={color}
       />
 
-      <View style={styles.noticeCopy}>
+      <View
+        style={styles.noticeCopy}
+      >
         <Text
           style={[
             styles.noticeTitle,
+
             {
               color,
             },
@@ -1264,7 +2217,9 @@ function NoticeBox({
           {title}
         </Text>
 
-        <Text style={styles.noticeText}>
+        <Text
+          style={styles.noticeText}
+        >
           {message}
         </Text>
       </View>
@@ -1278,27 +2233,36 @@ function MessageBanner({
   onDismiss,
   onRetry,
 }) {
-  const isError = type === "error";
-  const color = isError
-    ? colors.danger
-    : colors.secondary;
+  const isError =
+    type === "error";
+
+  const color =
+    isError
+      ? colors.danger
+      : colors.secondary;
 
   return (
     <View
       accessibilityRole="alert"
       style={[
         styles.messageBanner,
+
         {
-          borderColor: `${color}55`,
-          backgroundColor: `${color}10`,
+          borderColor:
+            `${color}55`,
+
+          backgroundColor:
+            `${color}10`,
         },
       ]}
     >
       <View
         style={[
           styles.messageIndicator,
+
           {
-            backgroundColor: color,
+            backgroundColor:
+              color,
           },
         ]}
       />
@@ -1316,6 +2280,7 @@ function MessageBanner({
       <Text
         style={[
           styles.messageText,
+
           {
             color: isError
               ? colors.danger
@@ -1332,6 +2297,7 @@ function MessageBanner({
           onPress={onRetry}
           style={({ pressed }) => [
             styles.messageAction,
+
             pressed &&
               styles.pressedOpacity,
           ]}
@@ -1339,6 +2305,7 @@ function MessageBanner({
           <Text
             style={[
               styles.messageActionText,
+
               {
                 color,
               },
@@ -1355,6 +2322,7 @@ function MessageBanner({
         onPress={onDismiss}
         style={({ pressed }) => [
           styles.messageClose,
+
           pressed &&
             styles.pressedOpacity,
         ]}
@@ -1368,666 +2336,3 @@ function MessageBanner({
     </View>
   );
 }
-
-function createUploadFile(file) {
-  const name =
-    file.name ||
-    `homework-${Date.now()}`;
-
-  const type =
-    file.mimeType ||
-    "application/octet-stream";
-
-  if (Platform.OS === "web") {
-    return (
-      file.file || {
-        uri: file.uri,
-        name,
-        type,
-      }
-    );
-  }
-
-  return {
-    uri: file.uri,
-    name,
-    type,
-  };
-}
-
-const styles = StyleSheet.create({
-  page: {
-    width: "100%",
-    maxWidth: 1280,
-    alignSelf: "center",
-    paddingBottom: spacing.xl,
-  },
-
-  centeredScreen: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-
-  loadingText: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
-
-  backButton: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-
-  backButtonText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.primary,
-  },
-
-  heroCard: {
-    marginBottom: spacing.lg,
-  },
-
-  heroContent: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    gap: spacing.lg,
-  },
-
-  heroIcon: {
-    width: 58,
-    height: 58,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.lg,
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  heroCopy: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 320,
-    minWidth: 0,
-  },
-
-  eyebrow: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: "800",
-    letterSpacing: 1.1,
-    marginBottom: spacing.xs,
-  },
-
-  pageTitle: {
-    ...typography.h1,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-
-  pageDescription: {
-    ...typography.body,
-    color: colors.textMuted,
-    lineHeight: 23,
-    marginBottom: spacing.md,
-  },
-
-  heroBadges: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-
-  workspace: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    gap: spacing.lg,
-  },
-
-  mainColumn: {
-    flexGrow: 1.6,
-    flexShrink: 1,
-    flexBasis: 500,
-    minWidth: 300,
-  },
-
-  sideColumn: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 340,
-    minWidth: 280,
-  },
-
-  detailsCard: {
-    padding: spacing.lg,
-  },
-
-  submissionCard: {
-    padding: spacing.lg,
-  },
-
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-
-  cardHeaderIcon: {
-    width: 44,
-    height: 44,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.lg,
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  cardHeaderCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  cardTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    marginBottom: 3,
-  },
-
-  cardSubtitle: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 18,
-  },
-
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.lg,
-  },
-
-  detailGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-
-  detailItem: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 180,
-    minWidth: 160,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  detailIcon: {
-    width: 38,
-    height: 38,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 19,
-    backgroundColor: colors.white,
-  },
-
-  detailCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  detailLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-
-  detailValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginTop: 2,
-  },
-
-  detailValueDanger: {
-    color: colors.danger,
-  },
-
-  detailValueSuccess: {
-    color: colors.secondary,
-  },
-
-  sectionLabel: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-
-  instructions: {
-    ...typography.body,
-    color: colors.textPrimary,
-    lineHeight: 23,
-  },
-
-  fileCard: {
-    minHeight: 74,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  submittedFile: {
-    minHeight: 72,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  correctedFile: {
-    minHeight: 72,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: `${colors.secondary}55`,
-    borderRadius: radius.md,
-    backgroundColor: `${colors.secondary}10`,
-  },
-
-  fileIcon: {
-    width: 44,
-    height: 44,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-  },
-
-  correctedFileIcon: {
-    width: 44,
-    height: 44,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-  },
-
-  fileInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  fileTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-  },
-
-  fileSubtitle: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 17,
-    marginTop: 2,
-  },
-
-  noFileBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  noFileText: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
-
-  submissionHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-
-  submissionIcon: {
-    width: 44,
-    height: 44,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 22,
-    backgroundColor: `${colors.primary}12`,
-  },
-
-  submissionIconDone: {
-    backgroundColor: colors.secondary,
-  },
-
-  submissionHeaderCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  statusPanel: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderRadius: radius.md,
-  },
-
-  statusIcon: {
-    width: 34,
-    height: 34,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 17,
-    backgroundColor: colors.white,
-  },
-
-  statusCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  statusLabel: {
-    ...typography.bodyBold,
-  },
-
-  statusHelper: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 18,
-    marginTop: 3,
-  },
-
-  noticeBox: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderRadius: radius.md,
-  },
-
-  noticeCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  noticeTitle: {
-    ...typography.bodyBold,
-  },
-
-  noticeText: {
-    ...typography.caption,
-    color: colors.textPrimary,
-    lineHeight: 18,
-    marginTop: 3,
-  },
-
-  uploadInfo: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  uploadInfoIcon: {
-    width: 38,
-    height: 38,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 19,
-    backgroundColor: colors.white,
-  },
-
-  uploadInfoCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  uploadInfoTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-  },
-
-  uploadInfoText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 18,
-    marginTop: 3,
-  },
-
-  submitButton: {
-    marginTop: spacing.md,
-  },
-
-  uploadNote: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textAlign: "center",
-    lineHeight: 17,
-    marginTop: spacing.sm,
-  },
-
-  closedPanel: {
-    alignItems: "center",
-    paddingVertical: spacing.lg,
-  },
-
-  closedIcon: {
-    width: 50,
-    height: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 25,
-    backgroundColor: `${colors.danger}12`,
-    marginBottom: spacing.sm,
-  },
-
-  closedTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-
-  closedText: {
-    ...typography.body,
-    color: colors.textMuted,
-    textAlign: "center",
-    lineHeight: 21,
-    marginTop: spacing.xs,
-  },
-
-  gradeBox: {
-    alignItems: "center",
-    padding: spacing.lg,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  gradeLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginBottom: spacing.xs,
-  },
-
-  gradeValueRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-
-  gradeValue: {
-    fontSize: 34,
-    fontWeight: "800",
-    color: colors.primary,
-  },
-
-  gradeMaximum: {
-    ...typography.body,
-    color: colors.textMuted,
-    marginLeft: 4,
-  },
-
-  pendingGrade: {
-    ...typography.h3,
-    color: colors.warning,
-  },
-
-  gradeStatus: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textAlign: "center",
-    lineHeight: 18,
-    marginTop: spacing.xs,
-  },
-
-  feedbackBox: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  feedbackLabel: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-
-  feedbackText: {
-    ...typography.body,
-    color: colors.textPrimary,
-    lineHeight: 21,
-  },
-
-  refreshingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    marginTop: spacing.md,
-  },
-
-  refreshingText: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-
-  messageBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    overflow: "hidden",
-    marginBottom: spacing.md,
-    paddingRight: spacing.xs,
-    borderWidth: 1,
-    borderRadius: radius.md,
-  },
-
-  messageIndicator: {
-    alignSelf: "stretch",
-    width: 4,
-  },
-
-  messageText: {
-    ...typography.body,
-    flex: 1,
-    paddingVertical: spacing.sm,
-  },
-
-  messageAction: {
-    minHeight: 40,
-    justifyContent: "center",
-    paddingHorizontal: spacing.xs,
-  },
-
-  messageActionText: {
-    fontSize: 12,
-    fontWeight: "800",
-  },
-
-  messageClose: {
-    width: 38,
-    height: 38,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  notFoundCard: {
-    minHeight: 360,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
-
-  notFoundIcon: {
-    width: 74,
-    height: 74,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 37,
-    backgroundColor: `${colors.danger}12`,
-    marginBottom: spacing.md,
-  },
-
-  notFoundTitle: {
-    ...typography.h2,
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-
-  notFoundText: {
-    ...typography.body,
-    maxWidth: 440,
-    color: colors.textMuted,
-    textAlign: "center",
-    lineHeight: 22,
-    marginTop: spacing.sm,
-  },
-
-  notFoundActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-
-  pressedOpacity: {
-    opacity: 0.72,
-  },
-});

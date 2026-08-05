@@ -4,13 +4,14 @@ import React, {
   useMemo,
   useState,
 } from "react";
+
 import {
   ActivityIndicator,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
@@ -19,15 +20,12 @@ import { Card } from "../../../src/components/ui/Card";
 import { Button } from "../../../src/components/ui/Button";
 import { Badge } from "../../../src/components/ui/Badge";
 import { useAuth } from "../../../src/contexts/AuthContext";
+
 import api from "../../../src/lib/api";
 import { formatDate } from "../../../src/utils/formatDate";
+import { colors } from "../../../src/theme";
 
-import {
-  colors,
-  radius,
-  spacing,
-  typography,
-} from "../../../src/theme";
+import { styles } from "./index.styles";
 
 export default function MyTasks() {
   const { user } = useAuth();
@@ -47,14 +45,14 @@ export default function MyTasks() {
 
     return tasks.reduce(
       (summary, task) => {
-        const deadline = task.deadline
-          ? new Date(task.deadline).getTime()
-          : null;
-
         const submission = getMySubmission(
           task,
           user?.id
         );
+
+        const deadline = task.deadline
+          ? new Date(task.deadline).getTime()
+          : null;
 
         if (submission?.grade != null) {
           summary.graded += 1;
@@ -82,40 +80,61 @@ export default function MyTasks() {
   }, [tasks, user?.id]);
 
   const sortedTasks = useMemo(() => {
-    return [...tasks].sort((first, second) => {
-      const firstSubmission = getMySubmission(
-        first,
-        user?.id
-      );
-      const secondSubmission = getMySubmission(
-        second,
-        user?.id
-      );
+    return [...tasks].sort(
+      (first, second) => {
+        const firstSubmission =
+          getMySubmission(
+            first,
+            user?.id
+          );
 
-      const firstPriority = getTaskPriority(
-        first,
-        firstSubmission
-      );
+        const secondSubmission =
+          getMySubmission(
+            second,
+            user?.id
+          );
 
-      const secondPriority = getTaskPriority(
-        second,
-        secondSubmission
-      );
+        const firstPriority =
+          getTaskPriority(
+            first,
+            firstSubmission
+          );
 
-      if (firstPriority !== secondPriority) {
-        return firstPriority - secondPriority;
+        const secondPriority =
+          getTaskPriority(
+            second,
+            secondSubmission
+          );
+
+        if (
+          firstPriority !== secondPriority
+        ) {
+          return (
+            firstPriority -
+            secondPriority
+          );
+        }
+
+        const firstDeadline =
+          first.deadline
+            ? new Date(
+                first.deadline
+              ).getTime()
+            : Number.MAX_SAFE_INTEGER;
+
+        const secondDeadline =
+          second.deadline
+            ? new Date(
+                second.deadline
+              ).getTime()
+            : Number.MAX_SAFE_INTEGER;
+
+        return (
+          firstDeadline -
+          secondDeadline
+        );
       }
-
-      const firstDeadline = first.deadline
-        ? new Date(first.deadline).getTime()
-        : Number.MAX_SAFE_INTEGER;
-
-      const secondDeadline = second.deadline
-        ? new Date(second.deadline).getTime()
-        : Number.MAX_SAFE_INTEGER;
-
-      return firstDeadline - secondDeadline;
-    });
+    );
   }, [tasks, user?.id]);
 
   const loadTasks = useCallback(
@@ -133,15 +152,19 @@ export default function MyTasks() {
       setError("");
 
       try {
-        const profileResponse = await api.get(
-          `/students/${user.id}`
-        );
+        const profileResponse =
+          await api.get(
+            `/students/${user.id}`
+          );
 
-        const memberships = Array.isArray(
-          profileResponse.data?.groupMemberships
-        )
-          ? profileResponse.data.groupMemberships
-          : [];
+        const memberships =
+          Array.isArray(
+            profileResponse.data
+              ?.groupMemberships
+          )
+            ? profileResponse.data
+                .groupMemberships
+            : [];
 
         const firstGroup =
           memberships[0]?.group || null;
@@ -149,26 +172,34 @@ export default function MyTasks() {
         if (!firstGroup?.id) {
           setGroup(null);
           setTasks([]);
+
           setError(
             "You are not assigned to a group yet."
           );
+
           return;
         }
 
         setGroup(firstGroup);
 
-        const tasksResponse = await api.get(
-          `/tasks/group/${firstGroup.id}`
-        );
+        const tasksResponse =
+          await api.get(
+            `/tasks/group/${firstGroup.id}`
+          );
 
         setTasks(
-          Array.isArray(tasksResponse.data)
+          Array.isArray(
+            tasksResponse.data
+          )
             ? tasksResponse.data
             : []
         );
       } catch (requestError) {
         setError(
-          requestError.response?.data?.msg ||
+          requestError.response?.data
+            ?.msg ||
+            requestError.response?.data
+              ?.message ||
             "Couldn't load your tasks."
         );
       } finally {
@@ -184,8 +215,10 @@ export default function MyTasks() {
   }, [loadTasks]);
 
   function openTask(taskId) {
-    router.push(`/my-tasks/${taskId}`);
-    }
+    router.push(
+      `/my-tasks/${taskId}`
+    );
+  }
 
   if (loading) {
     return (
@@ -209,7 +242,9 @@ export default function MyTasks() {
     <Screen>
       <View style={styles.page}>
         <View style={styles.pageHeader}>
-          <View style={styles.pageHeaderText}>
+          <View
+            style={styles.pageHeaderText}
+          >
             <Text style={styles.eyebrow}>
               STUDENT HOMEWORK
             </Text>
@@ -218,10 +253,13 @@ export default function MyTasks() {
               My Tasks
             </Text>
 
-            <Text style={styles.pageSubtitle}>
-              Review assigned homework, track
-              deadlines, submit your work, and check
-              grading progress.
+            <Text
+              style={styles.pageSubtitle}
+            >
+              Review assigned homework,
+              track deadlines, submit your
+              work, and check grading
+              progress.
             </Text>
           </View>
 
@@ -235,7 +273,9 @@ export default function MyTasks() {
             loading={refreshing}
             disabled={refreshing}
             onPress={() =>
-              loadTasks({ silent: true })
+              loadTasks({
+                silent: true,
+              })
             }
           />
         </View>
@@ -251,16 +291,22 @@ export default function MyTasks() {
             </View>
 
             <View style={styles.groupInfo}>
-              <Text style={styles.groupLabel}>
+              <Text
+                style={styles.groupLabel}
+              >
                 Your group
               </Text>
 
-              <Text style={styles.groupName}>
+              <Text
+                style={styles.groupName}
+              >
                 {group.name}
               </Text>
 
               {group.year?.name ? (
-                <Text style={styles.groupYear}>
+                <Text
+                  style={styles.groupYear}
+                >
                   {group.year.name}
                 </Text>
               ) : null}
@@ -272,7 +318,9 @@ export default function MyTasks() {
           <ErrorBanner
             message={error}
             onRetry={() => loadTasks()}
-            onDismiss={() => setError("")}
+            onDismiss={() =>
+              setError("")
+            }
           />
         ) : null}
 
@@ -295,7 +343,9 @@ export default function MyTasks() {
             <SummaryCard
               icon="cloud-done-outline"
               label="Submitted"
-              value={taskSummary.submitted}
+              value={
+                taskSummary.submitted
+              }
               tone="info"
             />
 
@@ -305,23 +355,41 @@ export default function MyTasks() {
               value={taskSummary.graded}
               tone="success"
             />
+
+            <SummaryCard
+              icon="alert-circle-outline"
+              label="Overdue"
+              value={taskSummary.overdue}
+              tone="danger"
+            />
           </View>
         ) : null}
 
-        <View style={styles.sectionHeader}>
+        <View
+          style={styles.sectionHeader}
+        >
           <View>
-            <Text style={styles.sectionTitle}>
+            <Text
+              style={styles.sectionTitle}
+            >
               Assigned tasks
             </Text>
 
-            <Text style={styles.sectionSubtitle}>
-              Tasks are ordered by urgency and
-              submission status.
+            <Text
+              style={
+                styles.sectionSubtitle
+              }
+            >
+              Unsubmitted tasks appear first,
+              followed by submitted and graded
+              work.
             </Text>
           </View>
 
           {tasks.length > 0 ? (
-            <Text style={styles.taskCount}>
+            <Text
+              style={styles.taskCount}
+            >
               {tasks.length}{" "}
               {tasks.length === 1
                 ? "task"
@@ -337,10 +405,11 @@ export default function MyTasks() {
         ) : (
           <View style={styles.taskList}>
             {sortedTasks.map((task) => {
-              const submission = getMySubmission(
-                task,
-                user?.id
-              );
+              const submission =
+                getMySubmission(
+                  task,
+                  user?.id
+                );
 
               const status =
                 getTaskStatus(
@@ -378,25 +447,37 @@ function TaskCard({
     new Date(task.deadline).getTime() <
       Date.now();
 
+  const hasSubmitted =
+    Boolean(submission);
+
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [
-        pressed && styles.pressedOpacity,
+        pressed &&
+          styles.pressedOpacity,
       ]}
     >
       <Card style={styles.taskCard}>
-        <View style={styles.taskCardHeader}>
+        <View
+          style={styles.taskCardHeader}
+        >
           <View
             style={[
               styles.taskIcon,
+
               status.tone === "danger" &&
                 styles.taskIconDanger,
+
               status.tone === "warning" &&
                 styles.taskIconWarning,
+
               status.tone === "success" &&
                 styles.taskIconSuccess,
+
+              status.tone === "info" &&
+                styles.taskIconInfo,
             ]}
           >
             <Ionicons
@@ -408,7 +489,9 @@ function TaskCard({
             />
           </View>
 
-          <View style={styles.taskMainInfo}>
+          <View
+            style={styles.taskMainInfo}
+          >
             <Text
               numberOfLines={2}
               style={styles.taskTitle}
@@ -418,7 +501,9 @@ function TaskCard({
 
             <Text
               numberOfLines={2}
-              style={styles.taskDescription}
+              style={
+                styles.taskDescription
+              }
             >
               {task.description?.trim() ||
                 "No additional instructions were provided."}
@@ -431,9 +516,86 @@ function TaskCard({
           />
         </View>
 
-        <View style={styles.taskDivider} />
+        <View
+          style={[
+            styles.submissionStatusBox,
 
-        <View style={styles.taskMetaGrid}>
+            hasSubmitted
+              ? styles.submissionStatusBoxSubmitted
+              : styles.submissionStatusBoxPending,
+          ]}
+        >
+          <View
+            style={[
+              styles.submissionStatusIcon,
+
+              hasSubmitted
+                ? styles.submissionStatusIconSubmitted
+                : styles.submissionStatusIconPending,
+            ]}
+          >
+            <Ionicons
+              name={
+                hasSubmitted
+                  ? "checkmark-circle"
+                  : "cloud-upload-outline"
+              }
+              size={22}
+              color={
+                hasSubmitted
+                  ? colors.secondary
+                  : colors.warning
+              }
+            />
+          </View>
+
+          <View
+            style={
+              styles.submissionStatusCopy
+            }
+          >
+            <Text
+              style={[
+                styles.submissionStatusTitle,
+
+                hasSubmitted
+                  ? styles.submissionStatusTitleSubmitted
+                  : styles.submissionStatusTitlePending,
+              ]}
+            >
+              {hasSubmitted
+                ? "Assignment submitted"
+                : "Assignment not submitted"}
+            </Text>
+
+            <Text
+              style={
+                styles.submissionStatusText
+              }
+            >
+              {getSubmissionStatusText(
+                task,
+                submission
+              )}
+            </Text>
+          </View>
+
+          {hasSubmitted ? (
+            <Ionicons
+              name="checkmark-done-outline"
+              size={21}
+              color={colors.secondary}
+            />
+          ) : null}
+        </View>
+
+        <View
+          style={styles.taskDivider}
+        />
+
+        <View
+          style={styles.taskMetaGrid}
+        >
           <TaskMeta
             icon="calendar-outline"
             label="Deadline"
@@ -466,17 +628,104 @@ function TaskCard({
           />
         </View>
 
+        {submission ? (
+          <View
+            style={
+              styles.submissionDetails
+            }
+          >
+            <View
+              style={
+                styles.submissionDetailItem
+              }
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={17}
+                color={colors.primary}
+              />
+
+              <View>
+                <Text
+                  style={
+                    styles.submissionDetailLabel
+                  }
+                >
+                  Submitted on
+                </Text>
+
+                <Text
+                  style={
+                    styles.submissionDetailValue
+                  }
+                >
+                  {formatDate(
+                    submission.submittedAt
+                  ) ||
+                    "Date unavailable"}
+                </Text>
+              </View>
+            </View>
+
+            <View
+              style={
+                styles.submissionDetailItem
+              }
+            >
+              <Ionicons
+                name={
+                  submission.grade != null
+                    ? "checkmark-done-outline"
+                    : "hourglass-outline"
+                }
+                size={17}
+                color={
+                  submission.grade != null
+                    ? colors.secondary
+                    : colors.warning
+                }
+              />
+
+              <View>
+                <Text
+                  style={
+                    styles.submissionDetailLabel
+                  }
+                >
+                  Grading status
+                </Text>
+
+                <Text
+                  style={
+                    styles.submissionDetailValue
+                  }
+                >
+                  {submission.grade != null
+                    ? "Graded"
+                    : "Waiting for grading"}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         {submission?.grade != null ? (
-          <View style={styles.gradePreview}>
+          <View
+            style={styles.gradePreview}
+          >
             <View>
               <Text
-                style={styles.gradePreviewLabel}
+                style={
+                  styles.gradePreviewLabel
+                }
               >
                 Your grade
               </Text>
 
               <Text
-                style={styles.gradePreviewText}
+                style={
+                  styles.gradePreviewText
+                }
               >
                 {submission.grade}/
                 {task.gradeOutOf}
@@ -492,15 +741,23 @@ function TaskCard({
         ) : null}
 
         <View style={styles.taskFooter}>
-          <Text style={styles.taskFooterText}>
+          <Text
+            style={styles.taskFooterText}
+          >
             {status.helperText}
           </Text>
 
-          <View style={styles.openTaskAction}>
+          <View
+            style={styles.openTaskAction}
+          >
             <Text
-              style={styles.openTaskActionText}
+              style={
+                styles.openTaskActionText
+              }
             >
-              View task
+              {submission
+                ? "View submission"
+                : "Open and submit"}
             </Text>
 
             <Ionicons
@@ -536,13 +793,16 @@ function TaskMeta({
       </View>
 
       <View style={styles.taskMetaText}>
-        <Text style={styles.taskMetaLabel}>
+        <Text
+          style={styles.taskMetaLabel}
+        >
           {label}
         </Text>
 
         <Text
           style={[
             styles.taskMetaValue,
+
             danger &&
               styles.taskMetaValueDanger,
           ]}
@@ -560,7 +820,8 @@ function SummaryCard({
   value,
   tone,
 }) {
-  const color = getStatusColor(tone);
+  const color =
+    getStatusColor(tone);
 
   return (
     <Card style={styles.summaryCard}>
@@ -579,18 +840,24 @@ function SummaryCard({
         />
       </View>
 
-      <Text style={styles.summaryValue}>
+      <Text
+        style={styles.summaryValue}
+      >
         {value}
       </Text>
 
-      <Text style={styles.summaryLabel}>
+      <Text
+        style={styles.summaryLabel}
+      >
         {label}
       </Text>
     </Card>
   );
 }
 
-function EmptyTasksState({ hasGroup }) {
+function EmptyTasksState({
+  hasGroup,
+}) {
   return (
     <Card style={styles.emptyCard}>
       <View style={styles.emptyIcon}>
@@ -611,7 +878,9 @@ function EmptyTasksState({ hasGroup }) {
           : "Group assignment required"}
       </Text>
 
-      <Text style={styles.emptyDescription}>
+      <Text
+        style={styles.emptyDescription}
+      >
         {hasGroup
           ? "Your teacher has not assigned any homework to this group yet."
           : "You must be assigned to an academic group before homework becomes available."}
@@ -630,14 +899,20 @@ function ErrorBanner({
       accessibilityRole="alert"
       style={styles.errorBanner}
     >
-      <View style={styles.errorIndicator} />
+      <View
+        style={styles.errorIndicator}
+      />
 
-      <View style={styles.errorContent}>
+      <View
+        style={styles.errorContent}
+      >
         <Text style={styles.errorTitle}>
           Couldn't load tasks
         </Text>
 
-        <Text style={styles.errorMessage}>
+        <Text
+          style={styles.errorMessage}
+        >
           {message}
         </Text>
       </View>
@@ -647,6 +922,7 @@ function ErrorBanner({
         onPress={onRetry}
         style={({ pressed }) => [
           styles.errorAction,
+
           pressed &&
             styles.pressedOpacity,
         ]}
@@ -664,6 +940,7 @@ function ErrorBanner({
         onPress={onDismiss}
         style={({ pressed }) => [
           styles.errorDismiss,
+
           pressed &&
             styles.pressedOpacity,
         ]}
@@ -678,36 +955,88 @@ function ErrorBanner({
   );
 }
 
-function getMySubmission(task, userId) {
-  const submissions = Array.isArray(
-    task?.submissions
-  )
-    ? task.submissions
-    : [];
+function getMySubmission(
+  task,
+  userId
+) {
+  const submissions =
+    Array.isArray(task?.submissions)
+      ? task.submissions
+      : [];
 
   return (
     submissions.find(
       (submission) =>
-        submission.studentId === userId ||
-        submission.student?.id === userId
+        String(
+          submission.studentId
+        ) === String(userId) ||
+        String(
+          submission.student?.id
+        ) === String(userId)
     ) || null
   );
 }
 
-function getTaskStatus(task, submission) {
+function getSubmissionStatusText(
+  task,
+  submission
+) {
+  if (submission?.grade != null) {
+    return `Submitted and graded: ${submission.grade}/${task.gradeOutOf}.`;
+  }
+
+  if (submission) {
+    const submittedDate =
+      formatDate(
+        submission.submittedAt
+      );
+
+    return submittedDate
+      ? `Submitted on ${submittedDate}. Waiting for grading.`
+      : "Your homework was submitted and is waiting for grading.";
+  }
+
   const deadline = task.deadline
     ? new Date(task.deadline).getTime()
     : null;
 
   const isPastDeadline =
-    deadline && deadline < Date.now();
+    deadline &&
+    deadline < Date.now();
+
+  if (
+    isPastDeadline &&
+    !task.allowLateSubmission
+  ) {
+    return "You did not submit this assignment before submissions closed.";
+  }
+
+  if (isPastDeadline) {
+    return "You have not submitted yet. Late submission is still allowed.";
+  }
+
+  return "You have not submitted this assignment yet.";
+}
+
+function getTaskStatus(
+  task,
+  submission
+) {
+  const deadline = task.deadline
+    ? new Date(task.deadline).getTime()
+    : null;
+
+  const isPastDeadline =
+    deadline &&
+    deadline < Date.now();
 
   if (submission?.grade != null) {
     return {
       label: "Graded",
       badgeTone: "success",
       tone: "success",
-      icon: "checkmark-done-outline",
+      icon:
+        "checkmark-done-outline",
       helperText:
         "Your submission has been graded.",
     };
@@ -729,12 +1058,12 @@ function getTaskStatus(task, submission) {
     !task.allowLateSubmission
   ) {
     return {
-      label: "Closed",
+      label: "Not submitted",
       badgeTone: "danger",
       tone: "danger",
-      icon: "lock-closed-outline",
+      icon: "close-circle-outline",
       helperText:
-        "The deadline passed and late submissions are not allowed.",
+        "The deadline passed without a submission.",
     };
   }
 
@@ -745,39 +1074,51 @@ function getTaskStatus(task, submission) {
       tone: "warning",
       icon: "alert-circle-outline",
       helperText:
-        "The deadline passed, but late submission is still allowed.",
+        "Late submission is still allowed.",
     };
   }
 
   return {
-    label: "Pending",
+    label: "Not submitted",
     badgeTone: "neutral",
     tone: "warning",
-    icon: "time-outline",
+    icon: "cloud-upload-outline",
     helperText:
-      "Open the task to review and submit your homework.",
+      "Open the task and submit your homework.",
   };
 }
 
-function getTaskPriority(task, submission) {
-  const status = getTaskStatus(
-    task,
-    submission
-  );
+function getTaskPriority(
+  task,
+  submission
+) {
+  const status =
+    getTaskStatus(
+      task,
+      submission
+    );
 
-  if (status.label === "Overdue") {
+  if (
+    status.label === "Overdue"
+  ) {
     return 0;
   }
 
-  if (status.label === "Pending") {
+  if (
+    status.label === "Not submitted"
+  ) {
     return 1;
   }
 
-  if (status.label === "Submitted") {
+  if (
+    status.label === "Submitted"
+  ) {
     return 2;
   }
 
-  if (status.label === "Graded") {
+  if (
+    status.label === "Graded"
+  ) {
     return 3;
   }
 
@@ -797,418 +1138,5 @@ function getStatusColor(tone) {
     return colors.danger;
   }
 
-  if (tone === "info") {
-    return colors.primary;
-  }
-
   return colors.primary;
 }
-
-const styles = StyleSheet.create({
-  page: {
-    width: "100%",
-    maxWidth: 1280,
-    alignSelf: "center",
-    paddingBottom: spacing.xl,
-  },
-
-  centeredScreen: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-
-  loadingText: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
-
-  pageHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-
-  pageHeaderText: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 320,
-    maxWidth: 760,
-  },
-
-  eyebrow: {
-    ...typography.caption,
-    color: colors.secondary,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    marginBottom: spacing.xs,
-  },
-
-  pageTitle: {
-    ...typography.h1,
-    color: colors.primary,
-    marginBottom: spacing.xs,
-  },
-
-  pageSubtitle: {
-    ...typography.body,
-    color: colors.textMuted,
-    lineHeight: 22,
-  },
-
-  groupCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-    padding: spacing.md,
-  },
-
-  groupIcon: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.lg,
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  groupInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  groupLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-
-  groupName: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-    marginTop: 2,
-  },
-
-  groupYear: {
-    ...typography.caption,
-    color: colors.primary,
-    marginTop: 2,
-  },
-
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-
-  summaryCard: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 190,
-    minWidth: 170,
-  },
-
-  summaryIcon: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.lg,
-    marginBottom: spacing.md,
-  },
-
-  summaryValue: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  summaryLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginTop: 3,
-  },
-
-  sectionHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-
-  sectionTitle: {
-    ...typography.h2,
-    color: colors.textPrimary,
-  },
-
-  sectionSubtitle: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 18,
-    marginTop: 3,
-  },
-
-  taskCount: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: colors.primary,
-  },
-
-  taskList: {
-    gap: spacing.md,
-  },
-
-  taskCard: {
-    padding: spacing.lg,
-  },
-
-  taskCardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-
-  taskIcon: {
-    width: 46,
-    height: 46,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.lg,
-    backgroundColor: `${colors.primary}12`,
-  },
-
-  taskIconDanger: {
-    backgroundColor: `${colors.danger}12`,
-  },
-
-  taskIconWarning: {
-    backgroundColor: `${colors.warning}12`,
-  },
-
-  taskIconSuccess: {
-    backgroundColor: `${colors.secondary}18`,
-  },
-
-  taskMainInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  taskTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-  },
-
-  taskDescription: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-
-  taskDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.md,
-  },
-
-  taskMetaGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-
-  taskMetaItem: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 190,
-    minWidth: 170,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
-
-  taskMetaIcon: {
-    width: 36,
-    height: 36,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 18,
-    backgroundColor: colors.white,
-  },
-
-  taskMetaText: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  taskMetaLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-
-  taskMetaValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginTop: 2,
-  },
-
-  taskMetaValueDanger: {
-    color: colors.danger,
-  },
-
-  gradePreview: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    backgroundColor: `${colors.secondary}16`,
-  },
-
-  gradePreviewLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-  },
-
-  gradePreviewText: {
-    ...typography.h3,
-    color: colors.secondary,
-    marginTop: 2,
-  },
-
-  taskFooter: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-
-  taskFooterText: {
-    ...typography.caption,
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 240,
-    color: colors.textMuted,
-    lineHeight: 18,
-  },
-
-  openTaskAction: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-
-  openTaskActionText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: colors.primary,
-  },
-
-  emptyCard: {
-    minHeight: 260,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
-
-  emptyIcon: {
-    width: 68,
-    height: 68,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 34,
-    backgroundColor: `${colors.secondary}22`,
-    marginBottom: spacing.md,
-  },
-
-  emptyTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
-
-  emptyDescription: {
-    ...typography.body,
-    maxWidth: 460,
-    color: colors.textMuted,
-    textAlign: "center",
-    lineHeight: 22,
-    marginTop: spacing.xs,
-  },
-
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    overflow: "hidden",
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: `${colors.danger}55`,
-    borderRadius: radius.md,
-    backgroundColor: `${colors.danger}0D`,
-  },
-
-  errorIndicator: {
-    alignSelf: "stretch",
-    width: 4,
-    backgroundColor: colors.danger,
-  },
-
-  errorContent: {
-    flex: 1,
-    padding: spacing.sm,
-  },
-
-  errorTitle: {
-    ...typography.bodyBold,
-    color: colors.danger,
-    marginBottom: 2,
-  },
-
-  errorMessage: {
-    ...typography.caption,
-    color: colors.danger,
-    lineHeight: 18,
-  },
-
-  errorAction: {
-    minHeight: 40,
-    justifyContent: "center",
-    paddingHorizontal: spacing.sm,
-  },
-
-  errorActionText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: colors.danger,
-  },
-
-  errorDismiss: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  pressedOpacity: {
-    opacity: 0.72,
-  },
-});

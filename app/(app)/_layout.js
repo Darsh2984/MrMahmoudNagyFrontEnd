@@ -1,15 +1,34 @@
 import React from "react";
-import { Slot, Redirect } from "expo-router";
-import { View, Text } from "react-native";
+import {
+  Slot,
+  Redirect,
+} from "expo-router";
+
+import {
+  View,
+  Text,
+  Pressable,
+} from "react-native";
+
 import { useAuth } from "../../src/contexts/AuthContext";
+
 import { AppShell } from "../../src/components/layout/AppShell";
 import { Screen } from "../../src/components/layout/Screen";
 import { Card } from "../../src/components/ui/Card";
 import { Button } from "../../src/components/ui/Button";
-import { colors, spacing, typography } from "../../src/theme";
 
-// Nav items differ by role — same AppShell/Sidebar renders all of them.
-function getNavItems(role, isHeadAssistant) {
+import {
+  colors,
+  spacing,
+  typography,
+} from "../../src/theme";
+
+// Nav items differ by role.
+// The same AppShell and Sidebar render all items.
+function getNavItems(
+  role,
+  isHeadAssistant
+) {
   if (role === "STUDENT") {
     return [
       {
@@ -58,7 +77,8 @@ function getNavItems(role, isHeadAssistant) {
   }
 
   const isRegularAssistant =
-    role === "ASSISTANT" && !isHeadAssistant;
+    role === "ASSISTANT" &&
+    !isHeadAssistant;
 
   const base = [
     {
@@ -82,6 +102,18 @@ function getNavItems(role, isHeadAssistant) {
       activeIcon: "folder-open",
     },
     {
+      label: "Question Bank",
+      route: "/(app)/questions",
+      icon: "library-outline",
+      activeIcon: "library",
+    },
+    {
+      label: "Quiz Management",
+      route: "/(app)/quiz-management",
+      icon: "clipboard-outline",
+      activeIcon: "clipboard",
+    },
+    {
       label: "Sessions",
       route: "/(app)/sessions",
       icon: "calendar-outline",
@@ -96,11 +128,11 @@ function getNavItems(role, isHeadAssistant) {
     {
       label: "In-Class Quizzes",
       route: "/(app)/inclass-quizzes",
-      icon: "clipboard-outline",
-      activeIcon: "clipboard",
+      icon: "school-outline",
+      activeIcon: "school",
     },
     {
-      label: "Quizzes",
+      label: "Student Quizzes",
       route: "/(app)/quizzes",
       icon: "help-circle-outline",
       activeIcon: "help-circle",
@@ -119,7 +151,10 @@ function getNavItems(role, isHeadAssistant) {
     },
   ];
 
-  if (role === "TEACHER" || isHeadAssistant) {
+  if (
+    role === "TEACHER" ||
+    isHeadAssistant
+  ) {
     base.push(
       {
         label: "Assistants",
@@ -130,8 +165,8 @@ function getNavItems(role, isHeadAssistant) {
       {
         label: "Schools",
         route: "/(app)/schools",
-        icon: "school-outline",
-        activeIcon: "school",
+        icon: "business-outline",
+        activeIcon: "business",
       },
       {
         label: "Ticket Categories",
@@ -145,46 +180,239 @@ function getNavItems(role, isHeadAssistant) {
   return base;
 }
 
-// A student with no group has nothing to see yet — old system's behavior,
-// confirmed with the client: not a separate approval flag, just a natural
-// consequence of the content hierarchy being group-scoped. Removing a student
-// from their group ("disabling" them, per the client) sends them right back here.
-function WaitingForGroupScreen({ onLogout }) {
+function getUserDisplayName(user) {
+  const fullName = [
+    user?.firstName,
+    user?.lastName,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
   return (
-    <Screen scroll={false} style={{ alignItems: "center", justifyContent: "center", padding: spacing.lg }}>
-      <Card style={{ maxWidth: 420, alignItems: "center" }}>
-        <Text style={[typography.h2, { color: colors.primary, marginBottom: spacing.sm, textAlign: "center" }]}>
+    fullName ||
+    user?.name ||
+    user?.email ||
+    "Signed-in user"
+  );
+}
+
+function getRoleLabel(user) {
+  if (user?.role === "TEACHER") {
+    return "Teacher";
+  }
+
+  if (
+    user?.role === "ASSISTANT" &&
+    user?.isHeadAssistant
+  ) {
+    return "Head Assistant";
+  }
+
+  if (user?.role === "ASSISTANT") {
+    return "Assistant";
+  }
+
+  if (user?.role === "STUDENT") {
+    return "Student";
+  }
+
+  return user?.role || "User";
+}
+
+// A student with no group has nothing to see yet.
+// Removing a student from their group sends them
+// back to this screen.
+function WaitingForGroupScreen({
+  onLogout,
+}) {
+  return (
+    <Screen
+      scroll={false}
+      style={{
+        alignItems: "center",
+        justifyContent: "center",
+        padding: spacing.lg,
+      }}
+    >
+      <Card
+        style={{
+          maxWidth: 420,
+          alignItems: "center",
+        }}
+      >
+        <Text
+          style={[
+            typography.h2,
+            {
+              color: colors.primary,
+              marginBottom: spacing.sm,
+              textAlign: "center",
+            },
+          ]}
+        >
           You're not in a group yet
         </Text>
-        <Text style={[typography.body, { color: colors.textMuted, textAlign: "center", marginBottom: spacing.md }]}>
-          Your teacher or assistant hasn't added you to a group yet. Once they do, you'll get full access
-          to resources, tasks, and quizzes here.
+
+        <Text
+          style={[
+            typography.body,
+            {
+              color: colors.textMuted,
+              textAlign: "center",
+              marginBottom: spacing.md,
+            },
+          ]}
+        >
+          Your teacher or assistant hasn't
+          added you to a group yet. Once they
+          do, you'll get full access to
+          resources, tasks, and quizzes here.
         </Text>
-        <Button title="Log out" variant="outline" onPress={onLogout} />
+
+        <Button
+          title="Log out"
+          variant="outline"
+          onPress={onLogout}
+        />
       </Card>
     </Screen>
   );
 }
 
 export default function AppLayout() {
-  const { user, loading, logout } = useAuth();
+  const {
+    user,
+    loading,
+    logout,
+  } = useAuth();
 
-  if (loading) return null;
-  if (!user) return <Redirect href="/(auth)/login" />;
-
-  if (user.role === "STUDENT" && (user.groupMemberships?.length || 0) === 0) {
-    return <WaitingForGroupScreen onLogout={logout} />;
+  if (loading) {
+    return null;
   }
 
-  const items = getNavItems(user.role, user.isHeadAssistant);
+  if (!user) {
+    return (
+      <Redirect href="/(auth)/login" />
+    );
+  }
+
+  const studentHasNoGroup =
+    user.role === "STUDENT" &&
+    (user.groupMemberships?.length || 0) === 0;
+
+  if (studentHasNoGroup) {
+    return (
+      <WaitingForGroupScreen
+        onLogout={logout}
+      />
+    );
+  }
+
+  const items = getNavItems(
+    user.role,
+    user.isHeadAssistant
+  );
 
   return (
     <AppShell
       items={items}
       title="Mahmoud Nagy Platform"
       footer={
-        <View style={{ paddingTop: spacing.md }}>
-          <Button title="Log out" variant="outline" onPress={logout} />
+        <View>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginBottom: spacing.md,
+              paddingHorizontal: spacing.sm,
+            }}
+          >
+            <View
+              style={{
+                width: 42,
+                height: 42,
+                borderRadius: 14,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor:
+                  "rgba(245, 241, 235, 0.12)",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "800",
+                  color: colors.cream,
+                }}
+              >
+                {getUserDisplayName(user)
+                  .charAt(0)
+                  .toUpperCase()}
+              </Text>
+            </View>
+
+            <View
+              style={{
+                flex: 1,
+                marginLeft: spacing.sm,
+              }}
+            >
+              <Text
+                numberOfLines={1}
+                style={{
+                  fontSize: 13,
+                  lineHeight: 18,
+                  fontWeight: "800",
+                  color: colors.cream,
+                }}
+              >
+                {getUserDisplayName(user)}
+              </Text>
+
+              <Text
+                numberOfLines={1}
+                style={{
+                  marginTop: 2,
+                  fontSize: 11,
+                  lineHeight: 16,
+                  fontWeight: "600",
+                  color:
+                    "rgba(245, 241, 235, 0.58)",
+                }}
+              >
+                {getRoleLabel(user)}
+              </Text>
+            </View>
+          </View>
+
+          <Pressable
+            onPress={logout}
+            style={({ pressed }) => ({
+              minHeight: 44,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor:
+                "rgba(245, 241, 235, 0.45)",
+              backgroundColor: pressed
+                ? "rgba(245, 241, 235, 0.18)"
+                : "rgba(245, 241, 235, 0.10)",
+            })}
+          >
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: "800",
+                color: colors.cream,
+              }}
+            >
+              Log out
+            </Text>
+          </Pressable>
         </View>
       }
     >

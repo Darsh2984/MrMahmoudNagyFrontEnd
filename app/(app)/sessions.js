@@ -1899,6 +1899,12 @@ function StudentSessionView() {
     useState(null);
 
   const { user } = useAuth();
+  const myAttendance =
+  selected?.attendance?.find(
+    (record) =>
+      String(record.studentId) ===
+      String(user?.id)
+  ) || null;
 
   const openSession = useCallback(
     async (sessionId) => {
@@ -2145,6 +2151,40 @@ function StudentSessionView() {
             <Text style={styles.studentHeroDate}>
               {formatDate(selected.date)}
             </Text>
+
+            <View style={styles.studentAttendanceRow}>
+              <Text style={styles.studentAttendanceLabel}>
+                Attendance status
+              </Text>
+
+              <View
+                style={[
+                  styles.studentAttendanceBadge,
+                  myAttendance?.status === "PRESENT"
+                    ? styles.studentAttendancePresent
+                    : myAttendance?.status === "ABSENT"
+                    ? styles.studentAttendanceAbsent
+                    : styles.studentAttendancePending,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.studentAttendanceBadgeText,
+                    myAttendance?.status === "PRESENT"
+                      ? styles.studentAttendancePresentText
+                      : myAttendance?.status === "ABSENT"
+                      ? styles.studentAttendanceAbsentText
+                      : styles.studentAttendancePendingText,
+                  ]}
+                >
+                  {myAttendance?.status === "PRESENT"
+                    ? "Present"
+                    : myAttendance?.status === "ABSENT"
+                    ? "Absent"
+                    : "Not marked yet"}
+                </Text>
+              </View>
+            </View>
           </Card>
 
           <Text style={styles.studentQuestionsHeading}>
@@ -3293,6 +3333,59 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     padding: spacing.lg,
     alignItems: "center",
+  },
+
+  studentAttendanceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.16)",
+  },
+
+  studentAttendanceLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#D8E4E1",
+  },
+
+  studentAttendanceBadge: {
+    paddingVertical: 7,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.pill,
+  },
+
+  studentAttendancePresent: {
+    backgroundColor: "#EAF4ED",
+  },
+
+  studentAttendanceAbsent: {
+    backgroundColor: "#FFF0EC",
+  },
+
+  studentAttendancePending: {
+    backgroundColor: "rgba(255,255,255,0.14)",
+  },
+
+  studentAttendanceBadgeText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  studentAttendancePresentText: {
+    color: "#577762",
+  },
+
+  studentAttendanceAbsentText: {
+    color: colors.danger,
+  },
+
+  studentAttendancePendingText: {
+    color: colors.white,
   },
 
   deleteIcon: {

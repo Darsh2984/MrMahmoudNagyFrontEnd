@@ -59,6 +59,8 @@ export default function Tasks() {
   const [groups, setGroups] = useState([]);
   const [tasks, setTasks] = useState([]);
 
+  const [filterGroupId, setFilterGroupId] =
+    useState("ALL");
   const [selectedGroupIds, setSelectedGroupIds] = useState([]);
 
   const [title, setTitle] = useState("");
@@ -81,6 +83,23 @@ export default function Tasks() {
   const selectedYear = useMemo(() => {
     return years.find((year) => year.id === yearId) || null;
   }, [years, yearId]);
+
+  const filteredTasks = useMemo(() => {
+    if (filterGroupId === "ALL") {
+      return tasks;
+    }
+
+    return tasks.filter((task) =>
+      Array.isArray(task.groups) &&
+      task.groups.some(
+        (taskGroup) =>
+          String(taskGroup.groupId) ===
+            String(filterGroupId) ||
+          String(taskGroup.group?.id) ===
+            String(filterGroupId)
+      )
+    );
+  }, [tasks, filterGroupId]);
 
   const clearMessages = useCallback(() => {
     setError("");
@@ -129,10 +148,15 @@ export default function Tasks() {
       const loadedTasks = Array.from(uniqueTasks.values());
 
       loadedTasks.sort((first, second) => {
-        const firstDate = new Date(first.deadline).getTime();
-        const secondDate = new Date(second.deadline).getTime();
+        const firstCreatedAt = new Date(
+          first.createdAt || 0
+        ).getTime();
 
-        return firstDate - secondDate;
+        const secondCreatedAt = new Date(
+          second.createdAt || 0
+        ).getTime();
+
+        return secondCreatedAt - firstCreatedAt;
       });
 
       setTasks(loadedTasks);
@@ -170,6 +194,7 @@ export default function Tasks() {
 
         setGroups(loadedGroups);
         setSelectedGroupIds([]);
+        setFilterGroupId("ALL");
 
         await loadTasksForYear(loadedGroups);
       } catch (requestError) {
@@ -477,6 +502,11 @@ export default function Tasks() {
 
   function renderTaskCard(task) {
     const expired = isPastDeadline(task.deadline);
+    const taskGroups = Array.isArray(task.groups)
+      ? task.groups
+          .map((taskGroup) => taskGroup.group)
+          .filter(Boolean)
+      : [];
 
     return (
       <Card key={task.id} style={styles.taskCard}>
@@ -514,6 +544,35 @@ export default function Tasks() {
               <Text style={styles.taskMeta}>
                 Due {formatDate(task.deadline)}
               </Text>
+            </View>
+            <View style={styles.taskGroupsRow}>
+              <Ionicons
+                name="people-outline"
+                size={14}
+                color={colors.textMuted}
+              />
+
+              {taskGroups.length > 0 ? (
+                <View style={styles.taskGroupBadges}>
+                  {taskGroups.map((group) => (
+                    <View
+                      key={group.id}
+                      style={styles.taskGroupBadge}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={styles.taskGroupBadgeText}
+                      >
+                        {group.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.taskMeta}>
+                  Group unavailable
+                </Text>
+              )}
             </View>
           </View>
 
@@ -605,8 +664,8 @@ export default function Tasks() {
       );
     }
 
-    if (!tasks.length) {
-      return (
+      if (!filteredTasks.length) {
+        return (
         <Card style={styles.emptyCard}>
           <View style={styles.emptyIcon}>
             <Ionicons
@@ -621,10 +680,13 @@ export default function Tasks() {
           </Text>
 
           <Text style={styles.emptyDescription}>
-            Create the first homework task for{" "}
-            {selectedYear?.name || "this academic year"}.
+            {filterGroupId === "ALL"
+              ? `Create the first homework task for ${
+                  selectedYear?.name ||
+                  "this academic year"
+                }.`
+              : "No tasks are assigned to the selected group."}
           </Text>
-
           <Button
             title="Create task"
             variant="warning"
@@ -637,7 +699,7 @@ export default function Tasks() {
 
     return (
       <View style={styles.taskList}>
-        {tasks.map(renderTaskCard)}
+        {filteredTasks.map(renderTaskCard)}
       </View>
     );
   }
@@ -828,6 +890,141 @@ export default function Tasks() {
 
           {renderYearSelector()}
         </Card>
+        <Card style={styles.groupFilterCard}>
+          <View style={styles.groupFilterHeader}>
+            <View>
+              <Text style={styles.sectionLabel}>
+                FILTER BY GROUP
+              </Text>
+
+              <Text style={styles.groupFilterTitle}>
+                Show tasks assigned to
+              </Text>
+            </View>
+
+            <Ionicons
+              name="filter-outline"
+              size={21}
+              color={colors.primary}
+            />
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.groupFilterList}
+          >
+            <Pressable
+              onPress={() => setFilterGroupId("ALL")}
+              style={({ pressed }) => [
+                styles.groupFilterChip,
+                filterGroupId === "ALL" &&
+                  styles.groupFilterChipActive,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons
+                name={
+                  filterGroupId === "ALL"
+                    ? "apps"
+                    : "apps-outline"
+                }
+                size={16}
+                color={
+                  filterGroupId === "ALL"
+                    ? colors.white
+                    : colors.primary
+                }
+              />
+
+              <Text
+                style={[
+                  styles.groupFilterChipText,
+                  filterGroupId === "ALL" &&
+                    styles.groupFilterChipTextActive,
+                ]}
+              >
+                All groups
+              </Text>
+            </Pressable>
+
+            {groups.map((group) => {
+              const active =
+                String(filterGroupId) ===
+                String(group.id);
+
+              const groupTaskCount = tasks.filter(
+                (task) =>
+                  Array.isArray(task.groups) &&
+                  task.groups.some(
+                    (taskGroup) =>
+                      String(taskGroup.groupId) ===
+                        String(group.id) ||
+                      String(taskGroup.group?.id) ===
+                        String(group.id)
+                  )
+              ).length;
+
+              return (
+                <Pressable
+                  key={group.id}
+                  onPress={() =>
+                    setFilterGroupId(group.id)
+                  }
+                  style={({ pressed }) => [
+                    styles.groupFilterChip,
+                    active &&
+                      styles.groupFilterChipActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      active
+                        ? "people"
+                        : "people-outline"
+                    }
+                    size={16}
+                    color={
+                      active
+                        ? colors.white
+                        : colors.primary
+                    }
+                  />
+
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.groupFilterChipText,
+                      active &&
+                        styles.groupFilterChipTextActive,
+                    ]}
+                  >
+                    {group.name}
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.groupFilterCount,
+                      active &&
+                        styles.groupFilterCountActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.groupFilterCountText,
+                        active &&
+                          styles.groupFilterCountTextActive,
+                      ]}
+                    >
+                      {groupTaskCount}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </Card>
 
         <View
           style={[
@@ -843,8 +1040,13 @@ export default function Tasks() {
                 </Text>
 
                 <Text style={styles.sectionSubtitle}>
-                  {tasks.length}{" "}
-                  {tasks.length === 1 ? "task" : "tasks"}
+                  {filteredTasks.length}{" "}
+                  {filteredTasks.length === 1
+                    ? "task"
+                    : "tasks"}
+                  {filterGroupId !== "ALL"
+                    ? " in selected group"
+                    : ""}
                 </Text>
               </View>
 
@@ -1392,6 +1594,82 @@ const styles = StyleSheet.create({
   yearCard: {
     marginBottom: spacing.lg,
   },
+  groupFilterCard: {
+    marginBottom: spacing.lg,
+  },
+
+  groupFilterHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
+
+  groupFilterTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+
+  groupFilterList: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    paddingRight: spacing.sm,
+  },
+
+  groupFilterChip: {
+    minHeight: 42,
+    maxWidth: 230,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.white,
+  },
+
+  groupFilterChipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
+
+  groupFilterChipText: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textPrimary,
+  },
+
+  groupFilterChipTextActive: {
+    color: colors.white,
+  },
+
+  groupFilterCount: {
+    minWidth: 23,
+    height: 23,
+    paddingHorizontal: 6,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.background,
+  },
+
+  groupFilterCountActive: {
+    backgroundColor: "rgba(255,255,255,0.16)",
+  },
+
+  groupFilterCountText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+
+  groupFilterCountTextActive: {
+    color: colors.white,
+  },
 
   yearCardHeader: {
     flexDirection: "row",
@@ -1880,6 +2158,36 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.lg,
     backgroundColor: colors.background,
+  },
+
+  taskGroupsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 5,
+    marginTop: 7,
+  },
+
+  taskGroupBadges: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+
+  taskGroupBadge: {
+    maxWidth: 180,
+    paddingVertical: 4,
+    paddingHorizontal: 9,
+    borderRadius: radius.pill,
+    backgroundColor: `${colors.secondary}20`,
+    borderWidth: 1,
+    borderColor: `${colors.secondary}45`,
+  },
+
+  taskGroupBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.primary,
   },
 
   toggleCopy: {

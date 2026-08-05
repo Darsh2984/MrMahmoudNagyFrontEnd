@@ -24,99 +24,303 @@ import {
   useLocalSearchParams,
   useRouter,
 } from "expo-router";
+import * as DocumentPicker from "expo-document-picker";
 
 import { Screen } from "../../../src/components/layout/Screen";
 import { Card } from "../../../src/components/ui/Card";
 import { Button } from "../../../src/components/ui/Button";
 import { Badge } from "../../../src/components/ui/Badge";
+import { useAuth } from "../../../src/contexts/AuthContext";
 
 import api from "../../../src/lib/api";
 import { formatDate } from "../../../src/utils/formatDate";
+import { colors } from "../../../src/theme";
 
-import {
-  colors,
-  spacing,
-  radius,
-  typography,
-} from "../../../src/theme";
+import { styles } from "./[taskId].styles";
+
+const MAX_CORRECTED_FILES = 20;
 
 function getErrorMessage(error, fallback) {
   return (
     error?.response?.data?.msg ||
     error?.response?.data?.message ||
+    error?.message ||
     fallback
   );
 }
 
 function getInitial(name) {
-  return name?.trim()?.charAt(0)?.toUpperCase() || "S";
+  return (
+    name?.trim()?.charAt(0)?.toUpperCase() ||
+    "S"
+  );
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes);
+
+  if (!Number.isFinite(size) || size <= 0) {
+    return "Unknown size";
+  }
+
+  if (size < 1024) {
+    return `${size} B`;
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(
+    size /
+    (1024 * 1024)
+  ).toFixed(1)} MB`;
+}
+
+function normalizeTaskGroups(task) {
+  if (!Array.isArray(task?.groups)) {
+    return [];
+  }
+
+  return task.groups
+    .map((taskGroup) => taskGroup?.group)
+    .filter(Boolean);
+}
+
+async function appendAssetToFormData(
+  formData,
+  fieldName,
+  asset,
+) {
+  const filename =
+    asset.name ||
+    `corrected-${Date.now()}`;
+
+  const mimeType =
+    asset.mimeType ||
+    asset.type ||
+    "application/octet-stream";
+
+  if (
+    Platform.OS === "web" &&
+    asset.file
+  ) {
+    formData.append(
+      fieldName,
+      asset.file,
+      filename,
+    );
+
+    return;
+  }
+
+  if (Platform.OS === "web") {
+    const response = await fetch(asset.uri);
+
+    if (!response.ok) {
+      throw new Error(
+        `The file "${filename}" could not be prepared.`,
+      );
+    }
+
+    const blob = await response.blob();
+
+    formData.append(
+      fieldName,
+      blob,
+      filename,
+    );
+
+    return;
+  }
+
+  formData.append(fieldName, {
+    uri: asset.uri,
+    name: filename,
+    type: mimeType,
+  });
 }
 
 export default function TeacherTaskDetail() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { width } = useWindowDimensions();
+  const { user } = useAuth();
 
-  const taskId = Array.isArray(params.taskId)
-    ? params.taskId[0]
-    : params.taskId;
+  const rawTaskId = params.taskId;
+
+  const taskId = Array.isArray(rawTaskId)
+    ? rawTaskId[0]
+    : rawTaskId;
 
   const isDesktop = width >= 980;
   const isSmallScreen = width < 640;
 
+  const isAdminLevel =
+    user?.role === "TEACHER" ||
+    Boolean(user?.isHeadAssistant);
+
+  const isRegularAssistant =
+    user?.role === "ASSISTANT" &&
+    !user?.isHeadAssistant;
+
   const [task, setTask] = useState(null);
-  const [assistants, setAssistants] = useState([]);
-
-  const [gradeInputs, setGradeInputs] = useState({});
-
   const [loading, setLoading] = useState(true);
-  const [loadingAssistants, setLoadingAssistants] =
-    useState(false);
 
-  const [gradingSubmissionId, setGradingSubmissionId] =
-    useState(null);
+  const [gradeForms, setGradeForms] =
+    useState({});
 
-  const [delegatingSubmissionId, setDelegatingSubmissionId] =
-    useState(null);
+  const [
+    gradingSubmissionId,
+    setGradingSubmissionId,
+  ] = useState(null);
 
-  const [selectedSubmission, setSelectedSubmission] =
-    useState(null);
+  const [
+    openingFileKey,
+    setOpeningFileKey,
+  ] = useState(null);
 
-  const [delegateModalVisible, setDelegateModalVisible] =
-    useState(false);
+  const [
+    selectedSubmission,
+    setSelectedSubmission,
+  ] = useState(null);
 
-  const [assistantSearch, setAssistantSearch] = useState("");
+  const [
+    delegateModalVisible,
+    setDelegateModalVisible,
+  ] = useState(false);
+
+  const [
+    delegatingSubmissionId,
+    setDelegatingSubmissionId,
+  ] = useState(null);
+
+  const [
+    assistantSearch,
+    setAssistantSearch,
+  ] = useState("");
+
+  const [
+    delegateError,
+    setDelegateError,
+  ] = useState("");
 
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [success, setSuccess] =
+    useState("");
 
   const submissions = useMemo(() => {
-    return Array.isArray(task?.submissions)
+    const all = Array.isArray(
+      task?.submissions,
+    )
       ? task.submissions
       : [];
-  }, [task]);
 
-  const filteredAssistants = useMemo(() => {
-    const query = assistantSearch.trim().toLowerCase();
-
-    if (!query) {
-      return assistants;
+    if (!isRegularAssistant) {
+      return all;
     }
 
-    return assistants.filter((assistant) =>
-      assistant.name?.toLowerCase().includes(query),
+    return all.filter((submission) => {
+      const assistantId =
+        submission.delegation
+          ?.assistantId ||
+        submission.delegation
+          ?.assistant?.id;
+
+      return (
+        String(assistantId) ===
+        String(user?.id)
+      );
+    });
+  }, [
+    isRegularAssistant,
+    task?.submissions,
+    user?.id,
+  ]);
+
+  const taskGroups = useMemo(
+    () => normalizeTaskGroups(task),
+    [task],
+  );
+
+  const eligibleAssistants = useMemo(() => {
+    const assistants = new Map();
+
+    for (const taskGroup of task?.groups || []) {
+      const assignments =
+        taskGroup?.group
+          ?.assistantAssignments || [];
+
+      for (const assignment of assignments) {
+        const assistant =
+          assignment?.assistant;
+
+        if (!assistant?.id) {
+          continue;
+        }
+
+        const canGrade =
+          assistant.isHeadAssistant === true ||
+          assistant.permissions
+            ?.canGradeHomework === true;
+
+        if (canGrade) {
+          assistants.set(
+            String(assistant.id),
+            assistant,
+          );
+        }
+      }
+    }
+
+    return Array.from(
+      assistants.values(),
     );
-  }, [assistantSearch, assistants]);
+  }, [task?.groups]);
+
+  const filteredAssistants = useMemo(() => {
+    const query = assistantSearch
+      .trim()
+      .toLowerCase();
+
+    if (!query) {
+      return eligibleAssistants;
+    }
+
+    return eligibleAssistants.filter(
+      (assistant) =>
+        assistant.name
+          ?.toLowerCase()
+          .includes(query) ||
+        assistant.email
+          ?.toLowerCase()
+          .includes(query),
+    );
+  }, [
+    assistantSearch,
+    eligibleAssistants,
+  ]);
 
   const summary = useMemo(() => {
     return submissions.reduce(
       (result, submission) => {
         if (submission.grade != null) {
           result.graded += 1;
-        } else if (submission.delegation) {
+        } else if (
+          submission.delegation
+        ) {
           result.delegated += 1;
         } else {
           result.pending += 1;
+        }
+
+        if (
+          submission
+            .lastModifiedAfterDeadline ||
+          submission
+            .wasModifiedAfterDeadline
+        ) {
+          result.lateModified += 1;
         }
 
         return result;
@@ -126,446 +330,1540 @@ export default function TeacherTaskDetail() {
         graded: 0,
         delegated: 0,
         pending: 0,
+        lateModified: 0,
       },
     );
   }, [submissions]);
 
-  const clearMessages = useCallback(() => {
-    setError("");
-    setSuccess("");
-  }, []);
+  const progressPercentage =
+    useMemo(() => {
+      if (!summary.total) {
+        return 0;
+      }
 
-  const loadTask = useCallback(async () => {
-    if (!taskId) {
-      setError("Task ID is missing.");
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await api.get(`/tasks/${taskId}`);
-      setTask(response.data);
-    } catch (requestError) {
-      setError(
-        getErrorMessage(
-          requestError,
-          "Couldn't load task details.",
-        ),
+      return Math.round(
+        (summary.graded /
+          summary.total) *
+          100,
       );
-    } finally {
-      setLoading(false);
-    }
-  }, [taskId]);
+    }, [summary]);
 
-  const loadAssistants = useCallback(async () => {
-    setLoadingAssistants(true);
-
-    try {
-      const response = await api.get("/auth/assistants");
-
-      setAssistants(
-        Array.isArray(response.data) ? response.data : [],
-      );
-    } catch (requestError) {
-      setError(
-        getErrorMessage(
-          requestError,
-          "Couldn't load assistants.",
-        ),
-      );
-    } finally {
-      setLoadingAssistants(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTask();
-    loadAssistants();
-  }, [loadTask, loadAssistants]);
-
-  async function openExternalFile(url) {
-    if (!url) return;
-
-    clearMessages();
-
-    try {
-      const supported = await Linking.canOpenURL(url);
-
-      if (!supported) {
-        setError("This file link cannot be opened.");
+  const loadTask = useCallback(
+    async ({
+      silent = false,
+    } = {}) => {
+      if (!taskId) {
+        setError(
+          "Task ID is missing.",
+        );
+        setLoading(false);
         return;
       }
 
+      if (!silent) {
+        setLoading(true);
+      }
+
+      setError("");
+
+      try {
+        const response = await api.get(
+          `/tasks/${taskId}`,
+        );
+
+        setTask(response.data);
+      } catch (requestError) {
+        setError(
+          getErrorMessage(
+            requestError,
+            "Couldn't load task details.",
+          ),
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [taskId],
+  );
+
+  useEffect(() => {
+    loadTask();
+  }, [loadTask]);
+
+  function clearMessages() {
+    setError("");
+    setSuccess("");
+  }
+
+  function getGradeForm(
+    submissionId,
+  ) {
+    return (
+      gradeForms[submissionId] || {
+        grade: "",
+        comments: "",
+        correctedFiles: [],
+      }
+    );
+  }
+
+  function updateGradeForm(
+    submissionId,
+    changes,
+  ) {
+    setGradeForms((current) => ({
+      ...current,
+
+      [submissionId]: {
+        ...getGradeForm(
+          submissionId,
+        ),
+        ...changes,
+      },
+    }));
+  }
+
+  function clearGradeForm(
+    submissionId,
+  ) {
+    setGradeForms((current) => {
+      const updated = {
+        ...current,
+      };
+
+      delete updated[submissionId];
+
+      return updated;
+    });
+  }
+
+  async function openExternalFile(
+    url,
+    key,
+  ) {
+    if (!url) {
+      setError(
+        "This file does not have a valid link.",
+      );
+      return;
+    }
+
+    clearMessages();
+    setOpeningFileKey(key);
+
+    try {
+      const supported =
+        await Linking.canOpenURL(url);
+
+      if (!supported) {
+        throw new Error(
+          "This file cannot be opened on this device.",
+        );
+      }
+
       await Linking.openURL(url);
-    } catch {
-      setError("Couldn't open the file.");
+    } catch (requestError) {
+      setError(
+        requestError?.message ||
+          "Couldn't open the file.",
+      );
+    } finally {
+      setOpeningFileKey(null);
     }
   }
 
-  function validateGrade(submissionId) {
-    const rawValue = gradeInputs[submissionId];
-    const grade = Number(rawValue);
+  async function selectCorrectedFiles(
+    submissionId,
+  ) {
+    clearMessages();
+
+    try {
+      const result =
+        await DocumentPicker.getDocumentAsync({
+          type: [
+            "application/pdf",
+            "image/*",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "application/vnd.ms-powerpoint",
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            "text/plain",
+          ],
+
+          multiple: true,
+          copyToCacheDirectory: true,
+        });
+
+      if (
+        result.canceled ||
+        !result.assets?.length
+      ) {
+        return;
+      }
+
+      const currentForm =
+        getGradeForm(submissionId);
+
+      const existingCount =
+        currentForm.correctedFiles
+          .length;
+
+      if (
+        existingCount +
+          result.assets.length >
+        MAX_CORRECTED_FILES
+      ) {
+        setError(
+          `You can select a maximum of ${MAX_CORRECTED_FILES} corrected files.`,
+        );
+
+        return;
+      }
+
+      updateGradeForm(
+        submissionId,
+        {
+          correctedFiles: [
+            ...currentForm
+              .correctedFiles,
+
+            ...result.assets.map(
+              (asset) => ({
+                ...asset,
+
+                localId:
+                  `${Date.now()}-${Math.random()}`,
+              }),
+            ),
+          ],
+        },
+      );
+    } catch (pickerError) {
+      setError(
+        pickerError?.message ||
+          "Couldn't select corrected files.",
+      );
+    }
+  }
+
+  function removeSelectedCorrectedFile(
+    submissionId,
+    localId,
+  ) {
+    const currentForm =
+      getGradeForm(submissionId);
+
+    updateGradeForm(
+      submissionId,
+      {
+        correctedFiles:
+          currentForm.correctedFiles.filter(
+            (file) =>
+              file.localId !== localId,
+          ),
+      },
+    );
+  }
+
+  function validateGrade(
+    submissionId,
+  ) {
+    const form =
+      getGradeForm(submissionId);
+
+    const grade = Number(
+      form.grade,
+    );
 
     if (
-      rawValue === undefined ||
-      rawValue === "" ||
+      form.grade === "" ||
       !Number.isFinite(grade)
     ) {
       return {
         valid: false,
-        message: "Enter a valid numeric grade.",
+        message:
+          "Enter a valid numeric grade.",
       };
     }
 
     if (grade < 0) {
       return {
         valid: false,
-        message: "Grade cannot be negative.",
+        message:
+          "Grade cannot be negative.",
       };
     }
 
     if (
       task?.gradeOutOf != null &&
-      grade > Number(task.gradeOutOf)
+      grade >
+        Number(task.gradeOutOf)
     ) {
       return {
         valid: false,
-        message: `Grade cannot exceed ${task.gradeOutOf}.`,
+
+        message:
+          `Grade cannot exceed ${task.gradeOutOf}.`,
       };
     }
 
     return {
       valid: true,
       grade,
+      form,
     };
   }
 
-  async function gradeDirectly(submissionId) {
+  async function gradeSubmission(
+    submission,
+  ) {
     clearMessages();
 
-    const validation = validateGrade(submissionId);
+    const validation =
+      validateGrade(
+        submission.id,
+      );
 
     if (!validation.valid) {
       setError(validation.message);
       return;
     }
 
-    setGradingSubmissionId(submissionId);
+    setGradingSubmissionId(
+      submission.id,
+    );
 
     try {
-      await api.patch(
-        `/submissions/${submissionId}/grade`,
-        {
-          grade: validation.grade,
-        },
+      const formData =
+        new FormData();
+
+      formData.append(
+        "grade",
+        String(validation.grade),
       );
 
-      setGradeInputs((current) => {
-        const updated = { ...current };
-        delete updated[submissionId];
-        return updated;
-      });
+      formData.append(
+        "comments",
+        validation.form.comments ||
+          "",
+      );
 
-      setSuccess("Grade saved successfully.");
-      await loadTask();
+      for (const asset of validation
+        .form.correctedFiles) {
+        await appendAssetToFormData(
+          formData,
+          "correctedFiles",
+          asset,
+        );
+      }
+
+      await api.patch(
+        `/submissions/${submission.id}/grade`,
+        formData,
+      );
+
+      clearGradeForm(
+        submission.id,
+      );
+
+      setSuccess(
+        `The submission for ${
+          submission.student?.name ||
+          "the student"
+        } was graded successfully.`,
+      );
+
+      await loadTask({
+        silent: true,
+      });
     } catch (requestError) {
       setError(
         getErrorMessage(
           requestError,
-          "Couldn't save the grade.",
+          "Couldn't grade the submission.",
         ),
       );
     } finally {
-      setGradingSubmissionId(null);
+      setGradingSubmissionId(
+        null,
+      );
     }
   }
 
-  function openDelegateModal(submission) {
+  function openDelegateModal(
+    submission,
+  ) {
     clearMessages();
-    setSelectedSubmission(submission);
+    setDelegateError("");
+    setSelectedSubmission(
+      submission,
+    );
     setAssistantSearch("");
-    setDelegateModalVisible(true);
+    setDelegateModalVisible(
+      true,
+    );
   }
 
   function closeDelegateModal() {
-    if (delegatingSubmissionId) return;
+    if (delegatingSubmissionId) {
+      return;
+    }
 
-    setDelegateModalVisible(false);
-    setSelectedSubmission(null);
+    setDelegateModalVisible(
+      false,
+    );
+    setSelectedSubmission(
+      null,
+    );
     setAssistantSearch("");
+    setDelegateError("");
   }
 
-  async function delegate(assistantId) {
-    if (!selectedSubmission) return;
+  async function delegate(
+    assistantId,
+  ) {
+    if (!selectedSubmission) {
+      return;
+    }
 
-    clearMessages();
-    setDelegatingSubmissionId(selectedSubmission.id);
+    setDelegateError("");
+
+    setDelegatingSubmissionId(
+      selectedSubmission.id,
+    );
 
     try {
-      await api.post("/delegations", {
-        submissionId: selectedSubmission.id,
-        assistantId,
+      await api.post(
+        "/delegations",
+        {
+          submissionId:
+            selectedSubmission.id,
+
+          assistantId,
+        },
+      );
+
+      setSuccess(
+        "Submission delegated successfully.",
+      );
+
+      closeDelegateModal();
+
+      await loadTask({
+        silent: true,
       });
-
-      setSuccess("Submission delegated successfully.");
-      setDelegateModalVisible(false);
-      setSelectedSubmission(null);
-      setAssistantSearch("");
-
-      await loadTask();
     } catch (requestError) {
-      setError(
+      setDelegateError(
         getErrorMessage(
           requestError,
           "Couldn't delegate the submission.",
         ),
       );
     } finally {
-      setDelegatingSubmissionId(null);
+      setDelegatingSubmissionId(
+        null,
+      );
     }
   }
 
-  function renderSubmissionCard(submission) {
-    const graded = submission.grade != null;
-    const delegated = Boolean(submission.delegation);
-    const pending = !graded && !delegated;
+  function getAssistantGroupNames(
+    assistantId,
+  ) {
+    return (task?.groups || [])
+      .filter((taskGroup) =>
+        taskGroup?.group
+          ?.assistantAssignments
+          ?.some(
+            (assignment) =>
+              String(
+                assignment?.assistant
+                  ?.id,
+              ) ===
+              String(assistantId),
+          ),
+      )
+      .map(
+        (taskGroup) =>
+          taskGroup?.group?.name,
+      )
+      .filter(Boolean);
+  }
+
+  function renderStudentFiles(
+    submission,
+  ) {
+    const files = Array.isArray(
+      submission.files,
+    )
+      ? submission.files
+      : [];
+
+    if (files.length) {
+      return (
+        <View
+          style={
+            styles.filesSection
+          }
+        >
+          <View
+            style={
+              styles.filesSectionHeader
+            }
+          >
+            <Text
+              style={
+                styles.filesSectionTitle
+              }
+            >
+              Student files
+            </Text>
+
+            <Text
+              style={
+                styles.filesCount
+              }
+            >
+              {files.length}{" "}
+              {files.length === 1
+                ? "file"
+                : "files"}
+            </Text>
+          </View>
+
+          {files.map(
+            (file, index) => {
+              const key =
+                `student-${file.id}`;
+
+              return (
+                <Pressable
+                  key={file.id}
+                  accessibilityRole="link"
+                  onPress={() =>
+                    openExternalFile(
+                      file.fileUrl,
+                      key,
+                    )
+                  }
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.fileRow,
+                    pressed &&
+                      styles.pressed,
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.fileOrder
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.fileOrderText
+                      }
+                    >
+                      {index + 1}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={
+                      styles.fileDetails
+                    }
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={
+                        styles.fileName
+                      }
+                    >
+                      {file.originalName ||
+                        `Submission file ${
+                          index + 1
+                        }`}
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.fileMeta
+                      }
+                    >
+                      {formatFileSize(
+                        file.size,
+                      )}
+
+                      {file.uploadedAfterDeadline
+                        ? " · Uploaded after deadline"
+                        : ""}
+                    </Text>
+                  </View>
+
+                  {openingFileKey ===
+                  key ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={
+                        colors.primary
+                      }
+                    />
+                  ) : (
+                    <Ionicons
+                      name="open-outline"
+                      size={19}
+                      color={
+                        colors.primary
+                      }
+                    />
+                  )}
+                </Pressable>
+              );
+            },
+          )}
+        </View>
+      );
+    }
+
+    if (submission.fileUrl) {
+      const key =
+        `legacy-${submission.id}`;
+
+      return (
+        <Pressable
+          accessibilityRole="link"
+          onPress={() =>
+            openExternalFile(
+              submission.fileUrl,
+              key,
+            )
+          }
+          style={({ pressed }) => [
+            styles.fileRow,
+
+            pressed &&
+              styles.pressed,
+          ]}
+        >
+          <View
+            style={styles.fileOrder}
+          >
+            <Ionicons
+              name="document-outline"
+              size={18}
+              color={colors.primary}
+            />
+          </View>
+
+          <View
+            style={styles.fileDetails}
+          >
+            <Text
+              style={styles.fileName}
+            >
+              Legacy submission file
+            </Text>
+
+            <Text
+              style={styles.fileMeta}
+            >
+              Open the student's uploaded
+              homework
+            </Text>
+          </View>
+
+          {openingFileKey === key ? (
+            <ActivityIndicator
+              size="small"
+              color={colors.primary}
+            />
+          ) : (
+            <Ionicons
+              name="open-outline"
+              size={19}
+              color={colors.primary}
+            />
+          )}
+        </Pressable>
+      );
+    }
+
+    return (
+      <View style={styles.noFileBox}>
+        <Ionicons
+          name="document-outline"
+          size={19}
+          color={colors.textMuted}
+        />
+
+        <Text
+          style={styles.noFileText}
+        >
+          No student files are available.
+        </Text>
+      </View>
+    );
+  }
+
+  function renderCorrectedFiles(
+    submission,
+  ) {
+    const files = Array.isArray(
+      submission.correctedFiles,
+    )
+      ? submission.correctedFiles
+      : [];
+
+    if (!files.length) {
+      if (!submission.correctedFileUrl) {
+        return null;
+      }
+
+      return (
+        <View
+          style={
+            styles.returnedFilesSection
+          }
+        >
+          <Text
+            style={
+              styles.filesSectionTitle
+            }
+          >
+            Returned correction
+          </Text>
+
+          <Pressable
+            accessibilityRole="link"
+            onPress={() =>
+              openExternalFile(
+                submission.correctedFileUrl,
+                `legacy-corrected-${submission.id}`,
+              )
+            }
+            style={({ pressed }) => [
+              styles.correctedFileRow,
+
+              pressed &&
+                styles.pressed,
+            ]}
+          >
+            <Ionicons
+              name="checkmark-done-outline"
+              size={20}
+              color={colors.secondary}
+            />
+
+            <View
+              style={styles.fileDetails}
+            >
+              <Text
+                style={styles.fileName}
+              >
+                Corrected homework
+              </Text>
+
+              <Text
+                style={styles.fileMeta}
+              >
+                Legacy corrected file
+              </Text>
+            </View>
+
+            <Ionicons
+              name="open-outline"
+              size={19}
+              color={colors.primary}
+            />
+          </Pressable>
+        </View>
+      );
+    }
+
+    return (
+      <View
+        style={
+          styles.returnedFilesSection
+        }
+      >
+        <View
+          style={
+            styles.filesSectionHeader
+          }
+        >
+          <Text
+            style={
+              styles.filesSectionTitle
+            }
+          >
+            Returned corrected files
+          </Text>
+
+          <Text
+            style={styles.filesCount}
+          >
+            {files.length}
+          </Text>
+        </View>
+
+        {files.map(
+          (file, index) => {
+            const key =
+              `corrected-${file.id}`;
+
+            return (
+              <Pressable
+                key={file.id}
+                accessibilityRole="link"
+                onPress={() =>
+                  openExternalFile(
+                    file.fileUrl,
+                    key,
+                  )
+                }
+                style={({
+                  pressed,
+                }) => [
+                  styles.correctedFileRow,
+
+                  pressed &&
+                    styles.pressed,
+                ]}
+              >
+                <View
+                  style={
+                    styles.correctedFileIcon
+                  }
+                >
+                  <Ionicons
+                    name="checkmark-done-outline"
+                    size={18}
+                    color={
+                      colors.secondary
+                    }
+                  />
+                </View>
+
+                <View
+                  style={
+                    styles.fileDetails
+                  }
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={
+                      styles.fileName
+                    }
+                  >
+                    {file.originalName ||
+                      `Corrected file ${
+                        index + 1
+                      }`}
+                  </Text>
+
+                  <Text
+                    style={
+                      styles.fileMeta
+                    }
+                  >
+                    {formatFileSize(
+                      file.size,
+                    )}
+                  </Text>
+                </View>
+
+                {openingFileKey ===
+                key ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={
+                      colors.primary
+                    }
+                  />
+                ) : (
+                  <Ionicons
+                    name="open-outline"
+                    size={19}
+                    color={
+                      colors.primary
+                    }
+                  />
+                )}
+              </Pressable>
+            );
+          },
+        )}
+      </View>
+    );
+  }
+
+  function renderGradeForm(
+    submission,
+  ) {
+    const form =
+      getGradeForm(
+        submission.id,
+      );
+
+    const isGrading =
+      gradingSubmissionId ===
+      submission.id;
+
+    return (
+      <View
+        style={styles.gradingPanel}
+      >
+        <View
+          style={
+            styles.gradingHeading
+          }
+        >
+          <Text
+            style={
+              styles.gradingTitle
+            }
+          >
+            Grade submission
+          </Text>
+
+          <Text
+            style={
+              styles.gradingSubtitle
+            }
+          >
+            Enter the final grade, add
+            feedback, and optionally return
+            corrected files to the student.
+          </Text>
+        </View>
+
+        <View
+          style={
+            styles.formField
+          }
+        >
+          <Text
+            style={
+              styles.formLabel
+            }
+          >
+            Grade
+          </Text>
+
+          <View
+            style={
+              styles.gradeInputWrapper
+            }
+          >
+            <TextInput
+              value={form.grade}
+              onChangeText={(value) =>
+                updateGradeForm(
+                  submission.id,
+                  {
+                    grade: value,
+                  },
+                )
+              }
+              placeholder="Enter grade"
+              keyboardType="decimal-pad"
+              placeholderTextColor={
+                colors.textMuted
+              }
+              style={
+                styles.gradeInput
+              }
+            />
+
+            <View
+              style={
+                styles.gradeSuffix
+              }
+            >
+              <Text
+                style={
+                  styles.gradeSuffixText
+                }
+              >
+                / {task?.gradeOutOf ?? "-"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View
+          style={
+            styles.formField
+          }
+        >
+          <Text
+            style={
+              styles.formLabel
+            }
+          >
+            Feedback for student
+          </Text>
+
+          <TextInput
+            value={form.comments}
+            onChangeText={(value) =>
+              updateGradeForm(
+                submission.id,
+                {
+                  comments: value,
+                },
+              )
+            }
+            placeholder="Write comments, corrections, or advice..."
+            placeholderTextColor={
+              colors.textMuted
+            }
+            multiline
+            textAlignVertical="top"
+            style={
+              styles.commentsInput
+            }
+          />
+        </View>
+
+        <View
+          style={
+            styles.formField
+          }
+        >
+          <View
+            style={
+              styles.correctedPickerHeader
+            }
+          >
+            <View>
+              <Text
+                style={
+                  styles.formLabel
+                }
+              >
+                Corrected files
+              </Text>
+
+              <Text
+                style={
+                  styles.formHelper
+                }
+              >
+                Optional — select up to{" "}
+                {MAX_CORRECTED_FILES} files.
+              </Text>
+            </View>
+
+            <Button
+              title="Choose files"
+              variant="outline"
+              disabled={isGrading}
+              onPress={() =>
+                selectCorrectedFiles(
+                  submission.id,
+                )
+              }
+            />
+          </View>
+
+          {form.correctedFiles
+            .length ? (
+            <View
+              style={
+                styles.selectedFilesList
+              }
+            >
+              {form.correctedFiles.map(
+                (file, index) => (
+                  <View
+                    key={file.localId}
+                    style={
+                      styles.selectedFileRow
+                    }
+                  >
+                    <View
+                      style={
+                        styles.selectedFileIcon
+                      }
+                    >
+                      <Ionicons
+                        name="document-attach-outline"
+                        size={18}
+                        color={
+                          colors.primary
+                        }
+                      />
+                    </View>
+
+                    <View
+                      style={
+                        styles.fileDetails
+                      }
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={
+                          styles.fileName
+                        }
+                      >
+                        {file.name ||
+                          `Corrected file ${
+                            index + 1
+                          }`}
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.fileMeta
+                        }
+                      >
+                        {formatFileSize(
+                          file.size,
+                        )}
+                      </Text>
+                    </View>
+
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove selected corrected file"
+                      disabled={isGrading}
+                      onPress={() =>
+                        removeSelectedCorrectedFile(
+                          submission.id,
+                          file.localId,
+                        )
+                      }
+                      style={
+                        styles.removeSelectedFile
+                      }
+                    >
+                      <Ionicons
+                        name="close"
+                        size={18}
+                        color={
+                          colors.danger
+                        }
+                      />
+                    </Pressable>
+                  </View>
+                ),
+              )}
+            </View>
+          ) : (
+            <View
+              style={
+                styles.noSelectedFiles
+              }
+            >
+              <Ionicons
+                name="cloud-upload-outline"
+                size={20}
+                color={
+                  colors.textMuted
+                }
+              />
+
+              <Text
+                style={
+                  styles.noSelectedFilesText
+                }
+              >
+                No corrected files selected.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Button
+          title={
+            isGrading
+              ? "Saving grade..."
+              : "Save grade and return"
+          }
+          variant="secondary"
+          loading={isGrading}
+          disabled={Boolean(
+            gradingSubmissionId,
+          )}
+          onPress={() =>
+            gradeSubmission(
+              submission,
+            )
+          }
+        />
+      </View>
+    );
+  }
+
+  function renderSubmissionCard(
+    submission,
+  ) {
+    const graded =
+      submission.grade != null;
+
+    const delegated = Boolean(
+      submission.delegation,
+    );
+
+    const delegatedAssistantId =
+      submission.delegation
+        ?.assistantId ||
+      submission.delegation
+        ?.assistant?.id;
+
+    const delegatedToCurrentUser =
+      delegated &&
+      String(
+        delegatedAssistantId,
+      ) === String(user?.id);
+
+    const canGrade =
+      !graded &&
+      (isAdminLevel ||
+        delegatedToCurrentUser);
+
+    const canDelegate =
+      !graded &&
+      isAdminLevel &&
+      !delegated;
 
     return (
       <Card
         key={submission.id}
-        style={styles.submissionCard}
+        style={
+          styles.submissionCard
+        }
       >
         <View
           style={[
             styles.submissionHeader,
+
             isSmallScreen &&
               styles.submissionHeaderSmall,
           ]}
         >
-          <View style={styles.studentIdentity}>
-            <View style={styles.studentAvatar}>
-              <Text style={styles.studentAvatarText}>
-                {getInitial(submission.student?.name)}
-              </Text>
-            </View>
-
-            <View style={styles.studentInfo}>
-              <Text
-                numberOfLines={1}
-                style={styles.studentName}
-              >
-                {submission.student?.name ||
-                  "Unknown student"}
-              </Text>
-
-              <Text style={styles.studentMeta}>
-                Homework submission
-              </Text>
-            </View>
-          </View>
-
-          {graded ? (
-            <Badge
-              label={`Graded: ${submission.grade}/${task?.gradeOutOf}`}
-              tone="success"
-            />
-          ) : delegated ? (
-            <Badge
-              label={`Delegated to ${
-                submission.delegation?.assistant?.name ||
-                "assistant"
-              }`}
-              tone="warning"
-            />
-          ) : (
-            <Badge label="Ungraded" tone="neutral" />
-          )}
-        </View>
-
-        <View style={styles.submissionDetails}>
-          <View style={styles.detailRow}>
-            <Ionicons
-              name="calendar-outline"
-              size={16}
-              color={colors.textMuted}
-            />
-
-            <Text style={styles.detailText}>
-              Submitted{" "}
-              {submission.createdAt
-                ? formatDate(submission.createdAt)
-                : "date unavailable"}
-            </Text>
-          </View>
-
-          {submission.fileUrl ? (
-            <Pressable
-              onPress={() =>
-                openExternalFile(submission.fileUrl)
+          <View
+            style={
+              styles.studentIdentity
+            }
+          >
+            <View
+              style={
+                styles.studentAvatar
               }
-              style={({ pressed }) => [
-                styles.fileButton,
-                pressed && styles.pressed,
-              ]}
             >
-              <View style={styles.fileButtonIcon}>
-                <Ionicons
-                  name="document-text-outline"
-                  size={19}
-                  color={colors.primary}
-                />
-              </View>
-
-              <View style={styles.fileButtonText}>
-                <Text style={styles.fileButtonTitle}>
-                  View submission file
-                </Text>
-
-                <Text style={styles.fileButtonSubtitle}>
-                  Open the student's uploaded answer
-                </Text>
-              </View>
-
-              <Ionicons
-                name="open-outline"
-                size={18}
-                color={colors.primary}
-              />
-            </Pressable>
-          ) : (
-            <View style={styles.noFileBox}>
-              <Ionicons
-                name="document-outline"
-                size={18}
-                color={colors.textMuted}
-              />
-
-              <Text style={styles.noFileText}>
-                No submission file attached
+              <Text
+                style={
+                  styles.studentAvatarText
+                }
+              >
+                {getInitial(
+                  submission.student?.name,
+                )}
               </Text>
-            </View>
-          )}
-        </View>
-
-        {pending ? (
-          <View style={styles.gradingPanel}>
-            <View style={styles.gradingHeading}>
-              <View>
-                <Text style={styles.gradingTitle}>
-                  Grade submission
-                </Text>
-
-                <Text style={styles.gradingSubtitle}>
-                  Enter a grade out of{" "}
-                  {task?.gradeOutOf ?? "the task total"}.
-                </Text>
-              </View>
             </View>
 
             <View
-              style={[
-                styles.gradeRow,
-                isSmallScreen && styles.gradeRowSmall,
-              ]}
+              style={
+                styles.studentInfo
+              }
             >
-              <View style={styles.gradeInputWrapper}>
-                <TextInput
-                  value={gradeInputs[submission.id] || ""}
-                  onChangeText={(value) =>
-                    setGradeInputs((current) => ({
-                      ...current,
-                      [submission.id]: value,
-                    }))
-                  }
-                  placeholder={`Grade out of ${
-                    task?.gradeOutOf ?? ""
-                  }`}
-                  keyboardType="numeric"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.gradeInput}
-                />
+              <Text
+                numberOfLines={1}
+                style={
+                  styles.studentName
+                }
+              >
+                {submission.student
+                  ?.name ||
+                  "Unknown student"}
+              </Text>
 
-                <View style={styles.gradeSuffix}>
-                  <Text style={styles.gradeSuffixText}>
-                    / {task?.gradeOutOf ?? "-"}
-                  </Text>
-                </View>
+              <Text
+                style={
+                  styles.studentMeta
+                }
+              >
+                Last updated{" "}
+                {formatDate(
+                  submission.submittedAt ||
+                    submission
+                      .lastModifiedAt ||
+                    submission
+                      .createdAt,
+                ) ||
+                  "date unavailable"}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={
+              styles.statusBadges
+            }
+          >
+            {graded ? (
+              <Badge
+                label={`Graded ${submission.grade}/${task?.gradeOutOf}`}
+                tone="success"
+              />
+            ) : delegatedToCurrentUser ? (
+              <Badge
+                label="Assigned to you"
+                tone="warning"
+              />
+            ) : delegated ? (
+              <Badge
+                label={`Delegated to ${
+                  submission.delegation
+                    ?.assistant?.name ||
+                  "assistant"
+                }`}
+                tone="warning"
+              />
+            ) : (
+              <Badge
+                label="Ungraded"
+                tone="neutral"
+              />
+            )}
+
+            {submission
+              .lastModifiedAfterDeadline ||
+            submission
+              .wasModifiedAfterDeadline ? (
+              <Badge
+                label="Modified late"
+                tone="danger"
+              />
+            ) : null}
+          </View>
+        </View>
+
+        {(submission
+          .lastModifiedAfterDeadline ||
+          submission
+            .wasModifiedAfterDeadline) ? (
+          <View
+            style={
+              styles.lateWarning
+            }
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={20}
+              color={colors.warning}
+            />
+
+            <View
+              style={
+                styles.lateWarningText
+              }
+            >
+              <Text
+                style={
+                  styles.lateWarningTitle
+                }
+              >
+                Modified after deadline
+              </Text>
+
+              <Text
+                style={
+                  styles.lateWarningDescription
+                }
+              >
+                The student added or removed
+                one or more files after the
+                homework deadline.
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
+        {renderStudentFiles(
+          submission,
+        )}
+
+        {graded ? (
+          <View
+            style={
+              styles.gradedPanel
+            }
+          >
+            <View
+              style={
+                styles.gradedHeader
+              }
+            >
+              <View
+                style={
+                  styles.gradedIcon
+                }
+              >
+                <Ionicons
+                  name="checkmark-done-outline"
+                  size={22}
+                  color={
+                    colors.secondary
+                  }
+                />
               </View>
 
-              <Button
-                title="Save grade"
-                variant="secondary"
-                onPress={() =>
-                  gradeDirectly(submission.id)
+              <View
+                style={
+                  styles.gradedText
                 }
-                loading={
-                  gradingSubmissionId === submission.id
-                }
-                disabled={Boolean(gradingSubmissionId)}
-              />
+              >
+                <Text
+                  style={
+                    styles.gradedTitle
+                  }
+                >
+                  Grading completed
+                </Text>
+
+                <Text
+                  style={
+                    styles.gradedSubtitle
+                  }
+                >
+                  Final grade:{" "}
+                  {submission.grade}/
+                  {task?.gradeOutOf}
+                </Text>
+
+                {submission
+                  .gradedBy?.name ? (
+                  <Text
+                    style={
+                      styles.gradedByText
+                    }
+                  >
+                    Graded by{" "}
+                    {
+                      submission
+                        .gradedBy.name
+                    }
+                  </Text>
+                ) : null}
+              </View>
             </View>
 
-            <View style={styles.dividerRow}>
-              <View style={styles.divider} />
-              <Text style={styles.dividerText}>OR</Text>
-              <View style={styles.divider} />
+            {submission.comments ? (
+              <View
+                style={
+                  styles.feedbackBox
+                }
+              >
+                <Text
+                  style={
+                    styles.feedbackLabel
+                  }
+                >
+                  Student feedback
+                </Text>
+
+                <Text
+                  style={
+                    styles.feedbackText
+                  }
+                >
+                  {submission.comments}
+                </Text>
+              </View>
+            ) : null}
+
+            {renderCorrectedFiles(
+              submission,
+            )}
+          </View>
+        ) : null}
+
+        {canGrade
+          ? renderGradeForm(
+              submission,
+            )
+          : null}
+
+        {canDelegate ? (
+          <>
+            <View
+              style={
+                styles.dividerRow
+              }
+            >
+              <View
+                style={
+                  styles.divider
+                }
+              />
+
+              <Text
+                style={
+                  styles.dividerText
+                }
+              >
+                OR
+              </Text>
+
+              <View
+                style={
+                  styles.divider
+                }
+              />
             </View>
 
             <Button
               title="Delegate to assistant"
               variant="outline"
               onPress={() =>
-                openDelegateModal(submission)
+                openDelegateModal(
+                  submission,
+                )
               }
             />
-          </View>
+          </>
         ) : null}
 
-        {delegated && !graded ? (
-          <View style={styles.delegationPanel}>
-            <View style={styles.delegationIcon}>
-              <Ionicons
-                name="person-outline"
-                size={20}
-                color={colors.warning}
-              />
-            </View>
+        {delegated &&
+        !graded &&
+        !delegatedToCurrentUser ? (
+          <View
+            style={
+              styles.delegationPanel
+            }
+          >
+            <Ionicons
+              name="person-outline"
+              size={21}
+              color={colors.warning}
+            />
 
-            <View style={styles.delegationText}>
-              <Text style={styles.delegationTitle}>
-                Waiting for assistant grading
+            <View
+              style={
+                styles.delegationText
+              }
+            >
+              <Text
+                style={
+                  styles.delegationTitle
+                }
+              >
+                Waiting for delegated grading
               </Text>
 
-              <Text style={styles.delegationSubtitle}>
+              <Text
+                style={
+                  styles.delegationSubtitle
+                }
+              >
                 Assigned to{" "}
-                {submission.delegation?.assistant?.name ||
+                {submission.delegation
+                  ?.assistant?.name ||
                   "an assistant"}.
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
-        {graded ? (
-          <View style={styles.gradedPanel}>
-            <View style={styles.gradedIcon}>
-              <Ionicons
-                name="checkmark-circle-outline"
-                size={21}
-                color={colors.primary}
-              />
-            </View>
-
-            <View style={styles.gradedText}>
-              <Text style={styles.gradedTitle}>
-                Grading completed
-              </Text>
-
-              <Text style={styles.gradedSubtitle}>
-                Final grade: {submission.grade}/
-                {task?.gradeOutOf}
               </Text>
             </View>
           </View>
@@ -578,15 +1876,19 @@ export default function TeacherTaskDetail() {
     return (
       <Screen
         scroll={false}
-        style={styles.fullPageLoading}
+        style={
+          styles.fullPageLoading
+        }
       >
         <ActivityIndicator
           color={colors.primary}
           size="large"
         />
 
-        <Text style={styles.loadingText}>
-          Loading task details…
+        <Text
+          style={styles.loadingText}
+        >
+          Loading task details...
         </Text>
       </Screen>
     );
@@ -595,8 +1897,14 @@ export default function TeacherTaskDetail() {
   if (!task) {
     return (
       <Screen>
-        <Card style={styles.notFoundCard}>
-          <View style={styles.notFoundIcon}>
+        <Card
+          style={styles.notFoundCard}
+        >
+          <View
+            style={
+              styles.notFoundIcon
+            }
+          >
             <Ionicons
               name="alert-circle-outline"
               size={36}
@@ -604,19 +1912,29 @@ export default function TeacherTaskDetail() {
             />
           </View>
 
-          <Text style={styles.notFoundTitle}>
+          <Text
+            style={
+              styles.notFoundTitle
+            }
+          >
             Task unavailable
           </Text>
 
-          <Text style={styles.notFoundText}>
-            The task could not be loaded or may no longer
-            exist.
+          <Text
+            style={
+              styles.notFoundText
+            }
+          >
+            {error ||
+              "The task could not be loaded."}
           </Text>
 
           <Button
             title="Go back"
             variant="outline"
-            onPress={() => router.back()}
+            onPress={() =>
+              router.back()
+            }
           />
         </Card>
       </Screen>
@@ -627,10 +1945,14 @@ export default function TeacherTaskDetail() {
     <Screen>
       <View style={styles.page}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() =>
+            router.back()
+          }
           style={({ pressed }) => [
             styles.backButton,
-            pressed && styles.pressed,
+
+            pressed &&
+              styles.pressed,
           ]}
         >
           <Ionicons
@@ -639,71 +1961,49 @@ export default function TeacherTaskDetail() {
             color={colors.primary}
           />
 
-          <Text style={styles.backButtonText}>
+          <Text
+            style={
+              styles.backButtonText
+            }
+          >
             Back to tasks
           </Text>
         </Pressable>
 
         {error ? (
-          <View style={[styles.alert, styles.errorAlert]}>
-            <Ionicons
-              name="alert-circle-outline"
-              size={20}
-              color={colors.danger}
-            />
-
-            <Text style={styles.errorText}>{error}</Text>
-
-            <Pressable
-              accessibilityLabel="Dismiss error"
-              onPress={() => setError("")}
-              style={styles.alertClose}
-            >
-              <Ionicons
-                name="close"
-                size={18}
-                color={colors.danger}
-              />
-            </Pressable>
-          </View>
+          <MessageBanner
+            type="error"
+            message={error}
+            onDismiss={() =>
+              setError("")
+            }
+          />
         ) : null}
 
         {success ? (
-          <View
-            style={[styles.alert, styles.successAlert]}
-          >
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={20}
-              color={colors.primary}
-            />
-
-            <Text style={styles.successText}>
-              {success}
-            </Text>
-
-            <Pressable
-              accessibilityLabel="Dismiss success message"
-              onPress={() => setSuccess("")}
-              style={styles.alertClose}
-            >
-              <Ionicons
-                name="close"
-                size={18}
-                color={colors.primary}
-              />
-            </Pressable>
-          </View>
+          <MessageBanner
+            type="success"
+            message={success}
+            onDismiss={() =>
+              setSuccess("")
+            }
+          />
         ) : null}
 
-        <Card style={styles.heroCard}>
+        <Card
+          style={styles.heroCard}
+        >
           <View
             style={[
               styles.heroContent,
-              isSmallScreen && styles.heroContentSmall,
+
+              isSmallScreen &&
+                styles.heroContentSmall,
             ]}
           >
-            <View style={styles.heroIcon}>
+            <View
+              style={styles.heroIcon}
+            >
               <Ionicons
                 name="clipboard-outline"
                 size={29}
@@ -711,26 +2011,37 @@ export default function TeacherTaskDetail() {
               />
             </View>
 
-            <View style={styles.heroCopy}>
-              <Text style={styles.eyebrow}>
+            <View
+              style={styles.heroCopy}
+            >
+              <Text
+                style={styles.eyebrow}
+              >
                 HOMEWORK TASK
               </Text>
 
-              <Text style={styles.pageTitle}>
+              <Text
+                style={
+                  styles.pageTitle
+                }
+              >
                 {task.title}
               </Text>
 
-              {task.description ? (
-                <Text style={styles.pageDescription}>
-                  {task.description}
-                </Text>
-              ) : (
-                <Text style={styles.pageDescription}>
-                  No additional instructions were provided.
-                </Text>
-              )}
+              <Text
+                style={
+                  styles.pageDescription
+                }
+              >
+                {task.description ||
+                  "No additional instructions were provided."}
+              </Text>
 
-              <View style={styles.heroBadges}>
+              <View
+                style={
+                  styles.heroBadges
+                }
+              >
                 <Badge
                   label={`Due ${formatDate(
                     task.deadline,
@@ -756,113 +2067,152 @@ export default function TeacherTaskDetail() {
                   tone="info"
                 />
               </View>
+
+              <View
+                style={
+                  styles.taskGroupsSection
+                }
+              >
+                <Text
+                  style={
+                    styles.taskGroupsLabel
+                  }
+                >
+                  Assigned groups
+                </Text>
+
+                <View
+                  style={
+                    styles.taskGroupsList
+                  }
+                >
+                  {taskGroups.map(
+                    (group) => (
+                      <View
+                        key={group.id}
+                        style={
+                          styles.taskGroupBadge
+                        }
+                      >
+                        <Ionicons
+                          name="people-outline"
+                          size={13}
+                          color={
+                            colors.primary
+                          }
+                        />
+
+                        <Text
+                          style={
+                            styles.taskGroupBadgeText
+                          }
+                        >
+                          {group.name}
+                        </Text>
+                      </View>
+                    ),
+                  )}
+                </View>
+              </View>
             </View>
 
             {task.taskFileUrl ? (
               <Button
-                title="Open homework PDF"
+                title="Open task file"
                 variant="outline"
                 onPress={() =>
-                  openExternalFile(task.taskFileUrl)
+                  openExternalFile(
+                    task.taskFileUrl,
+                    "task-file",
+                  )
                 }
               />
             ) : null}
           </View>
         </Card>
 
-        <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="documents-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
+        <View
+          style={styles.statsGrid}
+        >
+          <SummaryCard
+            icon="documents-outline"
+            value={summary.total}
+            label="Submissions"
+          />
 
-            <Text style={styles.statValue}>
-              {summary.total}
-            </Text>
+          <SummaryCard
+            icon="checkmark-done-outline"
+            value={summary.graded}
+            label="Graded"
+          />
 
-            <Text style={styles.statLabel}>
-              Total submissions
-            </Text>
-          </Card>
+          <SummaryCard
+            icon="person-outline"
+            value={summary.delegated}
+            label="Delegated"
+            tone="warning"
+          />
 
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="checkmark-done-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
+          <SummaryCard
+            icon="time-outline"
+            value={summary.pending}
+            label="Awaiting action"
+            tone="danger"
+          />
 
-            <Text style={styles.statValue}>
-              {summary.graded}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Graded
-            </Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="person-outline"
-                size={22}
-                color={colors.warning}
-              />
-            </View>
-
-            <Text style={styles.statValue}>
-              {summary.delegated}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Delegated
-            </Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="time-outline"
-                size={22}
-                color={colors.danger}
-              />
-            </View>
-
-            <Text style={styles.statValue}>
-              {summary.pending}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Awaiting action
-            </Text>
-          </Card>
+          <SummaryCard
+            icon="alert-circle-outline"
+            value={
+              summary.lateModified
+            }
+            label="Modified late"
+            tone="warning"
+          />
         </View>
 
         <View
           style={[
             styles.contentLayout,
-            isDesktop && styles.contentLayoutDesktop,
+
+            isDesktop &&
+              styles.contentLayoutDesktop,
           ]}
         >
-          <View style={styles.mainColumn}>
-            <View style={styles.sectionHeader}>
+          <View
+            style={styles.mainColumn}
+          >
+            <View
+              style={
+                styles.sectionHeader
+              }
+            >
               <View>
-                <Text style={styles.sectionTitle}>
-                  Student submissions
+                <Text
+                  style={
+                    styles.sectionTitle
+                  }
+                >
+                  {isRegularAssistant
+                    ? "My delegated submissions"
+                    : "Student submissions"}
                 </Text>
 
-                <Text style={styles.sectionSubtitle}>
-                  Review, grade, or delegate submitted work.
+                <Text
+                  style={
+                    styles.sectionSubtitle
+                  }
+                >
+                  Review files, provide
+                  feedback, return corrections,
+                  and save grades.
                 </Text>
               </View>
 
-              <Text style={styles.sectionCount}>
+              <Text
+                style={
+                  styles.sectionCount
+                }
+              >
                 {submissions.length}{" "}
                 {submissions.length === 1
                   ? "submission"
@@ -871,27 +2221,52 @@ export default function TeacherTaskDetail() {
             </View>
 
             {!submissions.length ? (
-              <Card style={styles.emptyCard}>
-                <View style={styles.emptyIcon}>
+              <Card
+                style={styles.emptyCard}
+              >
+                <View
+                  style={
+                    styles.emptyIcon
+                  }
+                >
                   <Ionicons
                     name="document-outline"
                     size={35}
-                    color={colors.primary}
+                    color={
+                      colors.primary
+                    }
                   />
                 </View>
 
-                <Text style={styles.emptyTitle}>
-                  No submissions yet
+                <Text
+                  style={
+                    styles.emptyTitle
+                  }
+                >
+                  {isRegularAssistant
+                    ? "No delegated submissions"
+                    : "No submissions yet"}
                 </Text>
 
-                <Text style={styles.emptyDescription}>
-                  Student work will appear here after the
-                  first submission is received.
+                <Text
+                  style={
+                    styles.emptyDescription
+                  }
+                >
+                  {isRegularAssistant
+                    ? "Delegated papers will appear here."
+                    : "Student work will appear here after submission."}
                 </Text>
               </Card>
             ) : (
-              <View style={styles.submissionList}>
-                {submissions.map(renderSubmissionCard)}
+              <View
+                style={
+                  styles.submissionList
+                }
+              >
+                {submissions.map(
+                  renderSubmissionCard,
+                )}
               </View>
             )}
           </View>
@@ -899,73 +2274,106 @@ export default function TeacherTaskDetail() {
           <View
             style={[
               styles.sideColumn,
-              isDesktop && styles.sideColumnDesktop,
+
+              isDesktop &&
+                styles.sideColumnDesktop,
             ]}
           >
-            <Card style={styles.progressCard}>
-              <View style={styles.sideCardIcon}>
+            <Card
+              style={
+                styles.progressCard
+              }
+            >
+              <View
+                style={
+                  styles.sideCardIcon
+                }
+              >
                 <Ionicons
                   name="analytics-outline"
                   size={22}
-                  color={colors.primary}
+                  color={
+                    colors.primary
+                  }
                 />
               </View>
 
-              <Text style={styles.sideCardTitle}>
+              <Text
+                style={
+                  styles.sideCardTitle
+                }
+              >
                 Grading progress
               </Text>
 
-              <Text style={styles.progressValue}>
-                {summary.total
-                  ? Math.round(
-                      (summary.graded / summary.total) * 100,
-                    )
-                  : 0}
-                %
+              <Text
+                style={
+                  styles.progressValue
+                }
+              >
+                {progressPercentage}%
               </Text>
 
-              <View style={styles.progressTrack}>
+              <View
+                style={
+                  styles.progressTrack
+                }
+              >
                 <View
                   style={[
                     styles.progressFill,
+
                     {
-                      width: `${
-                        summary.total
-                          ? Math.round(
-                              (summary.graded /
-                                summary.total) *
-                                100,
-                            )
-                          : 0
-                      }%`,
+                      width:
+                        `${progressPercentage}%`,
                     },
                   ]}
                 />
               </View>
 
-              <Text style={styles.progressText}>
-                {summary.graded} of {summary.total} submissions
-                graded
+              <Text
+                style={
+                  styles.progressText
+                }
+              >
+                {summary.graded} of{" "}
+                {summary.total} graded
               </Text>
             </Card>
 
-            <Card style={styles.infoCard}>
-              <View style={styles.sideCardIcon}>
+            <Card
+              style={styles.infoCard}
+            >
+              <View
+                style={
+                  styles.sideCardIcon
+                }
+              >
                 <Ionicons
                   name="information-circle-outline"
                   size={22}
-                  color={colors.primary}
+                  color={
+                    colors.primary
+                  }
                 />
               </View>
 
-              <Text style={styles.sideCardTitle}>
+              <Text
+                style={
+                  styles.sideCardTitle
+                }
+              >
                 Grading workflow
               </Text>
 
-              <Text style={styles.infoText}>
-                Grade submissions directly or delegate them
-                to an assistant. Delegated submissions remain
-                visible here until grading is complete.
+              <Text
+                style={
+                  styles.infoText
+                }
+              >
+                Enter a grade, write feedback,
+                and optionally upload corrected
+                PDFs, images, or documents.
               </Text>
             </Card>
           </View>
@@ -973,165 +2381,273 @@ export default function TeacherTaskDetail() {
       </View>
 
       <Modal
-        visible={delegateModalVisible}
+        visible={
+          delegateModalVisible
+        }
         transparent
         animationType="fade"
-        onRequestClose={closeDelegateModal}
+        onRequestClose={
+          closeDelegateModal
+        }
       >
-        <View style={styles.modalBackdrop}>
+        <View
+          style={
+            styles.modalBackdrop
+          }
+        >
           <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={closeDelegateModal}
+            style={
+              StyleSheet.absoluteFill
+            }
+            onPress={
+              closeDelegateModal
+            }
           />
 
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalIcon}>
+          <View
+            style={styles.modalCard}
+          >
+            <View
+              style={
+                styles.modalHeader
+              }
+            >
+              <View
+                style={
+                  styles.modalIcon
+                }
+              >
                 <Ionicons
                   name="person-add-outline"
                   size={24}
-                  color={colors.primary}
+                  color={
+                    colors.primary
+                  }
                 />
               </View>
 
-              <View style={styles.modalHeadingCopy}>
-                <Text style={styles.modalTitle}>
+              <View
+                style={
+                  styles.modalHeadingCopy
+                }
+              >
+                <Text
+                  style={
+                    styles.modalTitle
+                  }
+                >
                   Delegate submission
                 </Text>
 
-                <Text style={styles.mutedText}>
+                <Text
+                  style={
+                    styles.mutedText
+                  }
+                >
                   Choose an assistant to grade{" "}
-                  {selectedSubmission?.student?.name ||
-                    "this student's"}{" "}
-                  submission.
+                  {selectedSubmission
+                    ?.student?.name ||
+                    "this submission"}.
                 </Text>
               </View>
 
               <Pressable
-                accessibilityLabel="Close"
+                onPress={
+                  closeDelegateModal
+                }
                 disabled={Boolean(
                   delegatingSubmissionId,
                 )}
-                onPress={closeDelegateModal}
-                style={({ pressed }) => [
-                  styles.modalClose,
-                  delegatingSubmissionId &&
-                    styles.disabled,
-                  pressed &&
-                    !delegatingSubmissionId &&
-                    styles.pressed,
-                ]}
+                style={
+                  styles.modalClose
+                }
               >
                 <Ionicons
                   name="close"
                   size={22}
-                  color={colors.textPrimary}
+                  color={
+                    colors.textPrimary
+                  }
                 />
               </Pressable>
             </View>
 
-            <View style={styles.searchBox}>
+            {delegateError ? (
+              <MessageBanner
+                type="error"
+                message={
+                  delegateError
+                }
+                onDismiss={() =>
+                  setDelegateError("")
+                }
+              />
+            ) : null}
+
+            <View
+              style={styles.searchBox}
+            >
               <Ionicons
                 name="search-outline"
                 size={18}
-                color={colors.textMuted}
+                color={
+                  colors.textMuted
+                }
               />
 
               <TextInput
-                value={assistantSearch}
-                onChangeText={setAssistantSearch}
+                value={
+                  assistantSearch
+                }
+                onChangeText={
+                  setAssistantSearch
+                }
                 placeholder="Search assistants"
-                placeholderTextColor={colors.textMuted}
-                style={styles.searchInput}
+                placeholderTextColor={
+                  colors.textMuted
+                }
+                style={
+                  styles.searchInput
+                }
               />
             </View>
 
-            {loadingAssistants ? (
-              <View style={styles.modalState}>
-                <ActivityIndicator
-                  color={colors.primary}
-                />
+            <ScrollView
+              style={
+                styles.assistantList
+              }
+              contentContainerStyle={
+                styles.assistantListContent
+              }
+              nestedScrollEnabled
+            >
+              {!filteredAssistants
+                .length ? (
+                <View
+                  style={
+                    styles.modalState
+                  }
+                >
+                  <Ionicons
+                    name="people-outline"
+                    size={38}
+                    color={
+                      colors.primary
+                    }
+                  />
 
-                <Text style={styles.loadingText}>
-                  Loading assistants…
-                </Text>
-              </View>
-            ) : !filteredAssistants.length ? (
-              <View style={styles.modalState}>
-                <Ionicons
-                  name="people-outline"
-                  size={38}
-                  color={colors.primary}
-                />
-
-                <Text style={styles.modalEmptyTitle}>
-                  No assistants found
-                </Text>
-
-                <Text style={styles.mutedText}>
-                  No assistants match this search.
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                style={styles.assistantList}
-                contentContainerStyle={
-                  styles.assistantListContent
-                }
-                nestedScrollEnabled
-              >
-                {filteredAssistants.map((assistant) => (
-                  <View
-                    key={assistant.id}
-                    style={styles.assistantRow}
+                  <Text
+                    style={
+                      styles.modalEmptyTitle
+                    }
                   >
-                    <View style={styles.assistantAvatar}>
-                      <Text
-                        style={styles.assistantAvatarText}
+                    No eligible assistants
+                  </Text>
+                </View>
+              ) : (
+                filteredAssistants.map(
+                  (assistant) => {
+                    const groups =
+                      getAssistantGroupNames(
+                        assistant.id,
+                      );
+
+                    return (
+                      <View
+                        key={assistant.id}
+                        style={
+                          styles.assistantRow
+                        }
                       >
-                        {getInitial(assistant.name)}
-                      </Text>
-                    </View>
+                        <View
+                          style={
+                            styles.assistantAvatar
+                          }
+                        >
+                          <Text
+                            style={
+                              styles.assistantAvatarText
+                            }
+                          >
+                            {getInitial(
+                              assistant.name,
+                            )}
+                          </Text>
+                        </View>
 
-                    <View style={styles.assistantInfo}>
-                      <Text
-                        numberOfLines={1}
-                        style={styles.assistantName}
-                      >
-                        {assistant.name}
-                      </Text>
+                        <View
+                          style={
+                            styles.assistantInfo
+                          }
+                        >
+                          <Text
+                            numberOfLines={1}
+                            style={
+                              styles.assistantName
+                            }
+                          >
+                            {assistant.name}
+                          </Text>
 
-                      <Text style={styles.assistantRole}>
-                        Assistant
-                      </Text>
-                    </View>
+                          <Text
+                            style={
+                              styles.assistantRole
+                            }
+                          >
+                            {assistant.isHeadAssistant
+                              ? "Head Assistant"
+                              : "Assistant"}
+                          </Text>
 
-                    <Button
-                      title="Delegate"
-                      variant="secondary"
-                      onPress={() =>
-                        delegate(assistant.id)
-                      }
-                      loading={Boolean(
-                        delegatingSubmissionId,
-                      )}
-                      disabled={Boolean(
-                        delegatingSubmissionId,
-                      )}
-                    />
-                  </View>
-                ))}
-              </ScrollView>
-            )}
+                          <Text
+                            numberOfLines={2}
+                            style={
+                              styles.assistantGroups
+                            }
+                          >
+                            {groups.join(
+                              ", ",
+                            ) ||
+                              "Assigned group"}
+                          </Text>
+                        </View>
 
-            <View style={styles.modalActions}>
+                        <Button
+                          title="Delegate"
+                          variant="secondary"
+                          loading={Boolean(
+                            delegatingSubmissionId,
+                          )}
+                          disabled={Boolean(
+                            delegatingSubmissionId,
+                          )}
+                          onPress={() =>
+                            delegate(
+                              assistant.id,
+                            )
+                          }
+                        />
+                      </View>
+                    );
+                  },
+                )
+              )}
+            </ScrollView>
+
+            <View
+              style={
+                styles.modalActions
+              }
+            >
               <Button
                 title="Cancel"
                 variant="outline"
-                onPress={closeDelegateModal}
                 disabled={Boolean(
                   delegatingSubmissionId,
                 )}
+                onPress={
+                  closeDelegateModal
+                }
               />
             </View>
           </View>
@@ -1141,771 +2657,110 @@ export default function TeacherTaskDetail() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: {
-    width: "100%",
-    maxWidth: 1320,
-    alignSelf: "center",
-    paddingBottom: spacing.xl,
-  },
-
-  fullPageLoading: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-
-  backButton: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-
-  backButtonText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.primary,
-  },
-
-  alert: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-  },
-
-  errorAlert: {
-    borderColor: `${colors.danger}55`,
-    backgroundColor: `${colors.danger}12`,
-  },
-
-  successAlert: {
-    borderColor: colors.secondary,
-    backgroundColor: `${colors.secondary}20`,
-  },
-
-  errorText: {
-    flex: 1,
-    ...typography.body,
-    color: colors.danger,
-  },
-
-  successText: {
-    flex: 1,
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-
-  alertClose: {
-    padding: 4,
-  },
-
-  heroCard: {
-    marginBottom: spacing.lg,
-  },
-
-  heroContent: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.lg,
-  },
-
-  heroContentSmall: {
-    flexDirection: "column",
-  },
-
-  heroIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  heroCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  eyebrow: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1.1,
-    color: colors.primary,
-    marginBottom: spacing.xs,
-  },
-
-  pageTitle: {
-    ...typography.h1,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-
-  pageDescription: {
-    ...typography.body,
-    color: colors.textMuted,
-    lineHeight: 23,
-    marginBottom: spacing.md,
-  },
-
-  heroBadges: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-
-  statCard: {
-    flex: 1,
-    minWidth: 180,
-  },
-
-  statIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.md,
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  statValue: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  statLabel: {
-    marginTop: 3,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  contentLayout: {
-    gap: spacing.lg,
-  },
-
-  contentLayoutDesktop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-
-  mainColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  sideColumn: {
-    width: "100%",
-    gap: spacing.md,
-  },
-
-  sideColumnDesktop: {
-    width: 320,
-  },
-
-  sectionHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  sectionSubtitle: {
-    marginTop: 4,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  sectionCount: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.primary,
-  },
-
-  submissionList: {
-    gap: spacing.md,
-  },
-
-  submissionCard: {
-    gap: spacing.md,
-  },
-
-  submissionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-
-  submissionHeaderSmall: {
-    alignItems: "flex-start",
-    flexDirection: "column",
-  },
-
-  studentIdentity: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-
-  studentAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primary,
-  },
-
-  studentAvatarText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: colors.white,
-  },
-
-  studentInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  studentName: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  studentMeta: {
-    marginTop: 3,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-
-  submissionDetails: {
-    gap: spacing.sm,
-  },
-
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-
-  detailText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  fileButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-  },
-
-  fileButtonIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.white,
-  },
-
-  fileButtonText: {
-    flex: 1,
-  },
-
-  fileButtonTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-
-  fileButtonSubtitle: {
-    marginTop: 3,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-
-  noFileBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-  },
-
-  noFileText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  gradingPanel: {
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-  },
-
-  gradingHeading: {
-    marginBottom: spacing.sm,
-  },
-
-  gradingTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  gradingSubtitle: {
-    marginTop: 3,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-
-  gradeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-
-  gradeRowSmall: {
-    alignItems: "stretch",
-    flexDirection: "column",
-  },
-
-  gradeInputWrapper: {
-    flex: 1,
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-  },
-
-  gradeInput: {
-    flex: 1,
-    minHeight: 46,
-    paddingHorizontal: spacing.md,
-    color: colors.textPrimary,
-    fontSize: 14,
-  },
-
-  gradeSuffix: {
-    paddingHorizontal: spacing.md,
-    borderLeftWidth: 1,
-    borderLeftColor: colors.border,
-  },
-
-  gradeSuffixText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textMuted,
-  },
-
-  dividerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginVertical: spacing.md,
-  },
-
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-
-  dividerText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: colors.textMuted,
-  },
-
-  delegationPanel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: `${colors.warning}12`,
-  },
-
-  delegationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.white,
-  },
-
-  delegationText: {
-    flex: 1,
-  },
-
-  delegationTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  delegationSubtitle: {
-    marginTop: 3,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-
-  gradedPanel: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: `${colors.secondary}18`,
-  },
-
-  gradedIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.white,
-  },
-
-  gradedText: {
-    flex: 1,
-  },
-
-  gradedTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  gradedSubtitle: {
-    marginTop: 3,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-
-  emptyCard: {
-    minHeight: 280,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
-
-  emptyIcon: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.md,
-    backgroundColor: `${colors.secondary}22`,
-  },
-
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    textAlign: "center",
-    marginBottom: spacing.xs,
-  },
-
-  emptyDescription: {
-    ...typography.body,
-    maxWidth: 430,
-    color: colors.textMuted,
-    lineHeight: 21,
-    textAlign: "center",
-  },
-
-  progressCard: {
-    gap: spacing.sm,
-  },
-
-  sideCardIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  sideCardTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  progressValue: {
-    fontSize: 31,
-    fontWeight: "800",
-    color: colors.primary,
-  },
-
-  progressTrack: {
-    height: 8,
-    overflow: "hidden",
-    borderRadius: 4,
-    backgroundColor: colors.border,
-  },
-
-  progressFill: {
-    height: "100%",
-    borderRadius: 4,
-    backgroundColor: colors.secondary,
-  },
-
-  progressText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-
-  infoCard: {
-    backgroundColor: `${colors.secondary}16`,
-  },
-
-  infoText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 19,
-    marginTop: spacing.sm,
-  },
-
-  notFoundCard: {
-    minHeight: 360,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
-
-  notFoundIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.md,
-    backgroundColor: `${colors.danger}12`,
-  },
-
-  notFoundTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-
-  notFoundText: {
-    ...typography.body,
-    maxWidth: 430,
-    color: colors.textMuted,
-    textAlign: "center",
-    marginBottom: spacing.md,
-  },
-
-  modalBackdrop: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.lg,
-    backgroundColor: "rgba(20,28,30,0.54)",
-  },
-
-  modalCard: {
-    width: "100%",
-    maxWidth: 620,
-    maxHeight: "88%",
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-
-    ...Platform.select({
-      web: {
-        boxShadow:
-          "0 18px 50px rgba(0,0,0,0.18)",
-      },
-
-      default: {
-        elevation: 8,
-      },
-    }),
-  },
-
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-
-  modalIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  modalHeadingCopy: {
-    flex: 1,
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-
-  mutedText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 18,
-  },
-
-  modalClose: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-  },
-
-  searchBox: {
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    marginBottom: spacing.md,
-    backgroundColor: colors.white,
-  },
-
-  searchInput: {
-    flex: 1,
-    minHeight: 46,
-    color: colors.textPrimary,
-    fontSize: 14,
-  },
-
-  modalState: {
-    minHeight: 190,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-
-  modalEmptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  assistantList: {
-    maxHeight: 380,
-  },
-
-  assistantListContent: {
-    paddingBottom: spacing.xs,
-  },
-
-  assistantRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.background,
-  },
-
-  assistantAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primary,
-  },
-
-  assistantAvatarText: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.white,
-  },
-
-  assistantInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  assistantName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-
-  assistantRole: {
-    marginTop: 2,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    marginTop: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-  },
-
-  disabled: {
-    opacity: 0.45,
-  },
-
-  pressed: {
-    opacity: 0.76,
-  },
-});
+function SummaryCard({
+  icon,
+  value,
+  label,
+  tone = "default",
+}) {
+  const color =
+    tone === "danger"
+      ? colors.danger
+      : tone === "warning"
+        ? colors.warning
+        : colors.primary;
+
+  return (
+    <Card style={styles.statCard}>
+      <View
+        style={[
+          styles.statIcon,
+
+          {
+            backgroundColor:
+              `${color}15`,
+          },
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={22}
+          color={color}
+        />
+      </View>
+
+      <Text
+        style={styles.statValue}
+      >
+        {value}
+      </Text>
+
+      <Text
+        style={styles.statLabel}
+      >
+        {label}
+      </Text>
+    </Card>
+  );
+}
+
+function MessageBanner({
+  type,
+  message,
+  onDismiss,
+}) {
+  const isError =
+    type === "error";
+
+  const color = isError
+    ? colors.danger
+    : colors.secondary;
+
+  return (
+    <View
+      accessibilityRole="alert"
+      style={[
+        styles.alert,
+
+        isError
+          ? styles.errorAlert
+          : styles.successAlert,
+      ]}
+    >
+      <Ionicons
+        name={
+          isError
+            ? "alert-circle-outline"
+            : "checkmark-circle-outline"
+        }
+        size={20}
+        color={color}
+      />
+
+      <Text
+        style={[
+          styles.alertText,
+
+          {
+            color: isError
+              ? colors.danger
+              : colors.textPrimary,
+          },
+        ]}
+      >
+        {message}
+      </Text>
+
+      <Pressable
+        onPress={onDismiss}
+        style={styles.alertClose}
+      >
+        <Ionicons
+          name="close"
+          size={18}
+          color={color}
+        />
+      </Pressable>
+    </View>
+  );
+}

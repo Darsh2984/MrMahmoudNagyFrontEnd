@@ -7,14 +7,8 @@ import React, {
 
 import {
   ActivityIndicator,
-  Modal,
-  Platform,
   Pressable,
-  ScrollView,
-  StyleSheet,
   Text,
-  TextInput,
-  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -28,13 +22,9 @@ import { Button } from "../../src/components/ui/Button";
 
 import { useAuth } from "../../src/contexts/AuthContext";
 import api from "../../src/lib/api";
+import { colors } from "../../src/theme";
 
-import {
-  colors,
-  radius,
-  spacing,
-  typography,
-} from "../../src/theme";
+import { styles } from "./quizzes.styles";
 
 function getErrorMessage(error, fallback) {
   return (
@@ -44,1230 +34,282 @@ function getErrorMessage(error, fallback) {
   );
 }
 
-function getQuestionType(question) {
-  return question.type || "QUESTION";
+function parseDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date;
 }
 
-function getQuestionTitle(question, index) {
-  return (
-    question.title ||
-    question.name ||
-    question.questionText ||
-    `${getQuestionType(question)} question ${index + 1}`
+function formatDateTime(value) {
+  const date = parseDate(value);
+
+  if (!date) {
+    return "Not specified";
+  }
+
+  return date.toLocaleString([], {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatRemainingTime(milliseconds) {
+  if (
+    !Number.isFinite(milliseconds) ||
+    milliseconds <= 0
+  ) {
+    return "00:00";
+  }
+
+  const totalSeconds = Math.max(
+    0,
+    Math.floor(milliseconds / 1000),
   );
+
+  const hours = Math.floor(
+    totalSeconds / 3600,
+  );
+
+  const minutes = Math.floor(
+    (totalSeconds % 3600) / 60,
+  );
+
+  const seconds =
+    totalSeconds % 60;
+
+  if (hours > 0) {
+    return [
+      String(hours).padStart(2, "0"),
+      String(minutes).padStart(2, "0"),
+      String(seconds).padStart(2, "0"),
+    ].join(":");
+  }
+
+  return [
+    String(minutes).padStart(2, "0"),
+    String(seconds).padStart(2, "0"),
+  ].join(":");
 }
 
-function TeacherQuizManager() {
-  const { width } = useWindowDimensions();
+function getQuizStateLabel(state) {
+  switch (state) {
+    case "UPCOMING":
+      return "Upcoming";
 
-  const isDesktop = width >= 980;
-  const isSmallScreen = width < 640;
+    case "AVAILABLE":
+      return "Available";
 
-  const [years, setYears] = useState([]);
-  const [yearId, setYearId] = useState(null);
+    case "IN_PROGRESS":
+      return "In progress";
 
-  const [groups, setGroups] = useState([]);
-  const [questions, setQuestions] = useState([]);
-  const [quizzes, setQuizzes] = useState([]);
+    case "COMPLETED":
+      return "Completed";
 
-  const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState("30");
+    case "CLOSED":
+      return "Closed";
 
-  const [selectedGroupIds, setSelectedGroupIds] =
-    useState([]);
+    case "UNAVAILABLE":
+      return "Unavailable";
 
-  const [selectedQuestionIds, setSelectedQuestionIds] =
-    useState([]);
+    default:
+      return "Unavailable";
+  }
+}
 
-  const [questionSearch, setQuestionSearch] = useState("");
-  const [questionTypeFilter, setQuestionTypeFilter] =
-    useState("ALL");
+function getQuizStateTone(state) {
+  switch (state) {
+    case "COMPLETED":
+      return "success";
 
-  const [loading, setLoading] = useState(true);
-  const [loadingGroups, setLoadingGroups] = useState(false);
-  const [creatingQuiz, setCreatingQuiz] = useState(false);
+    case "IN_PROGRESS":
+    case "UPCOMING":
+      return "warning";
 
-  const [createModalVisible, setCreateModalVisible] =
-    useState(false);
+    default:
+      return "neutral";
+  }
+}
 
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-
-  const selectedYear = useMemo(() => {
-    return years.find((year) => year.id === yearId) || null;
-  }, [years, yearId]);
-
-  const questionTypes = useMemo(() => {
-    const types = new Set(
-      questions
-        .map((question) => question.type)
-        .filter(Boolean),
-    );
-
-    return ["ALL", ...Array.from(types)];
-  }, [questions]);
-
-  const filteredQuestions = useMemo(() => {
-    const search = questionSearch.trim().toLowerCase();
-
-    return questions.filter((question, index) => {
-      const matchesType =
-        questionTypeFilter === "ALL" ||
-        question.type === questionTypeFilter;
-
-      const titleText = getQuestionTitle(
-        question,
-        index,
-      ).toLowerCase();
-
-      const matchesSearch =
-        !search ||
-        titleText.includes(search) ||
-        question.type?.toLowerCase().includes(search);
-
-      return matchesType && matchesSearch;
-    });
-  }, [
-    questions,
-    questionSearch,
-    questionTypeFilter,
-  ]);
-
-  const totalAssignedGroups = useMemo(() => {
-    const groupIds = new Set();
-
-    quizzes.forEach((quiz) => {
-      quiz.groups?.forEach((quizGroup) => {
-        const id = quizGroup.group?.id || quizGroup.groupId;
-
-        if (id) {
-          groupIds.add(id);
-        }
-      });
-    });
-
-    return groupIds.size;
-  }, [quizzes]);
-
-  const loadInitialData = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const [
-        yearsResponse,
-        questionsResponse,
-        quizzesResponse,
-      ] = await Promise.all([
-        api.get("/years/mine"),
-        api.get("/questions"),
-        api.get("/quiz/teacher"),
-      ]);
-
-      const loadedYears = Array.isArray(
-        yearsResponse.data,
-      )
-        ? yearsResponse.data
-        : [];
-
-      setYears(loadedYears);
-
-      setQuestions(
-        Array.isArray(questionsResponse.data)
-          ? questionsResponse.data
-          : [],
-      );
-
-      setQuizzes(
-        Array.isArray(quizzesResponse.data)
-          ? quizzesResponse.data
-          : [],
-      );
-
-      setYearId(loadedYears[0]?.id || null);
-    } catch (requestError) {
-      setError(
-        getErrorMessage(
-          requestError,
-          "Couldn't load quiz management data.",
-        ),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const loadGroups = useCallback(async (selectedYearId) => {
-    if (!selectedYearId) {
-      setGroups([]);
-      return;
+function getQuizIcon(quiz) {
+  if (quiz.type === "PAPER") {
+    if (quiz.state === "COMPLETED") {
+      return {
+        name: "checkmark-circle-outline",
+        color: colors.primary,
+      };
     }
 
-    setLoadingGroups(true);
-    setError("");
-
-    try {
-      const response = await api.get(
-        `/groups/year/${selectedYearId}`,
-      );
-
-      setGroups(
-        Array.isArray(response.data) ? response.data : [],
-      );
-
-      setSelectedGroupIds([]);
-    } catch (requestError) {
-      setGroups([]);
-
-      setError(
-        getErrorMessage(
-          requestError,
-          "Couldn't load groups.",
-        ),
-      );
-    } finally {
-      setLoadingGroups(false);
-    }
-  }, []);
-
-  const reloadQuizzes = useCallback(async () => {
-    const response = await api.get("/quiz/teacher");
-
-    setQuizzes(
-      Array.isArray(response.data) ? response.data : [],
-    );
-  }, []);
-
-  useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
-
-  useEffect(() => {
-    if (yearId) {
-      loadGroups(yearId);
-    }
-  }, [yearId, loadGroups]);
-
-  function clearMessages() {
-    setError("");
-    setSuccess("");
-  }
-
-  function resetForm() {
-    setTitle("");
-    setDuration("30");
-    setSelectedGroupIds([]);
-    setSelectedQuestionIds([]);
-    setQuestionSearch("");
-    setQuestionTypeFilter("ALL");
-  }
-
-  function selectYear(selectedYearId) {
-    if (selectedYearId === yearId) return;
-
-    clearMessages();
-    setYearId(selectedYearId);
-  }
-
-  function toggleGroup(groupId) {
-    setSelectedGroupIds((currentIds) => {
-      if (currentIds.includes(groupId)) {
-        return currentIds.filter((id) => id !== groupId);
-      }
-
-      return [...currentIds, groupId];
-    });
-  }
-
-  function toggleQuestion(questionId) {
-    setSelectedQuestionIds((currentIds) => {
-      if (currentIds.includes(questionId)) {
-        return currentIds.filter(
-          (id) => id !== questionId,
-        );
-      }
-
-      return [...currentIds, questionId];
-    });
-  }
-
-  function selectAllGroups() {
-    setSelectedGroupIds(
-      groups.map((group) => group.id),
-    );
-  }
-
-  function selectAllFilteredQuestions() {
-    setSelectedQuestionIds((currentIds) => {
-      const combined = new Set(currentIds);
-
-      filteredQuestions.forEach((question) => {
-        combined.add(question.id);
-      });
-
-      return Array.from(combined);
-    });
-  }
-
-  function clearSelectedQuestions() {
-    setSelectedQuestionIds([]);
-  }
-
-  function openCreateModal() {
-    clearMessages();
-
-    if (!yearId) {
-      setError(
-        "Select an academic year before creating a quiz.",
-      );
-      return;
+    if (quiz.state === "IN_PROGRESS") {
+      return {
+        name: "cloud-upload-outline",
+        color: colors.warning,
+      };
     }
 
-    if (!groups.length) {
-      setError(
-        "The selected academic year has no groups.",
-      );
-      return;
-    }
-
-    resetForm();
-    setCreateModalVisible(true);
-  }
-
-  function closeCreateModal() {
-    if (creatingQuiz) return;
-
-    setCreateModalVisible(false);
-    resetForm();
-  }
-
-  function validateQuizForm() {
-    const numericDuration = Number(duration);
-
-    if (!title.trim()) {
-      return "Quiz title is required.";
+    if (quiz.state === "UPCOMING") {
+      return {
+        name: "calendar-outline",
+        color: colors.warning,
+      };
     }
 
     if (
-      !Number.isFinite(numericDuration) ||
-      numericDuration <= 0
+      quiz.state === "CLOSED" ||
+      quiz.state === "UNAVAILABLE"
     ) {
-      return "Duration must be greater than zero.";
+      return {
+        name: "lock-closed-outline",
+        color: colors.textMuted,
+      };
     }
 
-    if (!selectedGroupIds.length) {
-      return "Select at least one group.";
-    }
-
-    if (!selectedQuestionIds.length) {
-      return "Select at least one question.";
-    }
-
-    return "";
+    return {
+      name: "document-text-outline",
+      color: colors.primary,
+    };
   }
 
-  async function handleCreateQuiz() {
-    const validationError = validateQuizForm();
+  switch (quiz.state) {
+    case "COMPLETED":
+      return {
+        name: "checkmark-circle-outline",
+        color: colors.primary,
+      };
 
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
+    case "IN_PROGRESS":
+      return {
+        name: "time-outline",
+        color: colors.warning,
+      };
 
-    setCreatingQuiz(true);
-    setError("");
+    case "AVAILABLE":
+      return {
+        name: "play-circle-outline",
+        color: colors.primary,
+      };
 
-    try {
-      await api.post("/quiz", {
-        title: title.trim(),
-        duration: Number(duration),
-        groupIds: selectedGroupIds,
-        questionIds: selectedQuestionIds,
-      });
+    case "UPCOMING":
+      return {
+        name: "calendar-outline",
+        color: colors.warning,
+      };
 
-      setCreateModalVisible(false);
-      resetForm();
+    case "CLOSED":
+      return {
+        name: "lock-closed-outline",
+        color: colors.textMuted,
+      };
 
-      setSuccess("Quiz created successfully.");
-
-      await reloadQuizzes();
-    } catch (requestError) {
-      setError(
-        getErrorMessage(
-          requestError,
-          "Couldn't create the quiz.",
-        ),
-      );
-    } finally {
-      setCreatingQuiz(false);
-    }
+    default:
+      return {
+        name: "alert-circle-outline",
+        color: colors.textMuted,
+      };
   }
-
-  function renderYearSelector() {
-    if (!years.length) {
-      return (
-        <Card style={styles.emptySelectorCard}>
-          <View style={styles.emptySelectorIcon}>
-            <Ionicons
-              name="school-outline"
-              size={25}
-              color={colors.primary}
-            />
-          </View>
-
-          <View style={styles.emptySelectorCopy}>
-            <Text style={styles.emptySelectorTitle}>
-              No academic years
-            </Text>
-
-            <Text style={styles.mutedText}>
-              Create an academic year before assigning quizzes.
-            </Text>
-          </View>
-        </Card>
-      );
-    }
-
-    return (
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.selectorList}
-      >
-        {years.map((year) => {
-          const active = year.id === yearId;
-
-          return (
-            <Pressable
-              key={year.id}
-              onPress={() => selectYear(year.id)}
-              style={({ pressed }) => [
-                styles.yearChip,
-                active && styles.yearChipActive,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Ionicons
-                name={
-                  active ? "school" : "school-outline"
-                }
-                size={16}
-                color={
-                  active ? colors.white : colors.primary
-                }
-              />
-
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.yearChipText,
-                  active && styles.yearChipTextActive,
-                ]}
-              >
-                {year.name}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    );
-  }
-
-  function renderQuizCard(quiz) {
-    const assignedGroups = Array.isArray(quiz.groups)
-      ? quiz.groups
-      : [];
-
-    const assignedQuestions =
-      quiz.questions?.length ??
-      quiz._count?.questions ??
-      0;
-
-    return (
-      <Card key={quiz.id} style={styles.quizCard}>
-        <View style={styles.quizCardHeader}>
-          <View style={styles.quizIcon}>
-            <Ionicons
-              name="help-circle-outline"
-              size={24}
-              color={colors.primary}
-            />
-          </View>
-
-          <View style={styles.quizCardCopy}>
-            <Text
-              numberOfLines={2}
-              style={styles.quizTitle}
-            >
-              {quiz.title}
-            </Text>
-
-            <View style={styles.quizMetaRow}>
-              <Ionicons
-                name="time-outline"
-                size={14}
-                color={colors.textMuted}
-              />
-
-              <Text style={styles.quizMeta}>
-                {quiz.duration || 30} minutes
-              </Text>
-
-              {assignedQuestions ? (
-                <>
-                  <Text style={styles.quizMetaDot}>·</Text>
-
-                  <Text style={styles.quizMeta}>
-                    {assignedQuestions} questions
-                  </Text>
-                </>
-              ) : null}
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.quizGroupsSection}>
-          <Text style={styles.quizGroupsLabel}>
-            Assigned groups
-          </Text>
-
-          <View style={styles.quizGroupBadges}>
-            {assignedGroups.length ? (
-              assignedGroups.map((quizGroup) => {
-                const group =
-                  quizGroup.group || quizGroup;
-
-                return (
-                  <Badge
-                    key={
-                      quizGroup.id ||
-                      group.id ||
-                      group.name
-                    }
-                    label={group.name || "Group"}
-                    tone="neutral"
-                  />
-                );
-              })
-            ) : (
-              <Text style={styles.noGroupText}>
-                No groups listed
-              </Text>
-            )}
-          </View>
-        </View>
-      </Card>
-    );
-  }
-
-  if (loading) {
-    return (
-      <Screen
-        scroll={false}
-        style={styles.fullPageLoading}
-      >
-        <ActivityIndicator
-          color={colors.primary}
-          size="large"
-        />
-
-        <Text style={styles.loadingText}>
-          Loading quiz management…
-        </Text>
-      </Screen>
-    );
-  }
-
-  return (
-    <Screen>
-      <View style={styles.page}>
-        <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <View style={styles.eyebrowRow}>
-              <View style={styles.eyebrowIcon}>
-                <Ionicons
-                  name="help-circle-outline"
-                  size={16}
-                  color={colors.primary}
-                />
-              </View>
-
-              <Text style={styles.eyebrow}>
-                QUIZ MANAGEMENT
-              </Text>
-            </View>
-
-            <Text style={styles.pageTitle}>
-              Question-bank quizzes
-            </Text>
-
-            <Text style={styles.pageSubtitle}>
-              Build quizzes from the question bank, assign
-              them to groups, and manage student assessments.
-            </Text>
-          </View>
-
-          <Button
-            title="Create quiz"
-            variant="warning"
-            onPress={openCreateModal}
-            disabled={!yearId || !groups.length}
-          />
-        </View>
-
-        {error ? (
-          <View style={[styles.alert, styles.errorAlert]}>
-            <Ionicons
-              name="alert-circle-outline"
-              size={20}
-              color={colors.danger}
-            />
-
-            <Text style={styles.errorText}>{error}</Text>
-
-            <Pressable
-              accessibilityLabel="Dismiss error"
-              onPress={() => setError("")}
-              style={styles.alertClose}
-            >
-              <Ionicons
-                name="close"
-                size={18}
-                color={colors.danger}
-              />
-            </Pressable>
-          </View>
-        ) : null}
-
-        {success ? (
-          <View
-            style={[styles.alert, styles.successAlert]}
-          >
-            <Ionicons
-              name="checkmark-circle-outline"
-              size={20}
-              color={colors.primary}
-            />
-
-            <Text style={styles.successText}>
-              {success}
-            </Text>
-
-            <Pressable
-              accessibilityLabel="Dismiss success message"
-              onPress={() => setSuccess("")}
-              style={styles.alertClose}
-            >
-              <Ionicons
-                name="close"
-                size={18}
-                color={colors.primary}
-              />
-            </Pressable>
-          </View>
-        ) : null}
-
-        <View style={styles.statsGrid}>
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="school-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
-
-            <Text style={styles.statValue}>
-              {years.length}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Academic years
-            </Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="help-circle-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
-
-            <Text style={styles.statValue}>
-              {questions.length}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Bank questions
-            </Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="document-text-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
-
-            <Text style={styles.statValue}>
-              {quizzes.length}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Existing quizzes
-            </Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="people-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
-
-            <Text style={styles.statValue}>
-              {totalAssignedGroups}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Assigned groups
-            </Text>
-          </Card>
-        </View>
-
-        <Card style={styles.yearCard}>
-          <View style={styles.yearCardHeader}>
-            <View>
-              <Text style={styles.sectionLabel}>
-                ACADEMIC YEAR
-              </Text>
-
-              <Text style={styles.yearTitle}>
-                {selectedYear?.name || "Select a year"}
-              </Text>
-            </View>
-
-            <Ionicons
-              name="calendar-outline"
-              size={22}
-              color={colors.primary}
-            />
-          </View>
-
-          {renderYearSelector()}
-        </Card>
-
-        <View
-          style={[
-            styles.contentLayout,
-            isDesktop && styles.contentLayoutDesktop,
-          ]}
-        >
-          <View style={styles.quizColumn}>
-            <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>
-                  Existing quizzes
-                </Text>
-
-                <Text style={styles.sectionSubtitle}>
-                  {quizzes.length}{" "}
-                  {quizzes.length === 1
-                    ? "quiz"
-                    : "quizzes"}
-                </Text>
-              </View>
-            </View>
-
-            {!quizzes.length ? (
-              <Card style={styles.emptyCard}>
-                <View style={styles.emptyIcon}>
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={35}
-                    color={colors.primary}
-                  />
-                </View>
-
-                <Text style={styles.emptyTitle}>
-                  No quizzes yet
-                </Text>
-
-                <Text style={styles.emptyDescription}>
-                  Create the first quiz using questions from
-                  the question bank.
-                </Text>
-
-                <Button
-                  title="Create quiz"
-                  variant="warning"
-                  onPress={openCreateModal}
-                  disabled={!groups.length}
-                />
-              </Card>
-            ) : (
-              <View style={styles.quizList}>
-                {quizzes.map(renderQuizCard)}
-              </View>
-            )}
-          </View>
-
-          <View
-            style={[
-              styles.sideColumn,
-              isDesktop && styles.sideColumnDesktop,
-            ]}
-          >
-            <Card style={styles.quickCreateCard}>
-              <View style={styles.sideCardHeader}>
-                <View style={styles.sideCardIcon}>
-                  <Ionicons
-                    name="add-circle-outline"
-                    size={22}
-                    color={colors.primary}
-                  />
-                </View>
-
-                <View style={styles.sideCardCopy}>
-                  <Text style={styles.sideCardTitle}>
-                    Build a quiz
-                  </Text>
-
-                  <Text style={styles.mutedText}>
-                    Choose groups and select questions from
-                    the protected question bank.
-                  </Text>
-                </View>
-              </View>
-
-              <Button
-                title="Create quiz"
-                variant="warning"
-                onPress={openCreateModal}
-                disabled={!groups.length}
-              />
-            </Card>
-
-            <Card style={styles.helpCard}>
-              <View style={styles.sideCardIcon}>
-                <Ionicons
-                  name="information-circle-outline"
-                  size={22}
-                  color={colors.primary}
-                />
-              </View>
-
-              <Text style={styles.sideCardTitle}>
-                Quiz workflow
-              </Text>
-
-              <Text style={styles.helpText}>
-                MCQ responses can be graded automatically.
-                Written answers remain available for manual
-                grading after students submit their work.
-              </Text>
-            </Card>
-          </View>
-        </View>
-      </View>
-
-      <Modal
-        visible={createModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={closeCreateModal}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={closeCreateModal}
-          />
-
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalIcon}>
-                <Ionicons
-                  name="help-circle-outline"
-                  size={24}
-                  color={colors.primary}
-                />
-              </View>
-
-              <View style={styles.modalHeadingCopy}>
-                <Text style={styles.modalTitle}>
-                  Create quiz
-                </Text>
-
-                <Text style={styles.mutedText}>
-                  Assign groups and choose questions from the
-                  question bank.
-                </Text>
-              </View>
-
-              <Pressable
-                accessibilityLabel="Close"
-                disabled={creatingQuiz}
-                onPress={closeCreateModal}
-                style={({ pressed }) => [
-                  styles.modalClose,
-                  creatingQuiz && styles.disabled,
-                  pressed &&
-                    !creatingQuiz &&
-                    styles.pressed,
-                ]}
-              >
-                <Ionicons
-                  name="close"
-                  size={22}
-                  color={colors.textPrimary}
-                />
-              </Pressable>
-            </View>
-
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.formContent}
-            >
-              <Text style={styles.inputLabel}>
-                Quiz title
-              </Text>
-
-              <TextInput
-                value={title}
-                onChangeText={setTitle}
-                placeholder="Enter quiz title"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-              />
-
-              <Text style={styles.inputLabel}>
-                Duration in minutes
-              </Text>
-
-              <TextInput
-                value={duration}
-                onChangeText={setDuration}
-                placeholder="30"
-                keyboardType="numeric"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
-              />
-
-              <View style={styles.formSectionHeader}>
-                <View>
-                  <Text style={styles.inputLabel}>
-                    Groups
-                  </Text>
-
-                  <Text style={styles.fieldHint}>
-                    Select at least one target group.
-                  </Text>
-                </View>
-
-                {groups.length ? (
-                  <View style={styles.inlineActions}>
-                    <Pressable onPress={selectAllGroups}>
-                      <Text style={styles.inlineActionText}>
-                        Select all
-                      </Text>
-                    </Pressable>
-
-                    <Pressable
-                      onPress={() =>
-                        setSelectedGroupIds([])
-                      }
-                    >
-                      <Text style={styles.inlineActionText}>
-                        Clear
-                      </Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-              </View>
-
-              {loadingGroups ? (
-                <View style={styles.inlineLoading}>
-                  <ActivityIndicator
-                    color={colors.primary}
-                  />
-
-                  <Text style={styles.loadingText}>
-                    Loading groups…
-                  </Text>
-                </View>
-              ) : !groups.length ? (
-                <View style={styles.noGroupsBox}>
-                  <Ionicons
-                    name="people-outline"
-                    size={26}
-                    color={colors.textMuted}
-                  />
-
-                  <Text style={styles.noGroupsText}>
-                    No groups exist in this academic year.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.groupGrid}>
-                  {groups.map((group) => {
-                    const selected =
-                      selectedGroupIds.includes(group.id);
-
-                    return (
-                      <Pressable
-                        key={group.id}
-                        onPress={() =>
-                          toggleGroup(group.id)
-                        }
-                        style={({ pressed }) => [
-                          styles.groupChip,
-                          selected &&
-                            styles.groupChipSelected,
-                          pressed && styles.pressed,
-                        ]}
-                      >
-                        <Ionicons
-                          name={
-                            selected
-                              ? "checkmark-circle"
-                              : "ellipse-outline"
-                          }
-                          size={18}
-                          color={
-                            selected
-                              ? colors.white
-                              : colors.primary
-                          }
-                        />
-
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.groupChipText,
-                            selected &&
-                              styles.groupChipTextSelected,
-                          ]}
-                        >
-                          {group.name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-
-              <View style={styles.formSectionHeader}>
-                <View>
-                  <Text style={styles.inputLabel}>
-                    Questions
-                  </Text>
-
-                  <Text style={styles.fieldHint}>
-                    {selectedQuestionIds.length} selected
-                  </Text>
-                </View>
-
-                <View style={styles.inlineActions}>
-                  <Pressable
-                    onPress={selectAllFilteredQuestions}
-                  >
-                    <Text style={styles.inlineActionText}>
-                      Select visible
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={clearSelectedQuestions}
-                  >
-                    <Text style={styles.inlineActionText}>
-                      Clear
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-
-              <View style={styles.searchBox}>
-                <Ionicons
-                  name="search-outline"
-                  size={18}
-                  color={colors.textMuted}
-                />
-
-                <TextInput
-                  value={questionSearch}
-                  onChangeText={setQuestionSearch}
-                  placeholder="Search questions"
-                  placeholderTextColor={colors.textMuted}
-                  style={styles.searchInput}
-                />
-              </View>
-
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={
-                  styles.questionTypeList
-                }
-              >
-                {questionTypes.map((type) => {
-                  const active =
-                    questionTypeFilter === type;
-
-                  return (
-                    <Pressable
-                      key={type}
-                      onPress={() =>
-                        setQuestionTypeFilter(type)
-                      }
-                      style={({ pressed }) => [
-                        styles.typeChip,
-                        active && styles.typeChipActive,
-                        pressed && styles.pressed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.typeChipText,
-                          active &&
-                            styles.typeChipTextActive,
-                        ]}
-                      >
-                        {type === "ALL" ? "All" : type}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-
-              {!filteredQuestions.length ? (
-                <View style={styles.noQuestionsBox}>
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={30}
-                    color={colors.primary}
-                  />
-
-                  <Text style={styles.noQuestionsTitle}>
-                    No questions found
-                  </Text>
-
-                  <Text style={styles.mutedText}>
-                    Adjust the search or question-type filter.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.questionList}>
-                  {filteredQuestions.map(
-                    (question, index) => {
-                      const selected =
-                        selectedQuestionIds.includes(
-                          question.id,
-                        );
-
-                      return (
-                        <Pressable
-                          key={question.id}
-                          onPress={() =>
-                            toggleQuestion(question.id)
-                          }
-                          style={({ pressed }) => [
-                            styles.questionRow,
-                            selected &&
-                              styles.questionRowSelected,
-                            pressed && styles.pressed,
-                          ]}
-                        >
-                          <View
-                            style={[
-                              styles.questionCheck,
-                              selected &&
-                                styles.questionCheckSelected,
-                            ]}
-                          >
-                            <Ionicons
-                              name={
-                                selected
-                                  ? "checkmark"
-                                  : "ellipse-outline"
-                              }
-                              size={17}
-                              color={
-                                selected
-                                  ? colors.white
-                                  : colors.primary
-                              }
-                            />
-                          </View>
-
-                          <View style={styles.questionCopy}>
-                            <Text
-                              numberOfLines={2}
-                              style={styles.questionTitle}
-                            >
-                              {getQuestionTitle(
-                                question,
-                                index,
-                              )}
-                            </Text>
-
-                            <Text
-                              style={styles.questionMeta}
-                            >
-                              {getQuestionType(question)}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      );
-                    },
-                  )}
-                </View>
-              )}
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <Button
-                title="Cancel"
-                variant="outline"
-                onPress={closeCreateModal}
-                disabled={creatingQuiz}
-              />
-
-              <Button
-                title="Create quiz"
-                variant="warning"
-                onPress={handleCreateQuiz}
-                loading={creatingQuiz}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </Screen>
-  );
 }
 
-function StudentQuizList() {
-  const router = useRouter();
+function getQuizActionLabel(quiz) {
+  if (quiz.state === "COMPLETED") {
+    return quiz.type === "PAPER"
+      ? "View submission"
+      : "View result";
+  }
 
-  const [quizzes, setQuizzes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  if (quiz.type === "PAPER") {
+    if (quiz.state === "IN_PROGRESS") {
+      return "Continue Paper quiz";
+    }
+
+    if (quiz.state === "AVAILABLE") {
+      return "Open Paper quiz";
+    }
+
+    if (quiz.state === "UPCOMING") {
+      return "Not started yet";
+    }
+
+    if (quiz.state === "CLOSED") {
+      return "Paper quiz closed";
+    }
+
+    return "Unavailable";
+  }
+
+  if (quiz.canContinue) {
+    return "Continue quiz";
+  }
+
+  if (quiz.canStart) {
+    return "Start quiz";
+  }
+
+  if (quiz.state === "UPCOMING") {
+    return "Not started yet";
+  }
+
+  if (quiz.state === "CLOSED") {
+    return "Quiz closed";
+  }
+
+  return "Unavailable";
+}
+
+export default function Quizzes() {
+  const router = useRouter();
+  const { user } = useAuth();
+
+  const [quizzes, setQuizzes] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [refreshing, setRefreshing] =
+    useState(false);
+
+  const [error, setError] =
+    useState("");
+
+  const [currentTime, setCurrentTime] =
+    useState(Date.now());
+
+  const isStudent =
+    user?.role === "STUDENT";
 
   const summary = useMemo(() => {
     return quizzes.reduce(
       (result, quiz) => {
-        if (quiz.alreadySubmitted) {
-          result.completed += 1;
-        } else if (quiz.hasStarted) {
-          result.inProgress += 1;
-        } else {
-          result.notStarted += 1;
+        switch (quiz.state) {
+          case "COMPLETED":
+            result.completed += 1;
+            break;
+
+          case "IN_PROGRESS":
+            result.inProgress += 1;
+            break;
+
+          case "AVAILABLE":
+            result.available += 1;
+            break;
+
+          case "UPCOMING":
+            result.upcoming += 1;
+            break;
+
+          default:
+            result.unavailable += 1;
+            break;
         }
 
         return result;
@@ -1275,166 +317,696 @@ function StudentQuizList() {
       {
         completed: 0,
         inProgress: 0,
-        notStarted: 0,
+        available: 0,
+        upcoming: 0,
+        unavailable: 0,
       },
     );
   }, [quizzes]);
 
-  const loadQuizzes = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const loadQuizzes = useCallback(
+    async ({
+      showFullLoader = true,
+    } = {}) => {
+      if (!isStudent) {
+        return;
+      }
 
-    try {
-      const response = await api.get(
-        "/quiz-student/mine",
-      );
+      if (showFullLoader) {
+        setLoading(true);
+      } else {
+        setRefreshing(true);
+      }
 
-      setQuizzes(
-        Array.isArray(response.data) ? response.data : [],
-      );
-    } catch (requestError) {
-      setError(
-        getErrorMessage(
-          requestError,
-          "Couldn't load assigned quizzes.",
-        ),
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      setError("");
+
+      try {
+        const response = await api.get(
+          "/quiz-student/mine",
+        );
+
+        const loadedAt = Date.now();
+
+        const responseQuizzes =
+          Array.isArray(response.data)
+            ? response.data
+            : [];
+
+        setQuizzes(
+          responseQuizzes.map(
+            (quiz) => ({
+              ...quiz,
+              __loadedAt: loadedAt,
+            }),
+          ),
+        );
+
+        setCurrentTime(loadedAt);
+      } catch (requestError) {
+        setError(
+          getErrorMessage(
+            requestError,
+            "Couldn't load assigned quizzes.",
+          ),
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [isStudent],
+  );
 
   useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    if (!isStudent) {
+      router.replace(
+        "/(app)/quiz-management",
+      );
+
+      return;
+    }
+
     loadQuizzes();
-  }, [loadQuizzes]);
+  }, [
+    user,
+    isStudent,
+    router,
+    loadQuizzes,
+  ]);
 
-  function renderStudentQuiz(quiz) {
-    const completed = quiz.alreadySubmitted;
-    const inProgress = quiz.hasStarted && !completed;
+  useEffect(() => {
+    if (!isStudent) {
+      return undefined;
+    }
 
-    const iconName = completed
-      ? "checkmark-circle-outline"
-      : inProgress
-        ? "time-outline"
-        : "play-circle-outline";
+    const intervalId = setInterval(
+      () => {
+        setCurrentTime(Date.now());
+      },
+      1000,
+    );
 
-    const iconColor = completed
-      ? colors.primary
-      : inProgress
-        ? colors.warning
-        : colors.primary;
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [isStudent]);
+
+  function getRemainingMilliseconds(
+    quiz,
+  ) {
+    if (
+      quiz.state !== "IN_PROGRESS" ||
+      !quiz.expiresAt
+    ) {
+      return null;
+    }
+
+    const expiresAt = parseDate(
+      quiz.expiresAt,
+    );
+
+    if (!expiresAt) {
+      return null;
+    }
+
+    const serverTime = parseDate(
+      quiz.serverTime,
+    );
+
+    if (!serverTime) {
+      return (
+        expiresAt.getTime() -
+        currentTime
+      );
+    }
+
+    const loadedAt =
+      quiz.__loadedAt ||
+      currentTime;
+
+    const elapsedSinceLoad =
+      Math.max(
+        0,
+        currentTime - loadedAt,
+      );
+
+    const estimatedServerNow =
+      serverTime.getTime() +
+      elapsedSinceLoad;
 
     return (
-      <Pressable
+      expiresAt.getTime() -
+      estimatedServerNow
+    );
+  }
+
+  function canOpenQuiz(quiz) {
+    if (quiz.type === "PAPER") {
+      return [
+        "AVAILABLE",
+        "IN_PROGRESS",
+        "COMPLETED",
+      ].includes(quiz.state);
+    }
+
+    return Boolean(
+      quiz.state === "COMPLETED" ||
+        quiz.canStart ||
+        quiz.canContinue,
+    );
+  }
+
+  function openQuiz(quiz) {
+    if (!canOpenQuiz(quiz)) {
+      return;
+    }
+
+    router.push(
+      `/(app)/quizzes/${quiz.id}`,
+    );
+  }
+
+  function renderAvailabilityDetails(
+    quiz,
+  ) {
+    if (
+      quiz.state === "IN_PROGRESS" &&
+      quiz.expiresAt
+    ) {
+      const remainingMilliseconds =
+        getRemainingMilliseconds(quiz);
+
+      return (
+        <View style={styles.timerPanel}>
+          <View
+            style={styles.timerLabelRow}
+          >
+            <Ionicons
+              name="timer-outline"
+              size={17}
+              color={colors.warning}
+            />
+
+            <Text
+              style={styles.timerLabel}
+            >
+              {quiz.type === "PAPER"
+                ? "Time until submission closes"
+                : "Remaining attempt time"}
+            </Text>
+          </View>
+
+          <Text style={styles.timerValue}>
+            {formatRemainingTime(
+              remainingMilliseconds,
+            )}
+          </Text>
+        </View>
+      );
+    }
+
+    if (
+      quiz.type === "PAPER" &&
+      quiz.state === "AVAILABLE"
+    ) {
+      return (
+        <View
+          style={styles.paperNoticePanel}
+        >
+          <Ionicons
+            name="document-text-outline"
+            size={18}
+            color={colors.primary}
+          />
+
+          <Text
+            style={styles.paperNoticeText}
+          >
+            Download the combined question
+            paper, complete your work, and
+            upload PDF or image answer files.
+          </Text>
+        </View>
+      );
+    }
+
+    if (quiz.state === "UPCOMING") {
+      return (
+        <View style={styles.noticePanel}>
+          <Ionicons
+            name="calendar-outline"
+            size={17}
+            color={colors.warning}
+          />
+
+          <Text style={styles.noticeText}>
+            This quiz starts on{" "}
+            {formatDateTime(
+              quiz.startAt,
+            )}
+            .
+          </Text>
+        </View>
+      );
+    }
+
+    if (
+      quiz.state === "CLOSED" ||
+      quiz.state === "UNAVAILABLE"
+    ) {
+      return (
+        <View style={styles.noticePanel}>
+          <Ionicons
+            name="lock-closed-outline"
+            size={17}
+            color={colors.textMuted}
+          />
+
+          <Text style={styles.noticeText}>
+            {quiz.availabilityMessage ||
+              (quiz.state === "CLOSED"
+                ? "This quiz is closed."
+                : "This quiz is currently unavailable.")}
+          </Text>
+        </View>
+      );
+    }
+
+    return null;
+  }
+
+  function renderQuizCard(quiz) {
+    const icon =
+      getQuizIcon(quiz);
+
+    const isPaperQuiz =
+      quiz.type === "PAPER";
+
+    const canOpen =
+      canOpenQuiz(quiz);
+
+    const totalQuestions =
+      quiz.totalQuestions ?? 0;
+
+    const totalPoints =
+      quiz.totalPoints ?? 0;
+
+    return (
+      <Card
         key={quiz.id}
-        onPress={() =>
-          router.push(`/(app)/quizzes/${quiz.id}`)
-        }
-        style={({ pressed }) => [
-          pressed && styles.pressed,
-        ]}
+        style={styles.quizCard}
       >
-        <Card style={styles.studentQuizCard}>
+        <View
+          style={styles.quizMainRow}
+        >
           <View
             style={[
-              styles.studentQuizIcon,
-              inProgress &&
-                styles.studentQuizIconWarning,
+              styles.quizIcon,
+
+              quiz.state ===
+                "IN_PROGRESS" &&
+                styles.quizIconWarning,
+
+              isPaperQuiz &&
+                styles.paperQuizIcon,
+
+              !canOpen &&
+                quiz.state !==
+                  "COMPLETED" &&
+                styles.quizIconDisabled,
             ]}
           >
             <Ionicons
-              name={iconName}
-              size={25}
-              color={iconColor}
+              name={icon.name}
+              size={26}
+              color={icon.color}
             />
           </View>
 
-          <View style={styles.studentQuizCopy}>
-            <Text
-              numberOfLines={2}
-              style={styles.studentQuizTitle}
+          <View style={styles.quizCopy}>
+            <View
+              style={styles.quizTitleRow}
             >
-              {quiz.title}
-            </Text>
-
-            <View style={styles.studentQuizMetaRow}>
-              <Ionicons
-                name="help-circle-outline"
-                size={14}
-                color={colors.textMuted}
-              />
-
-              <Text style={styles.studentQuizMeta}>
-                {quiz.total}{" "}
-                {quiz.total === 1
-                  ? "question"
-                  : "questions"}
+              <Text
+                numberOfLines={2}
+                style={styles.quizTitle}
+              >
+                {quiz.title}
               </Text>
 
-              {quiz.duration ? (
+              <Badge
+                label={getQuizStateLabel(
+                  quiz.state,
+                )}
+                tone={getQuizStateTone(
+                  quiz.state,
+                )}
+              />
+            </View>
+
+            {quiz.description ? (
+              <Text
+                numberOfLines={2}
+                style={
+                  styles.quizDescription
+                }
+              >
+                {quiz.description}
+              </Text>
+            ) : null}
+
+            <View
+              style={styles.quizMetaRow}
+            >
+              <View
+                style={styles.metaItem}
+              >
+                <Ionicons
+                  name={
+                    isPaperQuiz
+                      ? "document-text-outline"
+                      : "options-outline"
+                  }
+                  size={14}
+                  color={
+                    colors.textMuted
+                  }
+                />
+
+                <Text
+                  style={styles.metaText}
+                >
+                  {isPaperQuiz
+                    ? "Paper"
+                    : "MCQ"}
+                </Text>
+              </View>
+
+              <Text
+                style={styles.metaDot}
+              >
+                ·
+              </Text>
+
+              <View
+                style={styles.metaItem}
+              >
+                <Ionicons
+                  name="help-circle-outline"
+                  size={14}
+                  color={
+                    colors.textMuted
+                  }
+                />
+
+                <Text
+                  style={styles.metaText}
+                >
+                  {totalQuestions}{" "}
+                  {totalQuestions === 1
+                    ? "question"
+                    : "questions"}
+                </Text>
+              </View>
+
+              <Text
+                style={styles.metaDot}
+              >
+                ·
+              </Text>
+
+              <View
+                style={styles.metaItem}
+              >
+                <Ionicons
+                  name="star-outline"
+                  size={14}
+                  color={
+                    colors.textMuted
+                  }
+                />
+
+                <Text
+                  style={styles.metaText}
+                >
+                  {totalPoints}{" "}
+                  {totalPoints === 1
+                    ? "point"
+                    : "points"}
+                </Text>
+              </View>
+
+              {quiz.durationMinutes ? (
                 <>
                   <Text
-                    style={styles.studentQuizMetaDot}
+                    style={styles.metaDot}
                   >
                     ·
                   </Text>
 
-                  <Ionicons
-                    name="time-outline"
-                    size={14}
-                    color={colors.textMuted}
-                  />
+                  <View
+                    style={styles.metaItem}
+                  >
+                    <Ionicons
+                      name="time-outline"
+                      size={14}
+                      color={
+                        colors.textMuted
+                      }
+                    />
 
-                  <Text style={styles.studentQuizMeta}>
-                    {quiz.duration} minutes
-                  </Text>
+                    <Text
+                      style={
+                        styles.metaText
+                      }
+                    >
+                      {
+                        quiz.durationMinutes
+                      }{" "}
+                      minutes
+                    </Text>
+                  </View>
                 </>
               ) : null}
             </View>
-          </View>
 
-          <View style={styles.studentQuizStatus}>
-            {completed ? (
-              <Badge
-                label={`Score: ${quiz.score}/${quiz.total}`}
-                tone="success"
-              />
-            ) : inProgress ? (
-              <Badge
-                label="In progress"
-                tone="warning"
-              />
+            {quiz.startAt ||
+            quiz.endAt ? (
+              <View
+                style={styles.dateList}
+              >
+                {quiz.startAt ? (
+                  <View
+                    style={styles.dateRow}
+                  >
+                    <Ionicons
+                      name="play-outline"
+                      size={13}
+                      color={
+                        colors.textMuted
+                      }
+                    />
+
+                    <Text
+                      style={
+                        styles.dateText
+                      }
+                    >
+                      Starts:{" "}
+                      {formatDateTime(
+                        quiz.startAt,
+                      )}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {quiz.endAt ? (
+                  <View
+                    style={styles.dateRow}
+                  >
+                    <Ionicons
+                      name="stop-outline"
+                      size={13}
+                      color={
+                        colors.textMuted
+                      }
+                    />
+
+                    <Text
+                      style={
+                        styles.dateText
+                      }
+                    >
+                      Ends:{" "}
+                      {formatDateTime(
+                        quiz.endAt,
+                      )}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        </View>
+
+        {renderAvailabilityDetails(
+          quiz,
+        )}
+
+        {quiz.state ===
+        "COMPLETED" ? (
+          <View
+            style={styles.resultPanel}
+          >
+            <View>
+              <Text
+                style={styles.resultLabel}
+              >
+                {isPaperQuiz
+                  ? quiz.score === null ||
+                    quiz.score ===
+                      undefined
+                    ? "Grading status"
+                    : "Final score"
+                  : "Final score"}
+              </Text>
+
+              <Text
+                style={styles.resultValue}
+              >
+                {isPaperQuiz &&
+                (quiz.score === null ||
+                  quiz.score ===
+                    undefined)
+                  ? "Awaiting grading"
+                  : `${
+                      quiz.score ?? 0
+                    }/${totalPoints}`}
+              </Text>
+            </View>
+
+            {quiz.isAutoSubmitted ? (
+              <View
+                style={
+                  styles.autoSubmittedBadge
+                }
+              >
+                <Ionicons
+                  name="timer-outline"
+                  size={15}
+                  color={
+                    colors.warning
+                  }
+                />
+
+                <Text
+                  style={
+                    styles.autoSubmittedText
+                  }
+                >
+                  Auto-submitted
+                </Text>
+              </View>
             ) : (
-              <Badge
-                label="Not started"
-                tone="neutral"
-              />
-            )}
+              <View
+                style={
+                  styles.submittedBadge
+                }
+              >
+                <Ionicons
+                  name="checkmark-circle-outline"
+                  size={15}
+                  color={
+                    colors.primary
+                  }
+                />
 
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={colors.primary}
-            />
+                <Text
+                  style={
+                    styles.submittedText
+                  }
+                >
+                  Submitted
+                </Text>
+              </View>
+            )}
           </View>
-        </Card>
-      </Pressable>
+        ) : null}
+
+        <Pressable
+          disabled={!canOpen}
+          onPress={() =>
+            openQuiz(quiz)
+          }
+          style={({ pressed }) => [
+            styles.quizAction,
+
+            canOpen
+              ? styles.quizActionEnabled
+              : styles.quizActionDisabled,
+
+            pressed &&
+              canOpen &&
+              styles.quizActionPressed,
+          ]}
+        >
+          <Text
+            style={[
+              styles.quizActionText,
+
+              !canOpen &&
+                styles.quizActionTextDisabled,
+            ]}
+          >
+            {getQuizActionLabel(quiz)}
+          </Text>
+
+          <Ionicons
+            name={
+              quiz.state ===
+              "COMPLETED"
+                ? "stats-chart-outline"
+                : canOpen
+                  ? "arrow-forward"
+                  : "lock-closed-outline"
+            }
+            size={17}
+            color={
+              canOpen
+                ? colors.white
+                : colors.textMuted
+            }
+          />
+        </Pressable>
+      </Card>
     );
   }
 
-  if (loading) {
+  if (
+    !user ||
+    !isStudent ||
+    loading
+  ) {
     return (
       <Screen
         scroll={false}
-        style={styles.fullPageLoading}
+        style={styles.loadingPage}
       >
         <ActivityIndicator
-          color={colors.primary}
           size="large"
+          color={colors.primary}
         />
 
-        <Text style={styles.loadingText}>
-          Loading your quizzes…
+        <Text
+          style={styles.loadingText}
+        >
+          {isStudent
+            ? "Loading your quizzes…"
+            : "Opening Quiz Management…"}
         </Text>
       </Screen>
     );
@@ -1444,9 +1016,17 @@ function StudentQuizList() {
     <Screen>
       <View style={styles.page}>
         <View style={styles.header}>
-          <View style={styles.headerCopy}>
-            <View style={styles.eyebrowRow}>
-              <View style={styles.eyebrowIcon}>
+          <View
+            style={styles.headerCopy}
+          >
+            <View
+              style={styles.eyebrowRow}
+            >
+              <View
+                style={
+                  styles.eyebrowIcon
+                }
+              >
                 <Ionicons
                   name="help-circle-outline"
                   size={16}
@@ -1454,35 +1034,68 @@ function StudentQuizList() {
                 />
               </View>
 
-              <Text style={styles.eyebrow}>
+              <Text
+                style={styles.eyebrow}
+              >
                 MY ASSESSMENTS
               </Text>
             </View>
 
-            <Text style={styles.pageTitle}>
+            <Text
+              style={styles.pageTitle}
+            >
               Quizzes
             </Text>
 
-            <Text style={styles.pageSubtitle}>
-              Review assigned quizzes, continue attempts, and
-              view completed scores.
+            <Text
+              style={styles.pageSubtitle}
+            >
+              Complete timed MCQ attempts
+              or download and submit Paper
+              quizzes.
             </Text>
           </View>
+
+          <Button
+            title={
+              refreshing
+                ? "Refreshing…"
+                : "Refresh"
+            }
+            variant="outline"
+            disabled={refreshing}
+            onPress={() =>
+              loadQuizzes({
+                showFullLoader: false,
+              })
+            }
+          />
         </View>
 
         {error ? (
-          <View style={[styles.alert, styles.errorAlert]}>
+          <View
+            style={[
+              styles.alert,
+              styles.errorAlert,
+            ]}
+          >
             <Ionicons
               name="alert-circle-outline"
               size={20}
               color={colors.danger}
             />
 
-            <Text style={styles.errorText}>{error}</Text>
+            <Text
+              style={styles.errorText}
+            >
+              {error}
+            </Text>
 
             <Pressable
               accessibilityLabel="Dismiss error"
-              onPress={() => setError("")}
+              onPress={() =>
+                setError("")
+              }
               style={styles.alertClose}
             >
               <Ionicons
@@ -1494,9 +1107,13 @@ function StudentQuizList() {
           </View>
         ) : null}
 
-        <View style={styles.statsGrid}>
+        <View
+          style={styles.statsGrid}
+        >
           <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
+            <View
+              style={styles.statIcon}
+            >
               <Ionicons
                 name="documents-outline"
                 size={22}
@@ -1504,53 +1121,23 @@ function StudentQuizList() {
               />
             </View>
 
-            <Text style={styles.statValue}>
+            <Text
+              style={styles.statValue}
+            >
               {quizzes.length}
             </Text>
 
-            <Text style={styles.statLabel}>
+            <Text
+              style={styles.statLabel}
+            >
               Assigned quizzes
             </Text>
           </Card>
 
           <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="checkmark-done-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
-
-            <Text style={styles.statValue}>
-              {summary.completed}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              Completed
-            </Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons
-                name="time-outline"
-                size={22}
-                color={colors.warning}
-              />
-            </View>
-
-            <Text style={styles.statValue}>
-              {summary.inProgress}
-            </Text>
-
-            <Text style={styles.statLabel}>
-              In progress
-            </Text>
-          </Card>
-
-          <Card style={styles.statCard}>
-            <View style={styles.statIcon}>
+            <View
+              style={styles.statIcon}
+            >
               <Ionicons
                 name="play-circle-outline"
                 size={22}
@@ -1558,861 +1145,146 @@ function StudentQuizList() {
               />
             </View>
 
-            <Text style={styles.statValue}>
-              {summary.notStarted}
+            <Text
+              style={styles.statValue}
+            >
+              {summary.available}
             </Text>
 
-            <Text style={styles.statLabel}>
-              Not started
+            <Text
+              style={styles.statLabel}
+            >
+              Available
+            </Text>
+          </Card>
+
+          <Card style={styles.statCard}>
+            <View
+              style={
+                styles.statWarningIcon
+              }
+            >
+              <Ionicons
+                name="time-outline"
+                size={22}
+                color={colors.warning}
+              />
+            </View>
+
+            <Text
+              style={styles.statValue}
+            >
+              {summary.inProgress}
+            </Text>
+
+            <Text
+              style={styles.statLabel}
+            >
+              In progress
+            </Text>
+          </Card>
+
+          <Card style={styles.statCard}>
+            <View
+              style={styles.statIcon}
+            >
+              <Ionicons
+                name="checkmark-done-outline"
+                size={22}
+                color={colors.primary}
+              />
+            </View>
+
+            <Text
+              style={styles.statValue}
+            >
+              {summary.completed}
+            </Text>
+
+            <Text
+              style={styles.statLabel}
+            >
+              Completed
             </Text>
           </Card>
         </View>
 
-        <View style={styles.sectionHeader}>
+        <View
+          style={styles.sectionHeader}
+        >
           <View>
-            <Text style={styles.sectionTitle}>
+            <Text
+              style={styles.sectionTitle}
+            >
               Assigned quizzes
             </Text>
 
-            <Text style={styles.sectionSubtitle}>
-              Select a quiz to start or continue.
+            <Text
+              style={
+                styles.sectionSubtitle
+              }
+            >
+              Upcoming, active, and
+              completed assessments.
             </Text>
           </View>
         </View>
 
         {!quizzes.length ? (
-          <Card style={styles.emptyCard}>
-            <View style={styles.emptyIcon}>
+          <Card
+            style={styles.emptyCard}
+          >
+            <View
+              style={styles.emptyIcon}
+            >
               <Ionicons
                 name="help-circle-outline"
-                size={35}
+                size={36}
                 color={colors.primary}
               />
             </View>
 
-            <Text style={styles.emptyTitle}>
+            <Text
+              style={styles.emptyTitle}
+            >
               No quizzes assigned
             </Text>
 
-            <Text style={styles.emptyDescription}>
-              New quizzes will appear here when your teacher
-              assigns them to your group.
+            <Text
+              style={
+                styles.emptyDescription
+              }
+            >
+              New quizzes will appear here
+              when your teacher assigns them
+              to your group.
             </Text>
+
+            <Button
+              title={
+                refreshing
+                  ? "Refreshing…"
+                  : "Refresh"
+              }
+              variant="outline"
+              disabled={refreshing}
+              onPress={() =>
+                loadQuizzes({
+                  showFullLoader: false,
+                })
+              }
+            />
           </Card>
         ) : (
-          <View style={styles.studentQuizList}>
-            {quizzes.map(renderStudentQuiz)}
+          <View
+            style={styles.quizList}
+          >
+            {quizzes.map(
+              renderQuizCard,
+            )}
           </View>
         )}
       </View>
     </Screen>
   );
 }
-
-export default function Quizzes() {
-  const { user } = useAuth();
-
-  if (user?.role === "STUDENT") {
-    return <StudentQuizList />;
-  }
-
-  return <TeacherQuizManager />;
-}
-
-const styles = StyleSheet.create({
-  page: {
-    width: "100%",
-    maxWidth: 1320,
-    alignSelf: "center",
-    paddingBottom: spacing.xl,
-  },
-
-  fullPageLoading: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-
-  loadingText: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
-
-  header: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-
-  headerCopy: {
-    flex: 1,
-    minWidth: 260,
-    maxWidth: 760,
-  },
-
-  eyebrowRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-
-  eyebrowIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}35`,
-  },
-
-  eyebrow: {
-    fontSize: 12,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    color: colors.primary,
-  },
-
-  pageTitle: {
-    ...typography.h1,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-
-  pageSubtitle: {
-    ...typography.body,
-    maxWidth: 700,
-    color: colors.textMuted,
-    lineHeight: 23,
-  },
-
-  alert: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderRadius: radius.lg,
-  },
-
-  errorAlert: {
-    borderColor: `${colors.danger}55`,
-    backgroundColor: `${colors.danger}12`,
-  },
-
-  successAlert: {
-    borderColor: colors.secondary,
-    backgroundColor: `${colors.secondary}20`,
-  },
-
-  errorText: {
-    flex: 1,
-    ...typography.body,
-    color: colors.danger,
-  },
-
-  successText: {
-    flex: 1,
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-
-  alertClose: {
-    padding: 4,
-  },
-
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-
-  statCard: {
-    flex: 1,
-    minWidth: 180,
-  },
-
-  statIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.md,
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  statValue: {
-    fontSize: 26,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  statLabel: {
-    marginTop: 3,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  yearCard: {
-    marginBottom: spacing.lg,
-  },
-
-  yearCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.md,
-  },
-
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1,
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-
-  yearTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  selectorList: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    paddingRight: spacing.sm,
-  },
-
-  yearChip: {
-    minHeight: 42,
-    maxWidth: 220,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-  },
-
-  yearChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-
-  yearChipText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-
-  yearChipTextActive: {
-    color: colors.white,
-  },
-
-  emptySelectorCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    backgroundColor: colors.background,
-  },
-
-  emptySelectorIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  emptySelectorCopy: {
-    flex: 1,
-  },
-
-  emptySelectorTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-    marginBottom: 3,
-  },
-
-  contentLayout: {
-    gap: spacing.lg,
-  },
-
-  contentLayoutDesktop: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-
-  quizColumn: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  sideColumn: {
-    width: "100%",
-    gap: spacing.md,
-  },
-
-  sideColumnDesktop: {
-    width: 330,
-  },
-
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    marginBottom: spacing.md,
-  },
-
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  sectionSubtitle: {
-    marginTop: 3,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  quizList: {
-    gap: spacing.md,
-  },
-
-  quizCard: {
-    gap: spacing.md,
-  },
-
-  quizCardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
-  },
-
-  quizIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  quizCardCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  quizTitle: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    marginBottom: 5,
-  },
-
-  quizMetaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 5,
-  },
-
-  quizMeta: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  quizMetaDot: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  quizGroupsSection: {
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-  },
-
-  quizGroupsLabel: {
-    marginBottom: spacing.sm,
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.7,
-    textTransform: "uppercase",
-    color: colors.textMuted,
-  },
-
-  quizGroupBadges: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-  },
-
-  noGroupText: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  quickCreateCard: {
-    gap: spacing.md,
-  },
-
-  sideCardHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-
-  sideCardIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  sideCardCopy: {
-    flex: 1,
-  },
-
-  sideCardTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-
-  mutedText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 18,
-  },
-
-  helpCard: {
-    backgroundColor: `${colors.secondary}16`,
-  },
-
-  helpText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 19,
-    marginTop: spacing.sm,
-  },
-
-  emptyCard: {
-    minHeight: 280,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
-
-  emptyIcon: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.md,
-    backgroundColor: `${colors.secondary}22`,
-  },
-
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    textAlign: "center",
-    marginBottom: spacing.xs,
-  },
-
-  emptyDescription: {
-    ...typography.body,
-    maxWidth: 430,
-    color: colors.textMuted,
-    lineHeight: 21,
-    textAlign: "center",
-  },
-
-  modalBackdrop: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.lg,
-    backgroundColor: "rgba(20,28,30,0.54)",
-  },
-
-  modalCard: {
-    width: "100%",
-    maxWidth: 760,
-    maxHeight: "92%",
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-
-    ...Platform.select({
-      web: {
-        boxShadow:
-          "0 18px 50px rgba(0,0,0,0.18)",
-      },
-
-      default: {
-        elevation: 8,
-      },
-    }),
-  },
-
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-
-  modalIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  modalHeadingCopy: {
-    flex: 1,
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-
-  modalClose: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-  },
-
-  formContent: {
-    paddingBottom: spacing.sm,
-  },
-
-  inputLabel: {
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-
-  input: {
-    width: "100%",
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-    color: colors.textPrimary,
-    fontSize: 14,
-  },
-
-  formSectionHeader: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-
-  fieldHint: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-
-  inlineActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-
-  inlineActionText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.primary,
-  },
-
-  inlineLoading: {
-    minHeight: 80,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-
-  noGroupsBox: {
-    minHeight: 100,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-  },
-
-  noGroupsText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textAlign: "center",
-  },
-
-  groupGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-
-  groupChip: {
-    maxWidth: 220,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-  },
-
-  groupChipSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-
-  groupChipText: {
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-
-  groupChipTextSelected: {
-    color: colors.white,
-  },
-
-  searchBox: {
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-  },
-
-  searchInput: {
-    flex: 1,
-    minHeight: 46,
-    color: colors.textPrimary,
-    fontSize: 14,
-  },
-
-  questionTypeList: {
-    flexDirection: "row",
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-  },
-
-  typeChip: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    backgroundColor: colors.white,
-  },
-
-  typeChipActive: {
-    borderColor: colors.secondary,
-    backgroundColor: colors.secondary,
-  },
-
-  typeChipText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-
-  typeChipTextActive: {
-    color: colors.white,
-  },
-
-  questionList: {
-    maxHeight: 360,
-    gap: spacing.xs,
-  },
-
-  questionRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.lg,
-    backgroundColor: colors.white,
-  },
-
-  questionRowSelected: {
-    borderColor: colors.secondary,
-    backgroundColor: `${colors.secondary}12`,
-  },
-
-  questionCheck: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.background,
-  },
-
-  questionCheckSelected: {
-    backgroundColor: colors.primary,
-  },
-
-  questionCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  questionTitle: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "700",
-    color: colors.textPrimary,
-  },
-
-  questionMeta: {
-    marginTop: 3,
-    fontSize: 11,
-    fontWeight: "700",
-    color: colors.textMuted,
-  },
-
-  noQuestionsBox: {
-    minHeight: 150,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.lg,
-    backgroundColor: colors.background,
-  },
-
-  noQuestionsTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
-
-  modalActions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-    gap: spacing.sm,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.background,
-  },
-
-  studentQuizList: {
-    gap: spacing.md,
-  },
-
-  studentQuizCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-
-  studentQuizIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: radius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: `${colors.secondary}25`,
-  },
-
-  studentQuizIconWarning: {
-    backgroundColor: `${colors.warning}15`,
-  },
-
-  studentQuizCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-
-  studentQuizTitle: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: "800",
-    color: colors.textPrimary,
-    marginBottom: 5,
-  },
-
-  studentQuizMetaRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: 5,
-  },
-
-  studentQuizMeta: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  studentQuizMetaDot: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
-
-  studentQuizStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-
-  disabled: {
-    opacity: 0.45,
-  },
-
-  pressed: {
-    opacity: 0.76,
-  },
-});
