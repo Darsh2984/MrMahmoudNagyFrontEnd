@@ -1,20 +1,10 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import React from "react";
 
 import {
   ActivityIndicator,
-  Linking,
-  Modal,
-  Platform,
   Pressable,
-  ScrollView,
-  StyleSheet,
+  RefreshControl,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -25,2146 +15,301 @@ import {
   useRouter,
 } from "expo-router";
 
-import * as DocumentPicker from "expo-document-picker";
-
 import { Screen } from "../../../src/components/layout/Screen";
 import { Card } from "../../../src/components/ui/Card";
-import { Button } from "../../../src/components/ui/Button";
 import { Badge } from "../../../src/components/ui/Badge";
+import { Button } from "../../../src/components/ui/Button";
+
 import { useAuth } from "../../../src/contexts/AuthContext";
 
-import api from "../../../src/lib/api";
-import { formatDate } from "../../../src/utils/formatDate";
-import { colors } from "../../../src/theme";
+import {
+  colors,
+} from "../../../src/theme";
 
-import { styles } from "./[taskId].styles";
+import {
+  formatFileSize,
+} from "./task-detail/taskDetail.helpers";
 
-const MAX_CORRECTED_FILES = 20;
+import {
+  useTaskDetail,
+} from "./task-detail/useTaskDetail";
 
-function getErrorMessage(error, fallback) {
-  return (
-    error?.response?.data?.msg ||
-    error?.response?.data?.message ||
-    error?.message ||
-    fallback
-  );
-}
+import {
+  SubmissionCard,
+} from "./task-detail/SubmissionCard";
 
-function getInitial(name) {
-  return (
-    name?.trim()?.charAt(0)?.toUpperCase() ||
-    "S"
-  );
-}
+import {
+  DelegationModal,
+} from "./task-detail/DelegationModal";
 
-function formatFileSize(bytes) {
-  const size = Number(bytes);
+import {
+  DelegationHistoryModal,
+} from "./task-detail/DelegationHistoryModal";
 
-  if (!Number.isFinite(size) || size <= 0) {
-    return "Unknown size";
+import {
+  GradingHistoryModal,
+} from "./task-detail/GradingHistoryModal";
+
+import {
+  ReopenSubmissionModal,
+} from "./task-detail/ReopenSubmissionModal";
+
+import {
+  styles,
+} from "./[taskId].styles";
+
+function formatDateTime(value) {
+  if (!value) {
+    return "Not specified";
   }
 
-  if (size < 1024) {
-    return `${size} B`;
-  }
-
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
-
-  return `${(
-    size /
-    (1024 * 1024)
-  ).toFixed(1)} MB`;
-}
-
-function normalizeTaskGroups(task) {
-  if (!Array.isArray(task?.groups)) {
-    return [];
-  }
-
-  return task.groups
-    .map((taskGroup) => taskGroup?.group)
-    .filter(Boolean);
-}
-
-function formatDelegationAction(entry) {
-  switch (entry.action) {
-    case "ASSIGNED":
-      return `Assigned to ${
-        entry.toAssistant?.name ||
-        "assistant"
-      }`;
-
-    case "REASSIGNED":
-      return `Reassigned from ${
-        entry.fromAssistant?.name ||
-        "previous assistant"
-      } to ${
-        entry.toAssistant?.name ||
-        "new assistant"
-      }`;
-
-    case "REMOVED":
-      return `Removed from ${
-        entry.fromAssistant?.name ||
-        "assistant"
-      }`;
-
-    case "COMPLETED":
-      return `Completed by ${
-        entry.toAssistant?.name ||
-        entry.fromAssistant?.name ||
-        "assistant"
-      }`;
-
-    default:
-      return (
-        entry.action ||
-        "Delegation updated"
-      );
-  }
-}
-
-async function appendAssetToFormData(
-  formData,
-  fieldName,
-  asset,
-) {
-  const filename =
-    asset.name ||
-    `corrected-${Date.now()}`;
-
-  const mimeType =
-    asset.mimeType ||
-    asset.type ||
-    "application/octet-stream";
+  const date = new Date(value);
 
   if (
-    Platform.OS === "web" &&
-    asset.file
+    Number.isNaN(
+      date.getTime(),
+    )
   ) {
-    formData.append(
-      fieldName,
-      asset.file,
-      filename,
-    );
-
-    return;
+    return "Not specified";
   }
 
-  if (Platform.OS === "web") {
-    const response = await fetch(asset.uri);
-
-    if (!response.ok) {
-      throw new Error(
-        `The file "${filename}" could not be prepared.`,
-      );
-    }
-
-    const blob = await response.blob();
-
-    formData.append(
-      fieldName,
-      blob,
-      filename,
-    );
-
-    return;
-  }
-
-  formData.append(fieldName, {
-    uri: asset.uri,
-    name: filename,
-    type: mimeType,
-  });
+  return date.toLocaleString();
 }
 
-export default function TeacherTaskDetail() {
+function getTaskStatus(task) {
+  if (!task) {
+    return {
+      label: "Unknown",
+      tone: "neutral",
+    };
+  }
+
+  const deadline = task.deadline
+    ? new Date(task.deadline)
+    : null;
+
+  if (
+    deadline &&
+    !Number.isNaN(
+      deadline.getTime(),
+    ) &&
+    deadline < new Date()
+  ) {
+    return {
+      label: "Deadline passed",
+      tone: "warning",
+    };
+  }
+
+  return {
+    label: "Active",
+    tone: "success",
+  };
+}
+
+export default function TaskDetail() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const { width } = useWindowDimensions();
-  const { user } = useAuth();
 
-  const rawTaskId = params.taskId;
+  const params =
+    useLocalSearchParams();
 
-  const taskId = Array.isArray(rawTaskId)
-    ? rawTaskId[0]
-    : rawTaskId;
+  const { width } =
+    useWindowDimensions();
 
-  const isDesktop = width >= 980;
-  const isSmallScreen = width < 640;
+  const { user } =
+    useAuth();
 
-  const isAdminLevel =
-    user?.role === "TEACHER" ||
-    Boolean(user?.isHeadAssistant);
+  const taskId = Array.isArray(
+    params.taskId,
+  )
+    ? params.taskId[0]
+    : params.taskId;
 
-  const isRegularAssistant =
-    user?.role === "ASSISTANT" &&
-    !user?.isHeadAssistant;
+  const isDesktop =
+    width >= 1050;
 
-  const [task, setTask] = useState(null);
-  const [loading, setLoading] =
-    useState(true);
+  const isCompact =
+    width < 680;
 
-  const [error, setError] =
-    useState("");
-
-  const [success, setSuccess] =
-    useState("");
-
-  const [gradeForms, setGradeForms] =
-    useState({});
-
-  const [
-    gradingSubmissionId,
-    setGradingSubmissionId,
-  ] = useState(null);
-
-  const [
-    openingFileKey,
-    setOpeningFileKey,
-  ] = useState(null);
-
-  const [
-    selectedSubmissionIds,
-    setSelectedSubmissionIds,
-  ] = useState([]);
-
-  const [
-    delegateModalVisible,
-    setDelegateModalVisible,
-  ] = useState(false);
-
-  const [
-    delegationMode,
-    setDelegationMode,
-  ] = useState("single");
-
-  const [
-    selectedSubmission,
-    setSelectedSubmission,
-  ] = useState(null);
-
-  const [
-    selectedAssistantId,
-    setSelectedAssistantId,
-  ] = useState(null);
-
-  const [
-    delegationReason,
-    setDelegationReason,
-  ] = useState("");
-
-  const [
-    assistantSearch,
-    setAssistantSearch,
-  ] = useState("");
-
-  const [
-    delegateError,
-    setDelegateError,
-  ] = useState("");
-
-  const [
-    delegatingSubmissionId,
-    setDelegatingSubmissionId,
-  ] = useState(null);
-
-  const [
-    removingDelegationId,
-    setRemovingDelegationId,
-  ] = useState(null);
-
-  const [
-    historyModalVisible,
-    setHistoryModalVisible,
-  ] = useState(false);
-
-  const [
-    historySubmission,
-    setHistorySubmission,
-  ] = useState(null);
-
-  const [
-    delegationHistory,
-    setDelegationHistory,
-  ] = useState([]);
-
-  const [
-    loadingHistory,
-    setLoadingHistory,
-  ] = useState(false);
-
-  const [
-    historyError,
-    setHistoryError,
-  ] = useState("");
-
-  const submissions = useMemo(() => {
-    const all = Array.isArray(
-      task?.submissions,
-    )
-      ? task.submissions
-      : [];
-
-    if (!isRegularAssistant) {
-      return all;
-    }
-
-    return all.filter((submission) => {
-      const assistantId =
-        submission.delegation
-          ?.assistantId ||
-        submission.delegation
-          ?.assistant?.id;
-
-      return (
-        String(assistantId) ===
-        String(user?.id)
-      );
+  const detail =
+    useTaskDetail({
+      taskId,
+      user,
     });
-  }, [
-    isRegularAssistant,
-    task?.submissions,
-    user?.id,
-  ]);
 
-  const selectableSubmissions =
-    useMemo(
-      () =>
-        submissions.filter(
-          (submission) =>
-            submission.grade == null &&
-            !submission.delegation,
-        ),
-      [submissions],
-    );
+  const {
+    task,
+    submissions,
+    taskGroups,
 
-  const selectedBulkSubmissions =
-    useMemo(
-      () =>
-        selectableSubmissions.filter(
-          (submission) =>
-            selectedSubmissionIds.includes(
-              submission.id,
-            ),
-        ),
-      [
-        selectableSubmissions,
-        selectedSubmissionIds,
-      ],
+    loading,
+    refreshing,
+    error,
+    success,
+
+    isAdminLevel,
+
+    summary,
+    progressPercentage,
+
+    filteredAssistants,
+
+    selectableSubmissions,
+    selectedSubmissionIds,
+    selectedSubmissions,
+
+    gradingSubmissionId,
+    editingSubmissionId,
+
+    openingFileKey,
+
+    delegateModalMode,
+    selectedSubmission,
+    selectedDelegation,
+    assistantSearch,
+    delegationReason,
+    delegateError,
+    delegationBusyId,
+
+    delegationHistorySubmission,
+    delegationHistory,
+    delegationHistoryLoading,
+    delegationHistoryError,
+
+    gradingHistorySubmission,
+    gradingHistory,
+    gradingHistoryLoading,
+    gradingHistoryError,
+
+    reopeningSubmission,
+    reopenReason,
+    reopeningSubmissionId,
+
+    loadTask,
+    dismissError,
+    dismissSuccess,
+
+    getGradeForm,
+    updateGradeForm,
+    startEditingGrade,
+    cancelEditingGrade,
+
+    openExternalFile,
+    selectCorrectedFiles,
+    removeSelectedCorrectedFile,
+    gradeSubmission,
+    deleteCorrectedFile,
+
+    toggleSubmissionSelection,
+    selectAllSubmissions,
+    clearSubmissionSelection,
+
+    openDelegateModal,
+    openBulkDelegateModal,
+    openReassignModal,
+    closeDelegateModal,
+
+    assignSubmission,
+    bulkAssignSubmissions,
+    reassignSubmission,
+    removeDelegation,
+
+    setAssistantSearch,
+    setDelegationReason,
+
+    assistantGroupNames,
+
+    openDelegationHistory,
+    closeDelegationHistory,
+
+    openGradingHistory,
+    closeGradingHistory,
+
+    openReopenModal,
+    closeReopenModal,
+    setReopenReason,
+    confirmReopenSubmission,
+  } = detail;
+
+  const selectedIdSet =
+    new Set(
+      selectedSubmissionIds.map(
+        String,
+      ),
     );
 
   const allSelectableSelected =
     selectableSubmissions.length > 0 &&
     selectableSubmissions.every(
       (submission) =>
-        selectedSubmissionIds.includes(
-          submission.id,
-        ),
-    );
-
-  const taskGroups = useMemo(
-    () => normalizeTaskGroups(task),
-    [task],
-  );
-
-  const eligibleAssistants = useMemo(() => {
-    const assistants = new Map();
-
-    for (const taskGroup of task?.groups || []) {
-      const assignments =
-        taskGroup?.group
-          ?.assistantAssignments || [];
-
-      for (const assignment of assignments) {
-        const assistant =
-          assignment?.assistant;
-
-        if (!assistant?.id) {
-          continue;
-        }
-
-        const canGrade =
-          assistant.isHeadAssistant === true ||
-          assistant.permissions
-            ?.canGradeHomework === true;
-
-        if (canGrade) {
-          assistants.set(
-            String(assistant.id),
-            assistant,
-          );
-        }
-      }
-    }
-
-    return Array.from(
-      assistants.values(),
-    );
-  }, [task?.groups]);
-
-  const filteredAssistants = useMemo(() => {
-    const query = assistantSearch
-      .trim()
-      .toLowerCase();
-
-    if (!query) {
-      return eligibleAssistants;
-    }
-
-    return eligibleAssistants.filter(
-      (assistant) =>
-        assistant.name
-          ?.toLowerCase()
-          .includes(query) ||
-        assistant.email
-          ?.toLowerCase()
-          .includes(query),
-    );
-  }, [
-    assistantSearch,
-    eligibleAssistants,
-  ]);
-
-  const summary = useMemo(() => {
-    return submissions.reduce(
-      (result, submission) => {
-        if (submission.grade != null) {
-          result.graded += 1;
-        } else if (submission.delegation) {
-          result.delegated += 1;
-        } else {
-          result.pending += 1;
-        }
-
-        if (
-          submission.lastModifiedAfterDeadline ||
-          submission.wasModifiedAfterDeadline
-        ) {
-          result.lateModified += 1;
-        }
-
-        return result;
-      },
-      {
-        total: submissions.length,
-        graded: 0,
-        delegated: 0,
-        pending: 0,
-        lateModified: 0,
-      },
-    );
-  }, [submissions]);
-
-  const progressPercentage = useMemo(() => {
-    if (!summary.total) {
-      return 0;
-    }
-
-    return Math.round(
-      (summary.graded / summary.total) *
-        100,
-    );
-  }, [summary]);
-
-  const loadTask = useCallback(
-    async ({ silent = false } = {}) => {
-      if (!taskId) {
-        setError(
-          "Task ID is missing.",
-        );
-
-        setLoading(false);
-        return;
-      }
-
-      if (!silent) {
-        setLoading(true);
-      }
-
-      setError("");
-
-      try {
-        const response = await api.get(
-          `/tasks/${taskId}`,
-        );
-
-        setTask(response.data);
-
-        const refreshedSubmissions =
-          Array.isArray(
-            response.data?.submissions,
-          )
-            ? response.data.submissions
-            : [];
-
-        setSelectedSubmissionIds(
-          (current) =>
-            current.filter((submissionId) =>
-              refreshedSubmissions.some(
-                (submission) =>
-                  submission.id ===
-                    submissionId &&
-                  submission.grade == null &&
-                  !submission.delegation,
-              ),
-            ),
-        );
-      } catch (requestError) {
-        setError(
-          getErrorMessage(
-            requestError,
-            "Couldn't load task details.",
+        selectedIdSet.has(
+          String(
+            submission.id,
           ),
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [taskId],
-  );
-
-  useEffect(() => {
-    loadTask();
-  }, [loadTask]);
-
-  function clearMessages() {
-    setError("");
-    setSuccess("");
-  }
-
-  function getGradeForm(submissionId) {
-    return (
-      gradeForms[submissionId] || {
-        grade: "",
-        comments: "",
-        correctedFiles: [],
-      }
-    );
-  }
-
-  function updateGradeForm(
-    submissionId,
-    changes,
-  ) {
-    setGradeForms((current) => ({
-      ...current,
-
-      [submissionId]: {
-        ...(current[submissionId] || {
-          grade: "",
-          comments: "",
-          correctedFiles: [],
-        }),
-
-        ...changes,
-      },
-    }));
-  }
-
-  function clearGradeForm(submissionId) {
-    setGradeForms((current) => {
-      const updated = {
-        ...current,
-      };
-
-      delete updated[submissionId];
-
-      return updated;
-    });
-  }
-
-  async function openExternalFile(
-    url,
-    key,
-  ) {
-    if (!url) {
-      setError(
-        "This file does not have a valid link.",
-      );
-
-      return;
-    }
-
-    clearMessages();
-    setOpeningFileKey(key);
-
-    try {
-      const supported =
-        await Linking.canOpenURL(url);
-
-      if (!supported) {
-        throw new Error(
-          "This file cannot be opened on this device.",
-        );
-      }
-
-      await Linking.openURL(url);
-    } catch (requestError) {
-      setError(
-        requestError?.message ||
-          "Couldn't open the file.",
-      );
-    } finally {
-      setOpeningFileKey(null);
-    }
-  }
-
-  async function selectCorrectedFiles(
-    submissionId,
-  ) {
-    clearMessages();
-
-    try {
-      const result =
-        await DocumentPicker.getDocumentAsync({
-          type: [
-            "application/pdf",
-            "image/*",
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "application/vnd.ms-powerpoint",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            "text/plain",
-          ],
-
-          multiple: true,
-          copyToCacheDirectory: true,
-        });
-
-      if (
-        result.canceled ||
-        !result.assets?.length
-      ) {
-        return;
-      }
-
-      const currentForm =
-        getGradeForm(submissionId);
-
-      if (
-        currentForm.correctedFiles.length +
-          result.assets.length >
-        MAX_CORRECTED_FILES
-      ) {
-        setError(
-          `You can select a maximum of ${MAX_CORRECTED_FILES} corrected files.`,
-        );
-
-        return;
-      }
-
-      updateGradeForm(
-        submissionId,
-        {
-          correctedFiles: [
-            ...currentForm.correctedFiles,
-
-            ...result.assets.map(
-              (asset) => ({
-                ...asset,
-
-                localId:
-                  `${Date.now()}-${Math.random()}`,
-              }),
-            ),
-          ],
-        },
-      );
-    } catch (pickerError) {
-      setError(
-        pickerError?.message ||
-          "Couldn't select corrected files.",
-      );
-    }
-  }
-
-  function removeSelectedCorrectedFile(
-    submissionId,
-    localId,
-  ) {
-    const currentForm =
-      getGradeForm(submissionId);
-
-    updateGradeForm(
-      submissionId,
-      {
-        correctedFiles:
-          currentForm.correctedFiles.filter(
-            (file) =>
-              file.localId !== localId,
-          ),
-      },
-    );
-  }
-
-  function validateGrade(submissionId) {
-    const form =
-      getGradeForm(submissionId);
-
-    const grade = Number(form.grade);
-
-    if (
-      form.grade === "" ||
-      !Number.isFinite(grade)
-    ) {
-      return {
-        valid: false,
-        message:
-          "Enter a valid numeric grade.",
-      };
-    }
-
-    if (grade < 0) {
-      return {
-        valid: false,
-        message:
-          "Grade cannot be negative.",
-      };
-    }
-
-    if (
-      task?.gradeOutOf != null &&
-      grade >
-        Number(task.gradeOutOf)
-    ) {
-      return {
-        valid: false,
-
-        message:
-          `Grade cannot exceed ${task.gradeOutOf}.`,
-      };
-    }
-
-    return {
-      valid: true,
-      grade,
-      form,
-    };
-  }
-
-  async function gradeSubmission(
-    submission,
-  ) {
-    clearMessages();
-
-    const validation =
-      validateGrade(submission.id);
-
-    if (!validation.valid) {
-      setError(validation.message);
-      return;
-    }
-
-    setGradingSubmissionId(
-      submission.id,
-    );
-
-    try {
-      const formData = new FormData();
-
-      formData.append(
-        "grade",
-        String(validation.grade),
-      );
-
-      formData.append(
-        "comments",
-        validation.form.comments || "",
-      );
-
-      for (const asset of validation.form
-        .correctedFiles) {
-        await appendAssetToFormData(
-          formData,
-          "correctedFiles",
-          asset,
-        );
-      }
-
-      await api.patch(
-        `/submissions/${submission.id}/grade`,
-        formData,
-      );
-
-      clearGradeForm(submission.id);
-
-      setSuccess(
-        `The submission for ${
-          submission.student?.name ||
-          "the student"
-        } was graded successfully.`,
-      );
-
-      await loadTask({
-        silent: true,
-      });
-    } catch (requestError) {
-      setError(
-        getErrorMessage(
-          requestError,
-          "Couldn't grade the submission.",
         ),
-      );
-    } finally {
-      setGradingSubmissionId(null);
-    }
-  }
-
-  function toggleSubmissionSelection(
-    submissionId,
-  ) {
-    setSelectedSubmissionIds(
-      (current) =>
-        current.includes(submissionId)
-          ? current.filter(
-              (id) =>
-                id !== submissionId,
-            )
-          : [
-              ...current,
-              submissionId,
-            ],
-    );
-  }
-
-  function toggleSelectAll() {
-    if (allSelectableSelected) {
-      setSelectedSubmissionIds([]);
-      return;
-    }
-
-    setSelectedSubmissionIds(
-      selectableSubmissions.map(
-        (submission) =>
-          submission.id,
-      ),
-    );
-  }
-
-  function resetDelegationModal() {
-    setDelegateModalVisible(false);
-    setDelegationMode("single");
-    setSelectedSubmission(null);
-    setSelectedAssistantId(null);
-    setDelegationReason("");
-    setAssistantSearch("");
-    setDelegateError("");
-  }
-
-  function closeDelegateModal() {
-    if (delegatingSubmissionId) {
-      return;
-    }
-
-    resetDelegationModal();
-  }
-
-  function openSingleDelegateModal(
-    submission,
-  ) {
-    clearMessages();
-
-    setDelegationMode("single");
-    setSelectedSubmission(submission);
-    setSelectedAssistantId(null);
-    setDelegationReason("");
-    setAssistantSearch("");
-    setDelegateError("");
-    setDelegateModalVisible(true);
-  }
-
-  function openBulkDelegateModal() {
-    clearMessages();
-
-    if (
-      !selectedBulkSubmissions.length
-    ) {
-      setError(
-        "Select at least one ungraded and undelegated submission.",
-      );
-
-      return;
-    }
-
-    setDelegationMode("bulk");
-    setSelectedSubmission(null);
-    setSelectedAssistantId(null);
-    setDelegationReason("");
-    setAssistantSearch("");
-    setDelegateError("");
-    setDelegateModalVisible(true);
-  }
-
-  function openReassignModal(
-    submission,
-  ) {
-    if (!submission.delegation) {
-      return;
-    }
-
-    clearMessages();
-
-    setDelegationMode("reassign");
-    setSelectedSubmission(submission);
-    setSelectedAssistantId(null);
-    setDelegationReason("");
-    setAssistantSearch("");
-    setDelegateError("");
-    setDelegateModalVisible(true);
-  }
-
-  async function submitDelegation() {
-    if (!selectedAssistantId) {
-      setDelegateError(
-        "Choose an assistant.",
-      );
-
-      return;
-    }
-
-    setDelegateError("");
-
-    const operationKey =
-      delegationMode === "bulk"
-        ? "bulk"
-        : selectedSubmission?.id;
-
-    setDelegatingSubmissionId(
-      operationKey,
     );
 
-    try {
-      if (delegationMode === "bulk") {
-        const response =
-          await api.post(
-            "/delegations/bulk",
-            {
-              submissionIds:
-                selectedBulkSubmissions.map(
-                  (submission) =>
-                    submission.id,
-                ),
+  const taskStatus =
+    getTaskStatus(task);
 
-              assistantId:
-                selectedAssistantId,
-
-              reason:
-                delegationReason.trim() ||
-                undefined,
-            },
-          );
-
-        const result =
-          response.data?.result;
-
-        if (result?.failed > 0) {
-          setSuccess(
-            `${result.delegated} submissions delegated. ${result.failed} could not be delegated.`,
-          );
-        } else {
-          setSuccess(
-            `${result?.delegated || selectedBulkSubmissions.length} submissions delegated successfully.`,
-          );
-        }
-
-        setSelectedSubmissionIds([]);
-      } else if (
-        delegationMode === "reassign"
-      ) {
-        await api.patch(
-          `/delegations/${selectedSubmission.delegation.id}/reassign`,
-          {
-            assistantId:
-              selectedAssistantId,
-
-            reason:
-              delegationReason.trim() ||
-              undefined,
-          },
-        );
-
-        setSuccess(
-          "Submission reassigned successfully.",
-        );
-      } else {
-        await api.post(
-          "/delegations",
-          {
-            submissionId:
-              selectedSubmission.id,
-
-            assistantId:
-              selectedAssistantId,
-
-            reason:
-              delegationReason.trim() ||
-              undefined,
-          },
-        );
-
-        setSuccess(
-          "Submission delegated successfully.",
-        );
-      }
-
-      setDelegatingSubmissionId(null);
-      resetDelegationModal();
-
-      await loadTask({
-        silent: true,
-      });
-    } catch (requestError) {
-      setDelegateError(
-        getErrorMessage(
-          requestError,
-          delegationMode === "bulk"
-            ? "Couldn't perform bulk delegation."
-            : delegationMode ===
-                "reassign"
-              ? "Couldn't reassign the submission."
-              : "Couldn't delegate the submission.",
-        ),
-      );
-
-      setDelegatingSubmissionId(null);
-    }
-  }
-
-  async function removeDelegation(
-    submission,
-  ) {
-    const delegationId =
-      submission.delegation?.id;
-
-    if (!delegationId) {
-      return;
-    }
-
-    clearMessages();
-
-    setRemovingDelegationId(
-      delegationId,
-    );
-
-    try {
-      await api.delete(
-        `/delegations/${delegationId}`,
-        {
-          data: {
-            reason:
-              "Returned to the unassigned grading queue.",
-          },
-        },
-      );
-
-      setSuccess(
-        "Delegation removed successfully.",
-      );
-
-      await loadTask({
-        silent: true,
-      });
-    } catch (requestError) {
-      setError(
-        getErrorMessage(
-          requestError,
-          "Couldn't remove the delegation.",
-        ),
-      );
-    } finally {
-      setRemovingDelegationId(null);
-    }
-  }
-
-  async function openDelegationHistory(
-    submission,
-  ) {
-    setHistorySubmission(submission);
-    setDelegationHistory([]);
-    setHistoryError("");
-    setHistoryModalVisible(true);
-    setLoadingHistory(true);
-
-    try {
-      const response = await api.get(
-        `/delegations/submission/${submission.id}/history`,
-      );
-
-      setDelegationHistory(
-        response.data?.history || [],
-      );
-    } catch (requestError) {
-      setHistoryError(
-        getErrorMessage(
-          requestError,
-          "Couldn't load delegation history.",
-        ),
-      );
-    } finally {
-      setLoadingHistory(false);
-    }
-  }
-
-  function closeHistoryModal() {
-    if (loadingHistory) {
-      return;
-    }
-
-    setHistoryModalVisible(false);
-    setHistorySubmission(null);
-    setDelegationHistory([]);
-    setHistoryError("");
-  }
-
-  function getAssistantGroupNames(
+  function handleAssistantSelection(
     assistantId,
   ) {
-    return (task?.groups || [])
-      .filter((taskGroup) =>
-        taskGroup?.group
-          ?.assistantAssignments
-          ?.some(
-            (assignment) =>
-              String(
-                assignment?.assistant
-                  ?.id,
-              ) ===
-              String(assistantId),
-          ),
-      )
-      .map(
-        (taskGroup) =>
-          taskGroup?.group?.name,
-      )
-      .filter(Boolean);
+    if (
+      delegateModalMode ===
+      "BULK_ASSIGN"
+    ) {
+      return bulkAssignSubmissions(
+        assistantId,
+      );
+    }
+
+    if (
+      delegateModalMode ===
+      "REASSIGN"
+    ) {
+      return reassignSubmission(
+        assistantId,
+      );
+    }
+
+    return assignSubmission(
+      assistantId,
+    );
   }
 
-  function renderStudentFiles(
+  function confirmRemoveDelegation(
     submission,
   ) {
-    const files = Array.isArray(
-      submission.files,
-    )
-      ? submission.files
-      : [];
+    if (!submission?.delegation) {
+      return;
+    }
 
-    if (!files.length) {
-      if (!submission.fileUrl) {
-        return (
-          <View style={styles.noFileBox}>
-            <Ionicons
-              name="document-outline"
-              size={19}
-              color={colors.textMuted}
-            />
+    const assistantName =
+      submission.delegation
+        ?.assistant?.name ||
+      "the assistant";
 
-            <Text
-              style={styles.noFileText}
-            >
-              No student files are available.
-            </Text>
-          </View>
+    const message =
+      `Remove the delegation from ${assistantName}?`;
+
+    if (
+      typeof window !==
+      "undefined"
+    ) {
+      const confirmed =
+        window.confirm(
+          message,
         );
+
+      if (!confirmed) {
+        return;
       }
-
-      return (
-        <Pressable
-          accessibilityRole="link"
-          onPress={() =>
-            openExternalFile(
-              submission.fileUrl,
-              `legacy-${submission.id}`,
-            )
-          }
-          style={({ pressed }) => [
-            styles.fileRow,
-
-            pressed && styles.pressed,
-          ]}
-        >
-          <View
-            style={styles.fileOrder}
-          >
-            <Ionicons
-              name="document-outline"
-              size={18}
-              color={colors.primary}
-            />
-          </View>
-
-          <View
-            style={styles.fileDetails}
-          >
-            <Text
-              style={styles.fileName}
-            >
-              Legacy submission file
-            </Text>
-
-            <Text
-              style={styles.fileMeta}
-            >
-              Open the student's uploaded
-              homework
-            </Text>
-          </View>
-
-          <Ionicons
-            name="open-outline"
-            size={19}
-            color={colors.primary}
-          />
-        </Pressable>
-      );
     }
 
-    return (
-      <View style={styles.filesSection}>
-        <View
-          style={styles.filesSectionHeader}
-        >
-          <Text
-            style={styles.filesSectionTitle}
-          >
-            Student files
-          </Text>
-
-          <Text
-            style={styles.filesCount}
-          >
-            {files.length}{" "}
-            {files.length === 1
-              ? "file"
-              : "files"}
-          </Text>
-        </View>
-
-        {files.map((file, index) => {
-          const key =
-            `student-${file.id}`;
-
-          return (
-            <Pressable
-              key={file.id}
-              accessibilityRole="link"
-              onPress={() =>
-                openExternalFile(
-                  file.fileUrl,
-                  key,
-                )
-              }
-              style={({ pressed }) => [
-                styles.fileRow,
-
-                pressed &&
-                  styles.pressed,
-              ]}
-            >
-              <View
-                style={styles.fileOrder}
-              >
-                <Text
-                  style={
-                    styles.fileOrderText
-                  }
-                >
-                  {index + 1}
-                </Text>
-              </View>
-
-              <View
-                style={styles.fileDetails}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={styles.fileName}
-                >
-                  {file.originalName ||
-                    `Submission file ${
-                      index + 1
-                    }`}
-                </Text>
-
-                <Text
-                  style={styles.fileMeta}
-                >
-                  {formatFileSize(
-                    file.size,
-                  )}
-
-                  {file.uploadedAfterDeadline
-                    ? " · Uploaded after deadline"
-                    : ""}
-                </Text>
-              </View>
-
-              {openingFileKey === key ? (
-                <ActivityIndicator
-                  size="small"
-                  color={colors.primary}
-                />
-              ) : (
-                <Ionicons
-                  name="open-outline"
-                  size={19}
-                  color={colors.primary}
-                />
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-    );
-  }
-
-  function renderCorrectedFiles(
-    submission,
-  ) {
-    const files = Array.isArray(
-      submission.correctedFiles,
-    )
-      ? submission.correctedFiles
-      : [];
-
-    if (!files.length) {
-      if (!submission.correctedFileUrl) {
-        return null;
-      }
-
-      return (
-        <View
-          style={
-            styles.returnedFilesSection
-          }
-        >
-          <Text
-            style={
-              styles.filesSectionTitle
-            }
-          >
-            Returned correction
-          </Text>
-
-          <Pressable
-            accessibilityRole="link"
-            onPress={() =>
-              openExternalFile(
-                submission.correctedFileUrl,
-                `legacy-corrected-${submission.id}`,
-              )
-            }
-            style={({ pressed }) => [
-              styles.correctedFileRow,
-
-              pressed &&
-                styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="checkmark-done-outline"
-              size={20}
-              color={colors.secondary}
-            />
-
-            <View
-              style={styles.fileDetails}
-            >
-              <Text
-                style={styles.fileName}
-              >
-                Corrected homework
-              </Text>
-
-              <Text
-                style={styles.fileMeta}
-              >
-                Legacy corrected file
-              </Text>
-            </View>
-
-            <Ionicons
-              name="open-outline"
-              size={19}
-              color={colors.primary}
-            />
-          </Pressable>
-        </View>
-      );
-    }
-
-    return (
-      <View
-        style={
-          styles.returnedFilesSection
-        }
-      >
-        <View
-          style={styles.filesSectionHeader}
-        >
-          <Text
-            style={styles.filesSectionTitle}
-          >
-            Returned corrected files
-          </Text>
-
-          <Text
-            style={styles.filesCount}
-          >
-            {files.length}
-          </Text>
-        </View>
-
-        {files.map((file, index) => {
-          const key =
-            `corrected-${file.id}`;
-
-          return (
-            <Pressable
-              key={file.id}
-              accessibilityRole="link"
-              onPress={() =>
-                openExternalFile(
-                  file.fileUrl,
-                  key,
-                )
-              }
-              style={({ pressed }) => [
-                styles.correctedFileRow,
-
-                pressed &&
-                  styles.pressed,
-              ]}
-            >
-              <View
-                style={
-                  styles.correctedFileIcon
-                }
-              >
-                <Ionicons
-                  name="checkmark-done-outline"
-                  size={18}
-                  color={colors.secondary}
-                />
-              </View>
-
-              <View
-                style={styles.fileDetails}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={styles.fileName}
-                >
-                  {file.originalName ||
-                    `Corrected file ${
-                      index + 1
-                    }`}
-                </Text>
-
-                <Text
-                  style={styles.fileMeta}
-                >
-                  {formatFileSize(
-                    file.size,
-                  )}
-                </Text>
-              </View>
-
-              {openingFileKey === key ? (
-                <ActivityIndicator
-                  size="small"
-                  color={colors.primary}
-                />
-              ) : (
-                <Ionicons
-                  name="open-outline"
-                  size={19}
-                  color={colors.primary}
-                />
-              )}
-            </Pressable>
-          );
-        })}
-      </View>
-    );
-  }
-
-  function renderGradeForm(
-    submission,
-  ) {
-    const form =
-      getGradeForm(submission.id);
-
-    const isGrading =
-      gradingSubmissionId ===
-      submission.id;
-
-    return (
-      <View style={styles.gradingPanel}>
-        <View
-          style={styles.gradingHeading}
-        >
-          <Text
-            style={styles.gradingTitle}
-          >
-            Grade submission
-          </Text>
-
-          <Text
-            style={styles.gradingSubtitle}
-          >
-            Enter the final grade, add
-            feedback, and optionally return
-            corrected files.
-          </Text>
-        </View>
-
-        <View style={styles.formField}>
-          <Text style={styles.formLabel}>
-            Grade
-          </Text>
-
-          <View
-            style={styles.gradeInputWrapper}
-          >
-            <TextInput
-              value={form.grade}
-              onChangeText={(value) =>
-                updateGradeForm(
-                  submission.id,
-                  {
-                    grade: value,
-                  },
-                )
-              }
-              placeholder="Enter grade"
-              placeholderTextColor={
-                colors.textMuted
-              }
-              keyboardType="decimal-pad"
-              style={styles.gradeInput}
-            />
-
-            <View
-              style={styles.gradeSuffix}
-            >
-              <Text
-                style={
-                  styles.gradeSuffixText
-                }
-              >
-                / {task?.gradeOutOf ?? "-"}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.formField}>
-          <Text style={styles.formLabel}>
-            Feedback for student
-          </Text>
-
-          <TextInput
-            value={form.comments}
-            onChangeText={(value) =>
-              updateGradeForm(
-                submission.id,
-                {
-                  comments: value,
-                },
-              )
-            }
-            placeholder="Write comments, corrections, or advice..."
-            placeholderTextColor={
-              colors.textMuted
-            }
-            multiline
-            textAlignVertical="top"
-            style={styles.commentsInput}
-          />
-        </View>
-
-        <View style={styles.formField}>
-          <View
-            style={
-              styles.correctedPickerHeader
-            }
-          >
-            <View>
-              <Text
-                style={styles.formLabel}
-              >
-                Corrected files
-              </Text>
-
-              <Text
-                style={styles.formHelper}
-              >
-                Optional — select up to{" "}
-                {MAX_CORRECTED_FILES} files.
-              </Text>
-            </View>
-
-            <Button
-              title="Choose files"
-              variant="outline"
-              disabled={isGrading}
-              onPress={() =>
-                selectCorrectedFiles(
-                  submission.id,
-                )
-              }
-            />
-          </View>
-
-          {form.correctedFiles.length ? (
-            <View
-              style={
-                styles.selectedFilesList
-              }
-            >
-              {form.correctedFiles.map(
-                (file, index) => (
-                  <View
-                    key={file.localId}
-                    style={
-                      styles.selectedFileRow
-                    }
-                  >
-                    <View
-                      style={
-                        styles.selectedFileIcon
-                      }
-                    >
-                      <Ionicons
-                        name="document-attach-outline"
-                        size={18}
-                        color={colors.primary}
-                      />
-                    </View>
-
-                    <View
-                      style={
-                        styles.fileDetails
-                      }
-                    >
-                      <Text
-                        numberOfLines={1}
-                        style={styles.fileName}
-                      >
-                        {file.name ||
-                          `Corrected file ${
-                            index + 1
-                          }`}
-                      </Text>
-
-                      <Text
-                        style={styles.fileMeta}
-                      >
-                        {formatFileSize(
-                          file.size,
-                        )}
-                      </Text>
-                    </View>
-
-                    <Pressable
-                      disabled={isGrading}
-                      onPress={() =>
-                        removeSelectedCorrectedFile(
-                          submission.id,
-                          file.localId,
-                        )
-                      }
-                      style={
-                        styles.removeSelectedFile
-                      }
-                    >
-                      <Ionicons
-                        name="close"
-                        size={18}
-                        color={colors.danger}
-                      />
-                    </Pressable>
-                  </View>
-                ),
-              )}
-            </View>
-          ) : (
-            <View
-              style={
-                styles.noSelectedFiles
-              }
-            >
-              <Ionicons
-                name="cloud-upload-outline"
-                size={20}
-                color={colors.textMuted}
-              />
-
-              <Text
-                style={
-                  styles.noSelectedFilesText
-                }
-              >
-                No corrected files selected.
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <Button
-          title={
-            isGrading
-              ? "Saving grade..."
-              : "Save grade and return"
-          }
-          variant="secondary"
-          loading={isGrading}
-          disabled={Boolean(
-            gradingSubmissionId,
-          )}
-          onPress={() =>
-            gradeSubmission(submission)
-          }
-        />
-      </View>
-    );
-  }
-
-  function renderSubmissionCard(
-    submission,
-  ) {
-    const graded =
-      submission.grade != null;
-
-    const delegated = Boolean(
-      submission.delegation,
-    );
-
-    const delegatedAssistantId =
-      submission.delegation
-        ?.assistantId ||
-      submission.delegation
-        ?.assistant?.id;
-
-    const delegatedToCurrentUser =
-      delegated &&
-      String(delegatedAssistantId) ===
-        String(user?.id);
-
-    const canGrade =
-      !graded &&
-      (isAdminLevel ||
-        delegatedToCurrentUser);
-
-    const canDelegate =
-      !graded &&
-      isAdminLevel &&
-      !delegated;
-
-    const canSelectForBulk =
-      canDelegate;
-
-    const selectedForBulk =
-      selectedSubmissionIds.includes(
-        submission.id,
-      );
-
-    return (
-      <Card
-        key={submission.id}
-        style={styles.submissionCard}
-      >
-        {canSelectForBulk ? (
-          <Pressable
-            accessibilityRole="checkbox"
-            accessibilityState={{
-              checked: selectedForBulk,
-            }}
-            onPress={() =>
-              toggleSubmissionSelection(
-                submission.id,
-              )
-            }
-            style={
-              styles.cardSelectionRow
-            }
-          >
-            <View
-              style={[
-                styles.checkbox,
-
-                selectedForBulk &&
-                  styles.checkboxSelected,
-              ]}
-            >
-              {selectedForBulk ? (
-                <Ionicons
-                  name="checkmark"
-                  size={15}
-                  color={colors.white}
-                />
-              ) : null}
-            </View>
-
-            <Text
-              style={
-                styles.cardSelectionText
-              }
-            >
-              Select for bulk delegation
-            </Text>
-          </Pressable>
-        ) : null}
-
-        <View
-          style={[
-            styles.submissionHeader,
-
-            isSmallScreen &&
-              styles.submissionHeaderSmall,
-          ]}
-        >
-          <View
-            style={styles.studentIdentity}
-          >
-            <View
-              style={styles.studentAvatar}
-            >
-              <Text
-                style={
-                  styles.studentAvatarText
-                }
-              >
-                {getInitial(
-                  submission.student?.name,
-                )}
-              </Text>
-            </View>
-
-            <View
-              style={styles.studentInfo}
-            >
-              <Text
-                numberOfLines={1}
-                style={styles.studentName}
-              >
-                {submission.student?.name ||
-                  "Unknown student"}
-              </Text>
-
-              <Text
-                style={styles.studentMeta}
-              >
-                Last updated{" "}
-                {formatDate(
-                  submission.submittedAt ||
-                    submission.lastModifiedAt ||
-                    submission.createdAt,
-                ) || "date unavailable"}
-              </Text>
-            </View>
-          </View>
-
-          <View
-            style={styles.statusBadges}
-          >
-            {graded ? (
-              <Badge
-                label={`Graded ${submission.grade}/${task?.gradeOutOf}`}
-                tone="success"
-              />
-            ) : delegatedToCurrentUser ? (
-              <Badge
-                label="Assigned to you"
-                tone="warning"
-              />
-            ) : delegated ? (
-              <Badge
-                label={`Delegated to ${
-                  submission.delegation
-                    ?.assistant?.name ||
-                  "assistant"
-                }`}
-                tone="warning"
-              />
-            ) : (
-              <Badge
-                label="Ungraded"
-                tone="neutral"
-              />
-            )}
-
-            {submission.lastModifiedAfterDeadline ||
-            submission.wasModifiedAfterDeadline ? (
-              <Badge
-                label="Modified late"
-                tone="danger"
-              />
-            ) : null}
-          </View>
-        </View>
-
-        {submission.lastModifiedAfterDeadline ||
-        submission.wasModifiedAfterDeadline ? (
-          <View
-            style={styles.lateWarning}
-          >
-            <Ionicons
-              name="alert-circle-outline"
-              size={20}
-              color={colors.warning}
-            />
-
-            <View
-              style={
-                styles.lateWarningText
-              }
-            >
-              <Text
-                style={
-                  styles.lateWarningTitle
-                }
-              >
-                Modified after deadline
-              </Text>
-
-              <Text
-                style={
-                  styles.lateWarningDescription
-                }
-              >
-                The student added or removed
-                one or more files after the
-                deadline.
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
-        {renderStudentFiles(submission)}
-
-        {graded ? (
-          <View
-            style={styles.gradedPanel}
-          >
-            <View
-              style={styles.gradedHeader}
-            >
-              <View
-                style={styles.gradedIcon}
-              >
-                <Ionicons
-                  name="checkmark-done-outline"
-                  size={22}
-                  color={colors.secondary}
-                />
-              </View>
-
-              <View
-                style={styles.gradedText}
-              >
-                <Text
-                  style={styles.gradedTitle}
-                >
-                  Grading completed
-                </Text>
-
-                <Text
-                  style={
-                    styles.gradedSubtitle
-                  }
-                >
-                  Final grade:{" "}
-                  {submission.grade}/
-                  {task?.gradeOutOf}
-                </Text>
-
-                {submission.gradedBy?.name ? (
-                  <Text
-                    style={
-                      styles.gradedByText
-                    }
-                  >
-                    Graded by{" "}
-                    {
-                      submission.gradedBy
-                        .name
-                    }
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-
-            {submission.comments ? (
-              <View
-                style={styles.feedbackBox}
-              >
-                <Text
-                  style={
-                    styles.feedbackLabel
-                  }
-                >
-                  Student feedback
-                </Text>
-
-                <Text
-                  style={
-                    styles.feedbackText
-                  }
-                >
-                  {submission.comments}
-                </Text>
-              </View>
-            ) : null}
-
-            {renderCorrectedFiles(
-              submission,
-            )}
-          </View>
-        ) : null}
-
-        {canGrade
-          ? renderGradeForm(submission)
-          : null}
-
-        {canDelegate ? (
-          <>
-            <View
-              style={styles.dividerRow}
-            >
-              <View style={styles.divider} />
-
-              <Text
-                style={styles.dividerText}
-              >
-                OR
-              </Text>
-
-              <View style={styles.divider} />
-            </View>
-
-            <Button
-              title="Delegate to assistant"
-              variant="outline"
-              onPress={() =>
-                openSingleDelegateModal(
-                  submission,
-                )
-              }
-            />
-          </>
-        ) : null}
-
-        {delegated && !graded ? (
-          <View
-            style={styles.delegationPanel}
-          >
-            <Ionicons
-              name="person-outline"
-              size={21}
-              color={colors.warning}
-            />
-
-            <View
-              style={styles.delegationText}
-            >
-              <Text
-                style={
-                  styles.delegationTitle
-                }
-              >
-                {delegatedToCurrentUser
-                  ? "Assigned to you"
-                  : "Waiting for delegated grading"}
-              </Text>
-
-              <Text
-                style={
-                  styles.delegationSubtitle
-                }
-              >
-                Assigned to{" "}
-                {submission.delegation
-                  ?.assistant?.name ||
-                  "an assistant"}.
-              </Text>
-
-              {isAdminLevel ? (
-                <View
-                  style={
-                    styles.delegationActions
-                  }
-                >
-                  <Button
-                    title="Reassign"
-                    variant="outline"
-                    onPress={() =>
-                      openReassignModal(
-                        submission,
-                      )
-                    }
-                  />
-
-                  <Button
-                    title={
-                      removingDelegationId ===
-                      submission.delegation?.id
-                        ? "Removing..."
-                        : "Remove"
-                    }
-                    variant="outline"
-                    loading={
-                      removingDelegationId ===
-                      submission.delegation?.id
-                    }
-                    disabled={Boolean(
-                      removingDelegationId,
-                    )}
-                    onPress={() =>
-                      removeDelegation(
-                        submission,
-                      )
-                    }
-                  />
-
-                  <Button
-                    title="History"
-                    variant="outline"
-                    onPress={() =>
-                      openDelegationHistory(
-                        submission,
-                      )
-                    }
-                  />
-                </View>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
-
-        {isAdminLevel && graded ? (
-          <View
-            style={
-              styles.historyActionRow
-            }
-          >
-            <Button
-              title="View delegation history"
-              variant="outline"
-              onPress={() =>
-                openDelegationHistory(
-                  submission,
-                )
-              }
-            />
-          </View>
-        ) : null}
-      </Card>
+    removeDelegation(
+      submission,
+      "Delegation removed from the task page.",
     );
   }
 
@@ -2172,17 +317,42 @@ export default function TeacherTaskDetail() {
     return (
       <Screen
         scroll={false}
-        style={styles.fullPageLoading}
+        style={
+          styles.fullPageLoading
+        }
       >
+        <View
+          style={
+            styles.loadingIcon
+          }
+        >
+          <Ionicons
+            name="clipboard-outline"
+            size={30}
+            color={colors.primary}
+          />
+        </View>
+
         <ActivityIndicator
-          color={colors.primary}
           size="large"
+          color={colors.primary}
         />
 
         <Text
-          style={styles.loadingText}
+          style={
+            styles.loadingTitle
+          }
         >
-          Loading task details...
+          Loading task details
+        </Text>
+
+        <Text
+          style={
+            styles.loadingText
+          }
+        >
+          Preparing submissions, grading
+          information, and delegation data.
         </Text>
       </Screen>
     );
@@ -2191,51 +361,102 @@ export default function TeacherTaskDetail() {
   if (!task) {
     return (
       <Screen>
-        <Card
-          style={styles.notFoundCard}
-        >
-          <View
-            style={styles.notFoundIcon}
+        <View style={styles.page}>
+          <Pressable
+            onPress={() =>
+              router.back()
+            }
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed &&
+                styles.pressed,
+            ]}
           >
             <Ionicons
-              name="alert-circle-outline"
-              size={36}
-              color={colors.danger}
+              name="arrow-back"
+              size={18}
+              color={colors.primary}
             />
-          </View>
 
-          <Text
-            style={styles.notFoundTitle}
+            <Text
+              style={
+                styles.backButtonText
+              }
+            >
+              Back
+            </Text>
+          </Pressable>
+
+          <Card
+            style={
+              styles.notFoundCard
+            }
           >
-            Task unavailable
-          </Text>
+            <View
+              style={
+                styles.notFoundIcon
+              }
+            >
+              <Ionicons
+                name="alert-circle-outline"
+                size={34}
+                color={colors.danger}
+              />
+            </View>
 
-          <Text
-            style={styles.notFoundText}
-          >
-            {error ||
-              "The task could not be loaded."}
-          </Text>
+            <Text
+              style={
+                styles.notFoundTitle
+              }
+            >
+              Task not found
+            </Text>
 
-          <Button
-            title="Go back"
-            variant="outline"
-            onPress={() => router.back()}
-          />
-        </Card>
+            <Text
+              style={
+                styles.notFoundText
+              }
+            >
+              {error ||
+                "The task could not be loaded or you do not have access to it."}
+            </Text>
+
+            <Button
+              title="Go back"
+              variant="outline"
+              onPress={() =>
+                router.back()
+              }
+            />
+          </Card>
+        </View>
       </Screen>
     );
   }
 
   return (
-    <Screen>
+    <Screen
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() =>
+            loadTask({
+              silent: true,
+            })
+          }
+          tintColor={colors.primary}
+        />
+      }
+    >
       <View style={styles.page}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() =>
+            router.back()
+          }
           style={({ pressed }) => [
             styles.backButton,
-
-            pressed && styles.pressed,
+            pressed &&
+              styles.pressed,
           ]}
         >
           <Ionicons
@@ -2245,213 +466,267 @@ export default function TeacherTaskDetail() {
           />
 
           <Text
-            style={styles.backButtonText}
+            style={
+              styles.backButtonText
+            }
           >
             Back to tasks
           </Text>
         </Pressable>
 
         {error ? (
-          <MessageBanner
-            type="error"
-            message={error}
-            onDismiss={() =>
-              setError("")
-            }
-          />
+          <View
+            style={[
+              styles.alert,
+              styles.errorAlert,
+            ]}
+          >
+            <Ionicons
+              name="alert-circle-outline"
+              size={20}
+              color={colors.danger}
+            />
+
+            <Text
+              style={
+                styles.errorText
+              }
+            >
+              {error}
+            </Text>
+
+            <Pressable
+              accessibilityLabel="Dismiss error"
+              onPress={dismissError}
+              style={
+                styles.alertClose
+              }
+            >
+              <Ionicons
+                name="close"
+                size={18}
+                color={colors.danger}
+              />
+            </Pressable>
+          </View>
         ) : null}
 
         {success ? (
-          <MessageBanner
-            type="success"
-            message={success}
-            onDismiss={() =>
-              setSuccess("")
-            }
-          />
+          <View
+            style={[
+              styles.alert,
+              styles.successAlert,
+            ]}
+          >
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={20}
+              color={colors.secondary}
+            />
+
+            <Text
+              style={
+                styles.successText
+              }
+            >
+              {success}
+            </Text>
+
+            <Pressable
+              accessibilityLabel="Dismiss success"
+              onPress={dismissSuccess}
+              style={
+                styles.alertClose
+              }
+            >
+              <Ionicons
+                name="close"
+                size={18}
+                color={colors.secondary}
+              />
+            </Pressable>
+          </View>
         ) : null}
 
         <Card style={styles.heroCard}>
           <View
             style={[
               styles.heroContent,
-
-              isSmallScreen &&
+              isCompact &&
                 styles.heroContentSmall,
             ]}
           >
             <View style={styles.heroIcon}>
               <Ionicons
                 name="clipboard-outline"
-                size={29}
+                size={28}
                 color={colors.primary}
               />
             </View>
 
             <View style={styles.heroCopy}>
-              <Text style={styles.eyebrow}>
-                HOMEWORK TASK
-              </Text>
+              <View style={styles.heroTopRow}>
+                <View
+                  style={
+                    styles.heroTitleCopy
+                  }
+                >
+                  <Text style={styles.eyebrow}>
+                    TASK DETAILS
+                  </Text>
 
-              <Text
-                style={styles.pageTitle}
-              >
-                {task.title}
-              </Text>
+                  <Text style={styles.pageTitle}>
+                    {task.title ||
+                      "Untitled task"}
+                  </Text>
+                </View>
 
-              <Text
-                style={
-                  styles.pageDescription
-                }
-              >
-                {task.description ||
-                  "No additional instructions were provided."}
-              </Text>
-
-              <View
-                style={styles.heroBadges}
-              >
                 <Badge
-                  label={`Due ${formatDate(
-                    task.deadline,
-                  )}`}
-                  tone="neutral"
+                  label={taskStatus.label}
+                  tone={taskStatus.tone}
+                />
+              </View>
+
+              {task.description ? (
+                <Text
+                  style={
+                    styles.pageDescription
+                  }
+                >
+                  {task.description}
+                </Text>
+              ) : null}
+
+              <View style={styles.heroBadges}>
+                <Badge
+                  label={`Grade out of ${
+                    task.gradeOutOf ?? "-"
+                  }`}
+                  tone="info"
                 />
 
                 <Badge
                   label={
                     task.allowLateSubmission
-                      ? "Late submissions allowed"
-                      : "No late submissions"
+                      ? "Late submission allowed"
+                      : "No late submission"
                   }
                   tone={
                     task.allowLateSubmission
                       ? "success"
-                      : "danger"
+                      : "neutral"
                   }
                 />
 
                 <Badge
-                  label={`Grade out of ${task.gradeOutOf}`}
-                  tone="info"
+                  label={`${summary.total} submissions`}
+                  tone="neutral"
                 />
               </View>
 
-              <View
-                style={
-                  styles.taskGroupsSection
-                }
-              >
-                <Text
-                  style={
-                    styles.taskGroupsLabel
-                  }
-                >
-                  Assigned groups
-                </Text>
-
+              {taskGroups.length ? (
                 <View
                   style={
-                    styles.taskGroupsList
+                    styles.taskGroupsSection
                   }
                 >
-                  {taskGroups.map(
-                    (group) => (
-                      <View
-                        key={group.id}
-                        style={
-                          styles.taskGroupBadge
-                        }
-                      >
-                        <Ionicons
-                          name="people-outline"
-                          size={13}
-                          color={colors.primary}
-                        />
+                  <Text
+                    style={
+                      styles.taskGroupsLabel
+                    }
+                  >
+                    Assigned groups
+                  </Text>
 
-                        <Text
+                  <View
+                    style={
+                      styles.taskGroupsList
+                    }
+                  >
+                    {taskGroups.map(
+                      (group) => (
+                        <View
+                          key={group.id}
                           style={
-                            styles.taskGroupBadgeText
+                            styles.taskGroupBadge
                           }
                         >
-                          {group.name}
-                        </Text>
-                      </View>
-                    ),
-                  )}
-                </View>
-              </View>
-            </View>
+                          <Ionicons
+                            name="people-outline"
+                            size={13}
+                            color={colors.primary}
+                          />
 
-            {task.taskFileUrl ? (
-              <Button
-                title="Open task file"
-                variant="outline"
-                onPress={() =>
-                  openExternalFile(
-                    task.taskFileUrl,
-                    "task-file",
-                  )
-                }
-              />
-            ) : null}
+                          <Text
+                            style={
+                              styles.taskGroupBadgeText
+                            }
+                          >
+                            {group.name ||
+                              "Unnamed group"}
+                          </Text>
+                        </View>
+                      ),
+                    )}
+                  </View>
+                </View>
+              ) : null}
+            </View>
           </View>
         </Card>
 
         <View style={styles.statsGrid}>
-          <SummaryCard
+          <StatCard
             icon="documents-outline"
-            value={summary.total}
             label="Submissions"
+            value={summary.total}
           />
 
-          <SummaryCard
+          <StatCard
             icon="checkmark-done-outline"
-            value={summary.graded}
             label="Graded"
+            value={summary.graded}
+            tone="success"
           />
 
-          <SummaryCard
+          <StatCard
             icon="person-outline"
-            value={summary.delegated}
             label="Delegated"
+            value={summary.delegated}
             tone="warning"
           />
 
-          <SummaryCard
+          <StatCard
             icon="time-outline"
+            label="Pending"
             value={summary.pending}
-            label="Awaiting action"
-            tone="danger"
-          />
-
-          <SummaryCard
-            icon="alert-circle-outline"
-            value={summary.lateModified}
-            label="Modified late"
-            tone="warning"
           />
         </View>
 
         <View
           style={[
             styles.contentLayout,
-
             isDesktop &&
               styles.contentLayoutDesktop,
           ]}
         >
-          <View style={styles.mainColumn}>
+          <View
+            style={
+              styles.mainColumn
+            }
+          >
             <View
-              style={styles.sectionHeader}
+              style={
+                styles.sectionHeader
+              }
             >
               <View>
                 <Text
-                  style={styles.sectionTitle}
+                  style={
+                    styles.sectionTitle
+                  }
                 >
-                  {isRegularAssistant
-                    ? "My delegated submissions"
-                    : "Student submissions"}
+                  Student submissions
                 </Text>
 
                 <Text
@@ -2459,42 +734,43 @@ export default function TeacherTaskDetail() {
                     styles.sectionSubtitle
                   }
                 >
-                  Review files, provide
-                  feedback, return corrections,
-                  and save grades.
+                  Review files, delegate papers,
+                  grade work, and manage grading
+                  history.
                 </Text>
               </View>
 
               <Text
-                style={styles.sectionCount}
+                style={
+                  styles.sectionCount
+                }
               >
-                {submissions.length}{" "}
-                {submissions.length === 1
-                  ? "submission"
-                  : "submissions"}
+                {submissions.length}
               </Text>
             </View>
 
             {isAdminLevel &&
             selectableSubmissions.length ? (
               <View
-                style={styles.bulkToolbar}
+                style={
+                  styles.bulkToolbar
+                }
               >
                 <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{
-                    checked:
-                      allSelectableSelected,
-                  }}
-                  onPress={toggleSelectAll}
-                  style={
-                    styles.selectionControl
+                  onPress={
+                    allSelectableSelected
+                      ? clearSubmissionSelection
+                      : selectAllSubmissions
                   }
+                  style={({ pressed }) => [
+                    styles.selectionControl,
+                    pressed &&
+                      styles.pressed,
+                  ]}
                 >
                   <View
                     style={[
                       styles.checkbox,
-
                       allSelectableSelected &&
                         styles.checkboxSelected,
                     ]}
@@ -2530,16 +806,16 @@ export default function TeacherTaskDetail() {
                     }
                   >
                     {
-                      selectedBulkSubmissions.length
+                      selectedSubmissionIds.length
                     }{" "}
                     selected
                   </Text>
 
                   <Button
                     title="Bulk delegate"
-                    variant="secondary"
+                    variant="warning"
                     disabled={
-                      !selectedBulkSubmissions.length
+                      !selectedSubmissionIds.length
                     }
                     onPress={
                       openBulkDelegateModal
@@ -2550,23 +826,29 @@ export default function TeacherTaskDetail() {
             ) : null}
 
             {!submissions.length ? (
-              <Card style={styles.emptyCard}>
+              <Card
+                style={
+                  styles.emptyCard
+                }
+              >
                 <View
-                  style={styles.emptyIcon}
+                  style={
+                    styles.emptyIcon
+                  }
                 >
                   <Ionicons
-                    name="document-outline"
-                    size={35}
+                    name="documents-outline"
+                    size={34}
                     color={colors.primary}
                   />
                 </View>
 
                 <Text
-                  style={styles.emptyTitle}
+                  style={
+                    styles.emptyTitle
+                  }
                 >
-                  {isRegularAssistant
-                    ? "No delegated submissions"
-                    : "No submissions yet"}
+                  No submissions yet
                 </Text>
 
                 <Text
@@ -2574,17 +856,163 @@ export default function TeacherTaskDetail() {
                     styles.emptyDescription
                   }
                 >
-                  {isRegularAssistant
-                    ? "Delegated papers will appear here."
-                    : "Student work will appear here after submission."}
+                  Student homework submissions
+                  will appear here when they are
+                  uploaded.
                 </Text>
               </Card>
             ) : (
               <View
-                style={styles.submissionList}
+                style={
+                  styles.submissionList
+                }
               >
                 {submissions.map(
-                  renderSubmissionCard,
+                  (submission) => {
+                    const canSelect =
+                      isAdminLevel &&
+                      submission.grade ===
+                        null &&
+                      !submission.delegation;
+
+                    return (
+                      <SubmissionCard
+                        key={
+                          submission.id
+                        }
+                        submission={
+                          submission
+                        }
+                        task={task}
+                        user={user}
+                        isAdminLevel={
+                          isAdminLevel
+                        }
+                        isSelected={selectedIdSet.has(
+                          String(
+                            submission.id,
+                          ),
+                        )}
+                        canSelect={
+                          canSelect
+                        }
+                        gradeForm={getGradeForm(
+                          submission.id,
+                        )}
+                        isGrading={
+                          gradingSubmissionId ===
+                          submission.id
+                        }
+                        editingSubmissionId={
+                          editingSubmissionId
+                        }
+                        openingFileKey={
+                          openingFileKey
+                        }
+                        delegationBusyId={
+                          delegationBusyId
+                        }
+                        onToggleSelection={() =>
+                          toggleSubmissionSelection(
+                            submission.id,
+                          )
+                        }
+                        onOpenFile={
+                          openExternalFile
+                        }
+                        onDeleteCorrectedFile={(
+                          correctedFileId,
+                        ) =>
+                          deleteCorrectedFile(
+                            {
+                              submission,
+                              correctedFileId,
+                            },
+                          )
+                        }
+                        onUpdateGrade={(
+                          value,
+                        ) =>
+                          updateGradeForm(
+                            submission.id,
+                            {
+                              grade:
+                                value,
+                            },
+                          )
+                        }
+                        onUpdateComments={(
+                          value,
+                        ) =>
+                          updateGradeForm(
+                            submission.id,
+                            {
+                              comments:
+                                value,
+                            },
+                          )
+                        }
+                        onSelectCorrectedFiles={() =>
+                          selectCorrectedFiles(
+                            submission.id,
+                          )
+                        }
+                        onRemoveSelectedCorrectedFile={(
+                          localId,
+                        ) =>
+                          removeSelectedCorrectedFile(
+                            submission.id,
+                            localId,
+                          )
+                        }
+                        onGrade={() =>
+                          gradeSubmission(
+                            submission,
+                          )
+                        }
+                        onStartEditingGrade={() =>
+                          startEditingGrade(
+                            submission,
+                          )
+                        }
+                        onCancelEditingGrade={() =>
+                          cancelEditingGrade(
+                            submission.id,
+                          )
+                        }
+                        onOpenDelegate={() =>
+                          openDelegateModal(
+                            submission,
+                          )
+                        }
+                        onOpenReassign={() =>
+                          openReassignModal(
+                            submission,
+                          )
+                        }
+                        onRemoveDelegation={() =>
+                          confirmRemoveDelegation(
+                            submission,
+                          )
+                        }
+                        onOpenDelegationHistory={() =>
+                          openDelegationHistory(
+                            submission,
+                          )
+                        }
+                        onOpenGradingHistory={() =>
+                          openGradingHistory(
+                            submission,
+                          )
+                        }
+                        onOpenReopen={() =>
+                          openReopenModal(
+                            submission,
+                          )
+                        }
+                      />
+                    );
+                  },
                 )}
               </View>
             )}
@@ -2593,43 +1021,51 @@ export default function TeacherTaskDetail() {
           <View
             style={[
               styles.sideColumn,
-
               isDesktop &&
                 styles.sideColumnDesktop,
             ]}
           >
             <Card
-              style={styles.progressCard}
+              style={
+                styles.progressCard
+              }
             >
               <View
-                style={styles.sideCardIcon}
+                style={
+                  styles.sideCardIcon
+                }
               >
                 <Ionicons
-                  name="analytics-outline"
+                  name="pie-chart-outline"
                   size={22}
                   color={colors.primary}
                 />
               </View>
 
               <Text
-                style={styles.sideCardTitle}
+                style={
+                  styles.sideCardTitle
+                }
               >
                 Grading progress
               </Text>
 
               <Text
-                style={styles.progressValue}
+                style={
+                  styles.progressValue
+                }
               >
                 {progressPercentage}%
               </Text>
 
               <View
-                style={styles.progressTrack}
+                style={
+                  styles.progressTrack
+                }
               >
                 <View
                   style={[
                     styles.progressFill,
-
                     {
                       width:
                         `${progressPercentage}%`,
@@ -2639,16 +1075,70 @@ export default function TeacherTaskDetail() {
               </View>
 
               <Text
-                style={styles.progressText}
+                style={
+                  styles.progressText
+                }
               >
                 {summary.graded} of{" "}
-                {summary.total} graded
+                {summary.total} submissions
+                graded
               </Text>
             </Card>
 
-            <Card style={styles.infoCard}>
+            <Card
+              style={styles.infoCard}
+            >
               <View
-                style={styles.sideCardIcon}
+                style={
+                  styles.sideCardIcon
+                }
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={22}
+                  color={colors.primary}
+                />
+              </View>
+
+              <Text
+                style={
+                  styles.sideCardTitle
+                }
+              >
+                Task schedule
+              </Text>
+
+              <InfoRow
+                label="Deadline"
+                value={formatDateTime(
+                  task.deadline,
+                )}
+              />
+
+              <InfoRow
+                label="Created"
+                value={formatDateTime(
+                  task.createdAt,
+                )}
+              />
+
+              {task.updatedAt ? (
+                <InfoRow
+                  label="Last updated"
+                  value={formatDateTime(
+                    task.updatedAt,
+                  )}
+                />
+              ) : null}
+            </Card>
+
+            <Card
+              style={styles.infoCard}
+            >
+              <View
+                style={
+                  styles.sideCardIcon
+                }
               >
                 <Ionicons
                   name="information-circle-outline"
@@ -2658,593 +1148,153 @@ export default function TeacherTaskDetail() {
               </View>
 
               <Text
-                style={styles.sideCardTitle}
+                style={
+                  styles.sideCardTitle
+                }
               >
-                Grading workflow
+                Grading notes
               </Text>
 
               <Text
-                style={styles.infoText}
+                style={
+                  styles.infoText
+                }
               >
-                Grade submissions directly,
-                delegate individual papers, or
-                select several papers for bulk
-                delegation.
+                Corrected files are appended to
+                existing returned files. Reopening
+                preserves previous grade values in
+                grading history and returns the
+                current delegation to pending.
               </Text>
             </Card>
           </View>
         </View>
       </View>
 
-      <Modal
-        visible={delegateModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={
+      <DelegationModal
+        visible={delegateModalMode}
+        mode={delegateModalMode}
+        selectedSubmission={
+          selectedSubmission
+        }
+        selectedSubmissions={
+          selectedSubmissions
+        }
+        selectedDelegation={
+          selectedDelegation
+        }
+        assistants={
+          filteredAssistants
+        }
+        assistantSearch={
+          assistantSearch
+        }
+        reason={
+          delegationReason
+        }
+        error={delegateError}
+        busyId={
+          delegationBusyId
+        }
+        getAssistantGroupNames={
+          assistantGroupNames
+        }
+        onChangeSearch={
+          setAssistantSearch
+        }
+        onChangeReason={
+          setDelegationReason
+        }
+        onSelectAssistant={
+          handleAssistantSelection
+        }
+        onClose={
           closeDelegateModal
         }
-      >
-        <View
-          style={styles.modalBackdrop}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={
-              closeDelegateModal
-            }
-          />
+      />
 
-          <View style={styles.modalCard}>
-            <View
-              style={styles.modalHeader}
-            >
-              <View
-                style={styles.modalIcon}
-              >
-                <Ionicons
-                  name="person-add-outline"
-                  size={24}
-                  color={colors.primary}
-                />
-              </View>
-
-              <View
-                style={
-                  styles.modalHeadingCopy
-                }
-              >
-                <Text
-                  style={styles.modalTitle}
-                >
-                  {delegationMode === "bulk"
-                    ? "Bulk delegate submissions"
-                    : delegationMode ===
-                        "reassign"
-                      ? "Reassign submission"
-                      : "Delegate submission"}
-                </Text>
-
-                <Text
-                  style={styles.mutedText}
-                >
-                  {delegationMode === "bulk"
-                    ? `Choose an assistant for ${selectedBulkSubmissions.length} selected submissions.`
-                    : delegationMode ===
-                        "reassign"
-                      ? `Choose a new assistant for ${selectedSubmission?.student?.name || "this submission"}.`
-                      : `Choose an assistant to grade ${selectedSubmission?.student?.name || "this submission"}.`}
-                </Text>
-              </View>
-
-              <Pressable
-                onPress={
-                  closeDelegateModal
-                }
-                disabled={Boolean(
-                  delegatingSubmissionId,
-                )}
-                style={styles.modalClose}
-              >
-                <Ionicons
-                  name="close"
-                  size={22}
-                  color={
-                    colors.textPrimary
-                  }
-                />
-              </Pressable>
-            </View>
-
-            {delegateError ? (
-              <MessageBanner
-                type="error"
-                message={delegateError}
-                onDismiss={() =>
-                  setDelegateError("")
-                }
-              />
-            ) : null}
-
-            <View style={styles.searchBox}>
-              <Ionicons
-                name="search-outline"
-                size={18}
-                color={colors.textMuted}
-              />
-
-              <TextInput
-                value={assistantSearch}
-                onChangeText={
-                  setAssistantSearch
-                }
-                placeholder="Search assistants"
-                placeholderTextColor={
-                  colors.textMuted
-                }
-                style={styles.searchInput}
-              />
-            </View>
-
-            <View
-              style={styles.reasonField}
-            >
-              <Text
-                style={styles.formLabel}
-              >
-                Reason or note
-              </Text>
-
-              <TextInput
-                value={delegationReason}
-                onChangeText={
-                  setDelegationReason
-                }
-                placeholder={
-                  delegationMode ===
-                  "reassign"
-                    ? "Why is this submission being reassigned?"
-                    : "Optional delegation note"
-                }
-                placeholderTextColor={
-                  colors.textMuted
-                }
-                multiline
-                textAlignVertical="top"
-                style={styles.reasonInput}
-              />
-            </View>
-
-            <ScrollView
-              style={styles.assistantList}
-              contentContainerStyle={
-                styles.assistantListContent
-              }
-              nestedScrollEnabled
-            >
-              {!filteredAssistants.length ? (
-                <View
-                  style={styles.modalState}
-                >
-                  <Ionicons
-                    name="people-outline"
-                    size={38}
-                    color={colors.primary}
-                  />
-
-                  <Text
-                    style={
-                      styles.modalEmptyTitle
-                    }
-                  >
-                    No eligible assistants
-                  </Text>
-                </View>
-              ) : (
-                filteredAssistants.map(
-                  (assistant) => {
-                    const groups =
-                      getAssistantGroupNames(
-                        assistant.id,
-                      );
-
-                    const selected =
-                      String(
-                        selectedAssistantId,
-                      ) ===
-                      String(assistant.id);
-
-                    return (
-                      <View
-                        key={assistant.id}
-                        style={
-                          styles.assistantRow
-                        }
-                      >
-                        <View
-                          style={
-                            styles.assistantAvatar
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.assistantAvatarText
-                            }
-                          >
-                            {getInitial(
-                              assistant.name,
-                            )}
-                          </Text>
-                        </View>
-
-                        <View
-                          style={
-                            styles.assistantInfo
-                          }
-                        >
-                          <Text
-                            numberOfLines={1}
-                            style={
-                              styles.assistantName
-                            }
-                          >
-                            {assistant.name}
-                          </Text>
-
-                          <Text
-                            style={
-                              styles.assistantRole
-                            }
-                          >
-                            {assistant.isHeadAssistant
-                              ? "Head Assistant"
-                              : "Assistant"}
-                          </Text>
-
-                          <Text
-                            numberOfLines={2}
-                            style={
-                              styles.assistantGroups
-                            }
-                          >
-                            {groups.join(", ") ||
-                              "Assigned group"}
-                          </Text>
-                        </View>
-
-                        <Pressable
-                          accessibilityRole="radio"
-                          accessibilityState={{
-                            selected,
-                          }}
-                          disabled={Boolean(
-                            delegatingSubmissionId,
-                          )}
-                          onPress={() =>
-                            setSelectedAssistantId(
-                              assistant.id,
-                            )
-                          }
-                          style={[
-                            styles.assistantSelectButton,
-
-                            selected &&
-                              styles.assistantSelectButtonActive,
-                          ]}
-                        >
-                          <Ionicons
-                            name={
-                              selected
-                                ? "checkmark-circle"
-                                : "ellipse-outline"
-                            }
-                            size={20}
-                            color={
-                              selected
-                                ? colors.white
-                                : colors.primary
-                            }
-                          />
-
-                          <Text
-                            style={[
-                              styles.assistantSelectText,
-
-                              selected &&
-                                styles.assistantSelectTextActive,
-                            ]}
-                          >
-                            {selected
-                              ? "Selected"
-                              : "Select"}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    );
-                  },
-                )
-              )}
-            </ScrollView>
-
-            <View
-              style={styles.modalActions}
-            >
-              <Button
-                title="Cancel"
-                variant="outline"
-                disabled={Boolean(
-                  delegatingSubmissionId,
-                )}
-                onPress={
-                  closeDelegateModal
-                }
-              />
-
-              <Button
-                title={
-                  delegatingSubmissionId
-                    ? "Saving..."
-                    : delegationMode ===
-                        "bulk"
-                      ? "Delegate selected"
-                      : delegationMode ===
-                          "reassign"
-                        ? "Confirm reassignment"
-                        : "Confirm delegation"
-                }
-                variant="secondary"
-                loading={Boolean(
-                  delegatingSubmissionId,
-                )}
-                disabled={
-                  Boolean(
-                    delegatingSubmissionId,
-                  ) ||
-                  !selectedAssistantId
-                }
-                onPress={
-                  submitDelegation
-                }
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={historyModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={
-          closeHistoryModal
+      <DelegationHistoryModal
+        submission={
+          delegationHistorySubmission
         }
-      >
-        <View
-          style={styles.modalBackdrop}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={
-              closeHistoryModal
-            }
-          />
+        history={
+          delegationHistory
+        }
+        loading={
+          delegationHistoryLoading
+        }
+        error={
+          delegationHistoryError
+        }
+        onClose={
+          closeDelegationHistory
+        }
+      />
 
-          <View
-            style={
-              styles.historyModalCard
-            }
-          >
-            <View
-              style={styles.modalHeader}
-            >
-              <View
-                style={styles.modalIcon}
-              >
-                <Ionicons
-                  name="time-outline"
-                  size={24}
-                  color={colors.primary}
-                />
-              </View>
+      <GradingHistoryModal
+        submission={
+          gradingHistorySubmission
+        }
+        history={gradingHistory}
+        loading={
+          gradingHistoryLoading
+        }
+        error={
+          gradingHistoryError
+        }
+        gradeOutOf={
+          task.gradeOutOf
+        }
+        onClose={
+          closeGradingHistory
+        }
+      />
 
-              <View
-                style={
-                  styles.modalHeadingCopy
-                }
-              >
-                <Text
-                  style={styles.modalTitle}
-                >
-                  Delegation history
-                </Text>
-
-                <Text
-                  style={styles.mutedText}
-                >
-                  {historySubmission
-                    ?.student?.name ||
-                    "Student submission"}
-                </Text>
-              </View>
-
-              <Pressable
-                onPress={
-                  closeHistoryModal
-                }
-                style={styles.modalClose}
-              >
-                <Ionicons
-                  name="close"
-                  size={22}
-                  color={
-                    colors.textPrimary
-                  }
-                />
-              </Pressable>
-            </View>
-
-            {loadingHistory ? (
-              <View
-                style={
-                  styles.historyLoading
-                }
-              >
-                <ActivityIndicator
-                  size="large"
-                  color={colors.primary}
-                />
-
-                <Text
-                  style={styles.mutedText}
-                >
-                  Loading delegation history...
-                </Text>
-              </View>
-            ) : historyError ? (
-              <MessageBanner
-                type="error"
-                message={historyError}
-                onDismiss={() =>
-                  setHistoryError("")
-                }
-              />
-            ) : !delegationHistory.length ? (
-              <View
-                style={styles.modalState}
-              >
-                <Ionicons
-                  name="time-outline"
-                  size={38}
-                  color={colors.textMuted}
-                />
-
-                <Text
-                  style={
-                    styles.modalEmptyTitle
-                  }
-                >
-                  No delegation history
-                </Text>
-              </View>
-            ) : (
-              <ScrollView
-                style={styles.historyList}
-                contentContainerStyle={
-                  styles.historyListContent
-                }
-              >
-                {delegationHistory.map(
-                  (entry, index) => (
-                    <View
-                      key={entry.id}
-                      style={
-                        styles.historyItem
-                      }
-                    >
-                      <View
-                        style={
-                          styles.historyRail
-                        }
-                      >
-                        <View
-                          style={
-                            styles.historyDot
-                          }
-                        />
-
-                        {index <
-                        delegationHistory.length -
-                          1 ? (
-                          <View
-                            style={
-                              styles.historyLine
-                            }
-                          />
-                        ) : null}
-                      </View>
-
-                      <View
-                        style={
-                          styles.historyContent
-                        }
-                      >
-                        <Text
-                          style={
-                            styles.historyAction
-                          }
-                        >
-                          {formatDelegationAction(
-                            entry,
-                          )}
-                        </Text>
-
-                        <Text
-                          style={
-                            styles.historyMeta
-                          }
-                        >
-                          By{" "}
-                          {entry.changedBy
-                            ?.name ||
-                            "Unknown user"}{" "}
-                          ·{" "}
-                          {formatDate(
-                            entry.createdAt,
-                          )}
-                        </Text>
-
-                        {entry.reason ? (
-                          <Text
-                            style={
-                              styles.historyReason
-                            }
-                          >
-                            {entry.reason}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
-                  ),
-                )}
-              </ScrollView>
-            )}
-
-            <View
-              style={styles.modalActions}
-            >
-              <Button
-                title="Close"
-                variant="outline"
-                onPress={
-                  closeHistoryModal
-                }
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ReopenSubmissionModal
+        submission={
+          reopeningSubmission
+        }
+        gradeOutOf={
+          task.gradeOutOf
+        }
+        reason={reopenReason}
+        loading={Boolean(
+          reopeningSubmissionId,
+        )}
+        onChangeReason={
+          setReopenReason
+        }
+        onConfirm={
+          confirmReopenSubmission
+        }
+        onClose={
+          closeReopenModal
+        }
+      />
     </Screen>
   );
 }
 
-function SummaryCard({
+function StatCard({
   icon,
-  value,
   label,
-  tone = "default",
+  value,
+  tone = "primary",
 }) {
   const color =
-    tone === "danger"
-      ? colors.danger
+    tone === "success"
+      ? colors.secondary
       : tone === "warning"
         ? colors.warning
-        : colors.primary;
+        : tone === "danger"
+          ? colors.danger
+          : colors.primary;
 
   return (
     <Card style={styles.statCard}>
       <View
         style={[
           styles.statIcon,
-
           {
             backgroundColor:
               `${color}15`,
@@ -3258,74 +1308,38 @@ function SummaryCard({
         />
       </View>
 
-      <Text style={styles.statValue}>
+      <Text
+        style={styles.statValue}
+      >
         {value}
       </Text>
 
-      <Text style={styles.statLabel}>
+      <Text
+        style={styles.statLabel}
+      >
         {label}
       </Text>
     </Card>
   );
 }
 
-function MessageBanner({
-  type,
-  message,
-  onDismiss,
+function InfoRow({
+  label,
+  value,
 }) {
-  const isError =
-    type === "error";
-
-  const color = isError
-    ? colors.danger
-    : colors.secondary;
-
   return (
-    <View
-      accessibilityRole="alert"
-      style={[
-        styles.alert,
-
-        isError
-          ? styles.errorAlert
-          : styles.successAlert,
-      ]}
-    >
-      <Ionicons
-        name={
-          isError
-            ? "alert-circle-outline"
-            : "checkmark-circle-outline"
-        }
-        size={20}
-        color={color}
-      />
-
+    <View style={styles.infoRow}>
       <Text
-        style={[
-          styles.alertText,
-
-          {
-            color: isError
-              ? colors.danger
-              : colors.textPrimary,
-          },
-        ]}
+        style={styles.infoLabel}
       >
-        {message}
+        {label}
       </Text>
 
-      <Pressable
-        onPress={onDismiss}
-        style={styles.alertClose}
+      <Text
+        style={styles.infoValue}
       >
-        <Ionicons
-          name="close"
-          size={18}
-          color={color}
-        />
-      </Pressable>
+        {value}
+      </Text>
     </View>
   );
 }
