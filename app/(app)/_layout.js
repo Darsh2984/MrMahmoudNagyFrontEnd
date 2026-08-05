@@ -68,6 +68,12 @@ function getNavItems(
         activeIcon: "analytics",
       },
       {
+        label: "Group Chat",
+        route: "/(app)/group-chat",
+        icon: "people-circle-outline",
+        activeIcon: "people-circle",
+      },
+      {
         label: "Tickets",
         route: "/(app)/tickets",
         icon: "chatbubble-ellipses-outline",
@@ -132,16 +138,16 @@ function getNavItems(
       activeIcon: "school",
     },
     {
-      label: "Student Quizzes",
-      route: "/(app)/quizzes",
-      icon: "help-circle-outline",
-      activeIcon: "help-circle",
-    },
-    {
       label: "Performance",
       route: "/(app)/performance",
       icon: "analytics-outline",
       activeIcon: "analytics",
+    },
+    {
+      label: "Group Chat",
+      route: "/(app)/group-chat",
+      icon: "people-circle-outline",
+      activeIcon: "people-circle",
     },
     {
       label: "Tickets",

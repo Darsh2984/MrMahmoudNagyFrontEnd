@@ -7,7 +7,6 @@ import React, {
 
 import {
   ActivityIndicator,
-  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -29,7 +28,8 @@ import api from "../../src/lib/api";
 import { colors } from "../../src/theme";
 
 import { styles } from "./quiz-management.styles";
-
+import { QuizAttemptsModal } from "./quiz-attempts/QuizAttemptsModal";
+import InlineQuestionPreview from "../../src/components/questions/InlineQuestionPreview";
 const STATUS_FILTERS = [
   "ALL",
   "DRAFT",
@@ -207,6 +207,11 @@ export default function QuizManagement() {
 
   const [editingQuiz, setEditingQuiz] =
     useState(null);
+
+  const [
+    attemptsQuiz,
+    setAttemptsQuiz,
+  ] = useState(null);
 
   const loadQuizzes = useCallback(
     async ({ silent = false } = {}) => {
@@ -694,6 +699,9 @@ export default function QuizManagement() {
               <QuizCard
                 key={quiz.id}
                 quiz={quiz}
+                onViewAttempts={() =>
+                  setAttemptsQuiz(quiz)
+                }
                 processing={
                   processingQuizId ===
                   quiz.id
@@ -747,7 +755,19 @@ export default function QuizManagement() {
           });
         }}
       />
-
+      
+      <QuizAttemptsModal
+        visible={Boolean(attemptsQuiz)}
+        quiz={attemptsQuiz}
+        onClose={() =>
+          setAttemptsQuiz(null)
+        }
+        onUpdated={() =>
+          loadQuizzes({
+            silent: true,
+          })
+        }
+      />
       <DeleteModal
         visible={Boolean(deleteTarget)}
         quiz={deleteTarget}
@@ -837,6 +857,7 @@ function FilterChip({
 function QuizCard({
   quiz,
   processing,
+  onViewAttempts,
   onEdit,
   onPublish,
   onClose,
@@ -1008,6 +1029,12 @@ function QuizCard({
         </View>
       ) : (
         <View style={styles.actions}>
+          <Button
+            title="View attempts"
+            variant="primary"
+            onPress={onViewAttempts}
+            style={styles.actionButton}
+          />
           <Button
             title="Edit"
             variant="outline"
@@ -1282,10 +1309,6 @@ function QuizBuilderModal({
   const [saving, setSaving] =
     useState(false);
 
-  const [
-    openingQuestionId,
-    setOpeningQuestionId,
-  ] = useState("");
 
   const [formError, setFormError] =
     useState("");
@@ -1794,45 +1817,7 @@ function QuizBuilderModal({
     setQuestionSearch("");
   }
 
-  async function openQuestionFile(
-    question
-  ) {
-    if (
-      !question?.questionFileUrl
-    ) {
-      return;
-    }
-
-    setOpeningQuestionId(
-      question.id
-    );
-
-    try {
-      const supported =
-        await Linking.canOpenURL(
-          question.questionFileUrl
-        );
-
-      if (!supported) {
-        throw new Error(
-          "The question file cannot be opened."
-        );
-      }
-
-      await Linking.openURL(
-        question.questionFileUrl
-      );
-    } catch (requestError) {
-      setFormError(
-        getErrorMessage(
-          requestError,
-          "Couldn't open the question file."
-        )
-      );
-    } finally {
-      setOpeningQuestionId("");
-    }
-  }
+  
 
   function validate() {
     if (!title.trim()) {
@@ -2641,24 +2626,10 @@ function QuizBuilderModal({
                     {availableQuestions.map(
                       (question) => (
                         <AvailableQuestionCard
-                          key={
-                            question.id
-                          }
-                          question={
-                            question
-                          }
+                          question={question}
                           selected={selectedQuestionIds.has(
                             question.id
                           )}
-                          opening={
-                            openingQuestionId ===
-                            question.id
-                          }
-                          onPreview={() =>
-                            openQuestionFile(
-                              question
-                            )
-                          }
                           onSelect={() =>
                             selectQuestion(
                               question
@@ -3030,8 +3001,6 @@ function QuestionFilterRow({
 function AvailableQuestionCard({
   question,
   selected,
-  opening,
-  onPreview,
   onSelect,
 }) {
   const location =
@@ -3052,6 +3021,7 @@ function AvailableQuestionCard({
         backgroundColor: selected
           ? `${colors.secondary}0F`
           : colors.white,
+        gap: 12,
       }}
     >
       <View
@@ -3088,7 +3058,8 @@ function AvailableQuestionCard({
             style={{
               fontSize: 14,
               fontWeight: "800",
-              color: colors.textPrimary,
+              color:
+                colors.textPrimary,
             }}
           >
             {question.title}
@@ -3099,7 +3070,8 @@ function AvailableQuestionCard({
               style={{
                 marginTop: 3,
                 fontSize: 11,
-                color: colors.textMuted,
+                color:
+                  colors.textMuted,
               }}
             >
               {question.reference}
@@ -3110,7 +3082,8 @@ function AvailableQuestionCard({
             style={{
               marginTop: 5,
               fontSize: 11,
-              color: colors.textMuted,
+              color:
+                colors.textMuted,
             }}
           >
             {[
@@ -3123,7 +3096,120 @@ function AvailableQuestionCard({
               "No taxonomy location"}
           </Text>
         </View>
+
+        <Badge
+          label={
+            question.type === "MCQ"
+              ? "MCQ"
+              : "Written"
+          }
+          tone={
+            question.type === "MCQ"
+              ? "info"
+              : "success"
+          }
+        />
       </View>
+
+      <InlineQuestionPreview
+        url={
+          question.questionFileUrl
+        }
+        contentType={
+          question.questionFileContentType ||
+          question.contentType
+        }
+        title={
+          question.title ||
+          "Question preview"
+        }
+        height={320}
+        compact
+      />
+
+      {question.type === "MCQ" ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            padding: 10,
+            borderRadius: 10,
+            backgroundColor:
+              colors.background,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: "700",
+              color:
+                colors.textMuted,
+            }}
+          >
+            Correct answer
+          </Text>
+
+          <View
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 15,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor:
+                colors.primary,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 13,
+                fontWeight: "900",
+                color: colors.white,
+              }}
+            >
+              {question.correctAnswer}
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Ionicons
+            name={
+              question.markschemeFileUrl
+                ? "checkmark-circle-outline"
+                : "alert-circle-outline"
+            }
+            size={17}
+            color={
+              question.markschemeFileUrl
+                ? colors.secondary
+                : colors.warning
+            }
+          />
+
+          <Text
+            style={{
+              fontSize: 11,
+              fontWeight: "700",
+              color:
+                question.markschemeFileUrl
+                  ? colors.secondary
+                  : colors.warning,
+            }}
+          >
+            {question.markschemeFileUrl
+              ? "Markscheme uploaded"
+              : "No markscheme uploaded"}
+          </Text>
+        </View>
+      )}
 
       {topics.length ? (
         <View
@@ -3131,7 +3217,6 @@ function AvailableQuestionCard({
             flexDirection: "row",
             flexWrap: "wrap",
             gap: 6,
-            marginTop: 10,
           }}
         >
           {topics.map((topic) => (
@@ -3160,45 +3245,20 @@ function AvailableQuestionCard({
         </View>
       ) : null}
 
-      <View
-        style={{
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: 8,
-          marginTop: 12,
-        }}
-      >
-        <Button
-          title="Preview"
-          variant="outline"
-          loading={opening}
-          disabled={opening}
-          onPress={onPreview}
-          style={{
-            flexGrow: 1,
-            flexBasis: 110,
-          }}
-        />
-
-        <Button
-          title={
-            selected
-              ? "Selected"
-              : "Add question"
-          }
-          variant={
-            selected
-              ? "outline"
-              : "warning"
-          }
-          disabled={selected}
-          onPress={onSelect}
-          style={{
-            flexGrow: 1,
-            flexBasis: 130,
-          }}
-        />
-      </View>
+      <Button
+        title={
+          selected
+            ? "Question selected"
+            : "Add question"
+        }
+        variant={
+          selected
+            ? "outline"
+            : "warning"
+        }
+        disabled={selected}
+        onPress={onSelect}
+      />
     </View>
   );
 }

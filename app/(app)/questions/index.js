@@ -30,7 +30,7 @@ import api from "../../../src/lib/api";
 import { colors } from "../../../src/theme";
 
 import { styles } from "./index.styles";
-
+import InlineQuestionPreview from "../../../src/components/questions/InlineQuestionPreview";
 const QUESTION_TYPES = ["ALL", "MCQ", "WRITTEN"];
 const MCQ_ANSWERS = ["A", "B", "C", "D"];
 
@@ -1150,7 +1150,19 @@ function QuestionCard({
           </View>
         </View>
       </View>
-
+      
+      <InlineQuestionPreview
+        url={question.questionFileUrl}
+        contentType={
+          question.questionFileContentType ||
+          question.contentType
+        }
+        title={
+          question.title ||
+          "Question preview"
+        }
+        height={430}
+      />
       {question.reference ? (
         <View style={styles.referenceRow}>
           <Ionicons
@@ -1232,43 +1244,6 @@ function QuestionCard({
       </View>
 
       <View style={styles.fileActions}>
-        <Pressable
-          disabled={
-            openingFileKey ===
-            questionOpenKey
-          }
-          onPress={() =>
-            onOpenFile(
-              question.questionFileUrl,
-              questionOpenKey
-            )
-          }
-          style={({ pressed }) => [
-            styles.fileAction,
-            pressed && styles.pressed,
-          ]}
-        >
-          {openingFileKey ===
-          questionOpenKey ? (
-            <ActivityIndicator
-              size="small"
-              color={colors.primary}
-            />
-          ) : (
-            <Ionicons
-              name="document-text-outline"
-              size={18}
-              color={colors.primary}
-            />
-          )}
-
-          <Text
-            style={styles.fileActionText}
-          >
-            Question
-          </Text>
-        </Pressable>
-
         {question.markschemeFileUrl ? (
           <Pressable
             disabled={

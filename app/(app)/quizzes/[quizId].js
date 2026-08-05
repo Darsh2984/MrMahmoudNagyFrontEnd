@@ -35,6 +35,7 @@ import api from "../../../src/lib/api";
 import { colors } from "../../../src/theme";
 
 import { styles } from "./[quizId].styles";
+import { StudentQuizReview } from "./student-review/StudentQuizReview";
 
 const OPTIONS = ["A", "B", "C", "D"];
 
@@ -1956,131 +1957,10 @@ function PaperQuizPage({ quizId }) {
       </Card>
 
       {isSubmitted ? (
-        <Card
-          style={styles.gradingCard}
-        >
-          <View
-            style={
-              styles.gradingHeader
-            }
-          >
-            <View>
-              <Text
-                style={
-                  styles.gradingTitle
-                }
-              >
-                Grading
-              </Text>
-
-              <Text
-                style={
-                  styles.gradingSubtitle
-                }
-              >
-                Your teacher or assigned
-                assistant will review the
-                submitted files.
-              </Text>
-            </View>
-
-            <Badge
-              label={
-                isGraded
-                  ? "GRADED"
-                  : "PENDING"
-              }
-              tone={
-                isGraded
-                  ? "success"
-                  : "warning"
-              }
-            />
-          </View>
-
-          {isGraded ? (
-            <>
-              <View
-                style={styles.scorePanel}
-              >
-                <Text
-                  style={
-                    styles.scoreLabel
-                  }
-                >
-                  Final score
-                </Text>
-
-                <View
-                  style={styles.scoreRow}
-                >
-                  <Text
-                    style={
-                      styles.scoreValue
-                    }
-                  >
-                    {submission.score ?? 0}
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.scoreTotal
-                    }
-                  >
-                    / {paper.totalPoints ?? 0}
-                  </Text>
-                </View>
-              </View>
-
-              {submission.gradingComments ? (
-                <View
-                  style={
-                    styles.gradingComments
-                  }
-                >
-                  <Text
-                    style={
-                      styles.gradingCommentsLabel
-                    }
-                  >
-                    Grading comments
-                  </Text>
-
-                  <Text
-                    style={
-                      styles.gradingCommentsText
-                    }
-                  >
-                    {
-                      submission.gradingComments
-                    }
-                  </Text>
-                </View>
-              ) : null}
-            </>
-          ) : (
-            <View
-              style={
-                styles.pendingGradingPanel
-              }
-            >
-              <Ionicons
-                name="time-outline"
-                size={22}
-                color={colors.warning}
-              />
-
-              <Text
-                style={
-                  styles.pendingGradingText
-                }
-              >
-                This Paper quiz is
-                awaiting manual grading.
-              </Text>
-            </View>
-          )}
-        </Card>
+        <StudentQuizReview
+          quizId={quizId}
+          showBackButton={false}
+        />
       ) : null}
 
       <Button
@@ -2805,134 +2685,20 @@ function McqQuizPage({ quizId }) {
   }
 
   if (submitted) {
-    const submissionTotalPoints =
-      submitted.totalPoints ??
-      totalPoints ??
-      0;
-
     return (
       <Screen
-        scroll={false}
-        style={styles.centeredScreen}
+        contentContainerStyle={
+          styles.screenContent
+        }
       >
-        <Card
-          style={styles.submittedCard}
-        >
-          <View
-            style={
-              submitted.isAutoSubmitted
-                ? styles.autoSubmitIcon
-                : styles.successIcon
-            }
-          >
-            <Ionicons
-              name={
-                submitted.isAutoSubmitted
-                  ? "timer-outline"
-                  : "checkmark"
-              }
-              size={34}
-              color={
-                submitted.isAutoSubmitted
-                  ? colors.warning
-                  : colors.secondary
-              }
-            />
-          </View>
-
-          <Text
-            style={
-              styles.submittedTitle
-            }
-          >
-            {submitted.isAutoSubmitted
-              ? "Quiz automatically submitted"
-              : "Quiz submitted successfully"}
-          </Text>
-
-          <Text
-            style={
-              styles.submittedDescription
-            }
-          >
-            {submitted.isAutoSubmitted
-              ? "The available attempt time ended, so your saved answers were submitted automatically."
-              : "Your saved answers have been submitted successfully."}
-          </Text>
-
-          <View
-            style={styles.scorePanel}
-          >
-            <Text
-              style={styles.scoreLabel}
-            >
-              Final score
-            </Text>
-
-            <View
-              style={styles.scoreRow}
-            >
-              <Text
-                style={styles.scoreValue}
-              >
-                {submitted.score ?? 0}
-              </Text>
-
-              <Text
-                style={styles.scoreTotal}
-              >
-                /{" "}
-                {submissionTotalPoints}
-              </Text>
-            </View>
-          </View>
-
-          <View
-            style={
-              submitted.isAutoSubmitted
-                ? styles.autoSubmittedNotice
-                : styles.submittedNotice
-            }
-          >
-            <Ionicons
-              name={
-                submitted.isAutoSubmitted
-                  ? "timer-outline"
-                  : "checkmark-circle-outline"
-              }
-              size={20}
-              color={
-                submitted.isAutoSubmitted
-                  ? colors.warning
-                  : colors.secondary
-              }
-            />
-
-            <Text
-              style={
-                submitted.isAutoSubmitted
-                  ? styles.autoSubmittedNoticeText
-                  : styles.submittedNoticeText
-              }
-            >
-              {submitted.isAutoSubmitted
-                ? "Auto-submitted when the timer expired."
-                : "Submitted manually before the timer expired."}
-            </Text>
-          </View>
-
-          <Button
-            title="Back to quizzes"
-            onPress={() =>
-              router.replace(
-                "/(app)/quizzes",
-              )
-            }
-            style={
-              styles.fullWidthButton
-            }
-          />
-        </Card>
+        <StudentQuizReview
+          quizId={quizId}
+          onBack={() =>
+            router.replace(
+              "/(app)/quizzes",
+            )
+          }
+        />
       </Screen>
     );
   }
