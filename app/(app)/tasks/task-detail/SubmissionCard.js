@@ -25,8 +25,7 @@ import {
 } from "./taskDetail.helpers";
 
 import { GradingForm } from "./GradingForm";
-import { styles } from "./submissionCard.styles";
-
+import { styles } from "./taskSubmission.styles";
 function formatDateTime(value) {
   if (!value) {
     return "Unknown";

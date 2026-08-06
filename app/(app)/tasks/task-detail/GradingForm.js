@@ -9,7 +9,7 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-
+import { styles } from "./taskSubmission.styles";
 import { Button } from "../../../../src/components/ui/Button";
 import { colors } from "../../../../src/theme";
 
@@ -17,7 +17,6 @@ import {
   formatFileSize,
 } from "./taskDetail.helpers";
 
-import { styles } from "./submissionCard.styles";
 
 export function GradingForm({
   submission,
