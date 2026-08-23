@@ -1,4 +1,7 @@
-import { StyleSheet } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+} from "react-native";
 
 import {
   colors,
@@ -146,7 +149,8 @@ export const styles =
       gap: 4,
       paddingHorizontal: spacing.lg,
       borderBottomWidth: 1,
-      borderBottomColor: colors.border,
+      borderBottomColor:
+        colors.border,
     },
 
     breadcrumbButton: {
@@ -226,7 +230,7 @@ export const styles =
     },
 
     sideColumnDesktop: {
-      width: 340,
+      width: 360,
     },
 
     listHeader: {
@@ -314,7 +318,8 @@ export const styles =
       justifyContent: "flex-end",
       paddingHorizontal: spacing.sm,
       borderTopWidth: 1,
-      borderTopColor: colors.border,
+      borderTopColor:
+        colors.border,
       backgroundColor:
         colors.background,
     },
@@ -389,6 +394,13 @@ export const styles =
       marginBottom: 6,
     },
 
+    resourceMetaRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: spacing.xs,
+    },
+
     resourceTypeRow: {
       alignSelf: "flex-start",
       paddingVertical: 4,
@@ -402,6 +414,32 @@ export const styles =
       fontSize: 11,
       fontWeight: "700",
       color: colors.textMuted,
+    },
+
+    resourceSourceBadge: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingVertical: 4,
+      paddingHorizontal: 8,
+      borderRadius: radius.pill,
+      backgroundColor:
+        colors.background,
+    },
+
+    resourceSourceBadgeR2: {
+      backgroundColor:
+        colors.secondary + "25",
+    },
+
+    resourceSourceText: {
+      fontSize: 11,
+      fontWeight: "700",
+      color: colors.textMuted,
+    },
+
+    resourceSourceTextR2: {
+      color: colors.primary,
     },
 
     resourceActions: {
@@ -483,6 +521,7 @@ export const styles =
 
     actionCopy: {
       flex: 1,
+      minWidth: 0,
     },
 
     actionTitle: {
@@ -516,7 +555,152 @@ export const styles =
       backgroundColor: colors.white,
       color: colors.textPrimary,
       fontSize: 15,
+
+      ...(Platform.OS === "web"
+        ? {
+            outlineStyle: "none",
+          }
+        : null),
     },
+
+    /*
+     * RESOURCE SOURCE SELECTOR
+     */
+
+    sourceSection: {
+      gap: spacing.xs,
+    },
+
+    sourceSectionLabel: {
+      fontSize: 10,
+      fontWeight: "800",
+      letterSpacing: 1,
+      color: colors.textMuted,
+    },
+
+    sourceSelector: {
+      gap: spacing.xs,
+    },
+
+    sourceOption: {
+      width: "100%",
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.sm,
+      padding: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.white,
+    },
+
+    sourceOptionActive: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
+    },
+
+    sourceOptionCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    sourceOptionTitle: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: colors.textPrimary,
+    },
+
+    sourceOptionTitleActive: {
+      color: colors.white,
+    },
+
+    sourceOptionDescription: {
+      fontSize: 11,
+      lineHeight: 16,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+
+    sourceOptionDescriptionActive: {
+      color: "#D7E4E1",
+    },
+
+    deviceUploadInfo: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.xs,
+      padding: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.background,
+    },
+
+    deviceUploadInfoText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 18,
+      color: colors.textMuted,
+    },
+
+    /*
+     * R2 KEY FIELD
+     */
+
+    r2FieldSection: {
+      gap: spacing.sm,
+      padding: spacing.sm,
+      borderWidth: 1,
+      borderColor:
+        colors.secondary + "60",
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.secondary + "10",
+    },
+
+    r2FieldHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.xs,
+    },
+
+    r2FieldHeaderCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    r2FieldLabel: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: colors.textPrimary,
+    },
+
+    r2FieldHelp: {
+      fontSize: 11,
+      lineHeight: 17,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+
+    r2ExampleBox: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.xs,
+      padding: spacing.xs,
+      borderRadius: radius.sm,
+      backgroundColor:
+        colors.white,
+    },
+
+    r2ExampleText: {
+      flex: 1,
+      fontSize: 11,
+      lineHeight: 17,
+      color: colors.textMuted,
+    },
+
+    /*
+     * HELP CARDS
+     */
 
     helpCard: {
       backgroundColor:
@@ -547,6 +731,55 @@ export const styles =
       lineHeight: 21,
     },
 
+    r2HelpCard: {
+      borderWidth: 1,
+      borderColor:
+        colors.secondary + "55",
+      backgroundColor:
+        colors.secondary + "0E",
+    },
+
+    r2HelpHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      marginBottom: spacing.sm,
+    },
+
+    r2HelpIcon: {
+      width: 38,
+      height: 38,
+      borderRadius: radius.md,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor:
+        colors.white,
+    },
+
+    r2HelpTitle: {
+      fontSize: 15,
+      fontWeight: "800",
+      color: colors.textPrimary,
+    },
+
+    r2HelpText: {
+      fontSize: 12,
+      lineHeight: 19,
+      color: colors.textMuted,
+    },
+
+    r2HelpImportant: {
+      fontSize: 12,
+      lineHeight: 18,
+      fontWeight: "700",
+      color: colors.primary,
+      marginTop: spacing.sm,
+    },
+
+    /*
+     * MODALS
+     */
+
     modalBackdrop: {
       flex: 1,
       alignItems: "center",
@@ -556,12 +789,44 @@ export const styles =
         "rgba(20, 20, 20, 0.55)",
     },
 
+    modalFill: {
+      ...StyleSheet.absoluteFillObject,
+    },
+
     modalCard: {
       width: "100%",
       maxWidth: 540,
       padding: spacing.lg,
       borderRadius: radius.xl,
-      backgroundColor: colors.white,
+      backgroundColor:
+        colors.white,
+
+      ...(Platform.OS === "web"
+        ? {
+            boxShadow:
+              "0 20px 70px rgba(0,0,0,0.25)",
+          }
+        : {
+            elevation: 16,
+            shadowColor: "#000",
+            shadowOffset: {
+              width: 0,
+              height: 8,
+            },
+            shadowOpacity: 0.22,
+            shadowRadius: 18,
+          }),
+    },
+
+    resourceEditModalCard: {
+      maxWidth: 620,
+      maxHeight: "88%",
+      padding: 0,
+      overflow: "hidden",
+    },
+
+    resourceEditScroll: {
+      padding: spacing.lg,
     },
 
     modalHeader: {
@@ -583,6 +848,7 @@ export const styles =
 
     modalHeadingCopy: {
       flex: 1,
+      minWidth: 0,
     },
 
     modalTitle: {
@@ -616,6 +882,112 @@ export const styles =
       marginTop: spacing.lg,
     },
 
+    /*
+     * EDIT RESOURCE
+     */
+
+    currentResourceSummary: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+      padding: spacing.sm,
+      marginBottom: spacing.md,
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.background,
+    },
+
+    currentResourceSummaryIcon: {
+      width: 38,
+      height: 38,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.white,
+    },
+
+    currentResourceSummaryCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    currentResourceSummaryLabel: {
+      fontSize: 9,
+      fontWeight: "800",
+      letterSpacing: 0.8,
+      color: colors.textMuted,
+    },
+
+    currentResourceSummaryValue: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: colors.primary,
+      marginTop: 2,
+    },
+
+    editSourceSection: {
+      gap: spacing.xs,
+      marginTop: spacing.md,
+    },
+
+    editSourceOption: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.sm,
+      padding: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.white,
+    },
+
+    editSourceOptionActive: {
+      borderColor:
+        colors.primary,
+      backgroundColor:
+        colors.secondary + "12",
+    },
+
+    editSourceRadio: {
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 2,
+      borderColor:
+        colors.primary,
+      marginTop: 1,
+    },
+
+    editSourceRadioDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+      backgroundColor:
+        colors.primary,
+    },
+
+    editSourceCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    editSourceTitle: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: colors.textPrimary,
+    },
+
+    editSourceDescription: {
+      fontSize: 11,
+      lineHeight: 17,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+
     replacementBox: {
       gap: spacing.md,
       padding: spacing.md,
@@ -635,6 +1007,7 @@ export const styles =
 
     replacementCopy: {
       flex: 1,
+      minWidth: 0,
     },
 
     replacementTitle: {

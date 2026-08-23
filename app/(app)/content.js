@@ -3,6 +3,7 @@ import React, {
   useEffect,
   useState,
 } from "react";
+
 import {
   ActivityIndicator,
   Alert,
@@ -10,12 +11,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   useWindowDimensions,
   View,
 } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
@@ -26,6 +27,13 @@ import { Button } from "../../src/components/ui/Button";
 import api from "../../src/lib/api";
 import { colors } from "../../src/theme";
 import { styles } from "./content.styles";
+
+const SOURCE_UPLOAD = "UPLOAD";
+const SOURCE_R2_EXISTING = "R2_EXISTING";
+
+const EDIT_SOURCE_KEEP = "KEEP";
+const EDIT_SOURCE_UPLOAD = "UPLOAD";
+const EDIT_SOURCE_R2 = "R2_EXISTING";
 
 const LEVELS = {
   units: {
@@ -57,13 +65,13 @@ const LEVELS = {
     plural: "Resources",
     icon: "folder-open-outline",
     description:
-      "Materials and videos uploaded for the selected topic.",
+      "Materials and videos uploaded or linked from R2 for the selected topic.",
   },
 };
 
 function getApiError(
   error,
-  fallback = "Something went wrong.",
+  fallback = "Something went wrong."
 ) {
   return (
     error?.response?.data?.msg ||
@@ -86,6 +94,184 @@ function getResourceType(item) {
   }
 
   return "material";
+}
+
+function getSourceType(item) {
+  return item?.sourceType === SOURCE_R2_EXISTING
+    ? SOURCE_R2_EXISTING
+    : SOURCE_UPLOAD;
+}
+
+function ResourceSourceSelector({
+  value,
+  onChange,
+  disabled = false,
+}) {
+  return (
+    <View style={styles.sourceSelector}>
+      <Pressable
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityState={{
+          selected: value === SOURCE_UPLOAD,
+          disabled,
+        }}
+        onPress={() => onChange(SOURCE_UPLOAD)}
+        style={({ pressed }) => [
+          styles.sourceOption,
+          value === SOURCE_UPLOAD &&
+            styles.sourceOptionActive,
+          pressed &&
+            !disabled &&
+            styles.pressed,
+          disabled &&
+            styles.disabledAction,
+        ]}
+      >
+        <Ionicons
+          name="cloud-upload-outline"
+          size={18}
+          color={
+            value === SOURCE_UPLOAD
+              ? colors.white
+              : colors.primary
+          }
+        />
+
+        <View style={styles.sourceOptionCopy}>
+          <Text
+            style={[
+              styles.sourceOptionTitle,
+              value === SOURCE_UPLOAD &&
+                styles.sourceOptionTitleActive,
+            ]}
+          >
+            Upload from device
+          </Text>
+
+          <Text
+            style={[
+              styles.sourceOptionDescription,
+              value === SOURCE_UPLOAD &&
+                styles.sourceOptionDescriptionActive,
+            ]}
+          >
+            Select and upload a file normally.
+          </Text>
+        </View>
+      </Pressable>
+
+      <Pressable
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityState={{
+          selected:
+            value === SOURCE_R2_EXISTING,
+          disabled,
+        }}
+        onPress={() =>
+          onChange(SOURCE_R2_EXISTING)
+        }
+        style={({ pressed }) => [
+          styles.sourceOption,
+          value === SOURCE_R2_EXISTING &&
+            styles.sourceOptionActive,
+          pressed &&
+            !disabled &&
+            styles.pressed,
+          disabled &&
+            styles.disabledAction,
+        ]}
+      >
+        <Ionicons
+          name="server-outline"
+          size={18}
+          color={
+            value === SOURCE_R2_EXISTING
+              ? colors.white
+              : colors.primary
+          }
+        />
+
+        <View style={styles.sourceOptionCopy}>
+          <Text
+            style={[
+              styles.sourceOptionTitle,
+              value === SOURCE_R2_EXISTING &&
+                styles.sourceOptionTitleActive,
+            ]}
+          >
+            Existing R2 file
+          </Text>
+
+          <Text
+            style={[
+              styles.sourceOptionDescription,
+              value === SOURCE_R2_EXISTING &&
+                styles.sourceOptionDescriptionActive,
+            ]}
+          >
+            Reference an object already uploaded to
+            Cloudflare R2.
+          </Text>
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
+function ExistingR2Field({
+  value,
+  onChangeText,
+  disabled = false,
+}) {
+  return (
+    <View style={styles.r2FieldSection}>
+      <View style={styles.r2FieldHeader}>
+        <Ionicons
+          name="key-outline"
+          size={18}
+          color={colors.primary}
+        />
+
+        <View style={styles.r2FieldHeaderCopy}>
+          <Text style={styles.r2FieldLabel}>
+            R2 object key
+          </Text>
+
+          <Text style={styles.r2FieldHelp}>
+            Enter the exact object key from your R2
+            bucket. Do not enter a temporary signed URL.
+          </Text>
+        </View>
+      </View>
+
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        editable={!disabled}
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="Example: physics/unit-2/lesson.pdf"
+        placeholderTextColor={colors.textMuted}
+        style={styles.input}
+      />
+
+      <View style={styles.r2ExampleBox}>
+        <Ionicons
+          name="information-circle-outline"
+          size={17}
+          color={colors.textMuted}
+        />
+
+        <Text style={styles.r2ExampleText}>
+          Example object key:
+          {"\n"}
+          teacher-content/physics/unit-2/revision.pdf
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 export default function ContentPage() {
@@ -149,19 +335,50 @@ export default function ContentPage() {
     setDeletingHierarchyItemId,
   ] = useState(null);
 
+  /*
+   * Material create form
+   */
   const [
     materialTitle,
     setMaterialTitle,
   ] = useState("");
 
-  const [videoTitle, setVideoTitle] =
-    useState("");
+  const [
+    materialSourceType,
+    setMaterialSourceType,
+  ] = useState(SOURCE_UPLOAD);
+
+  const [
+    materialObjectKey,
+    setMaterialObjectKey,
+  ] = useState("");
+
+  /*
+   * Video create form
+   */
+  const [
+    videoTitle,
+    setVideoTitle,
+  ] = useState("");
+
+  const [
+    videoSourceType,
+    setVideoSourceType,
+  ] = useState(SOURCE_UPLOAD);
+
+  const [
+    videoObjectKey,
+    setVideoObjectKey,
+  ] = useState("");
 
   const [
     uploadingType,
     setUploadingType,
   ] = useState(null);
 
+  /*
+   * Resource editor
+   */
   const [
     editModalVisible,
     setEditModalVisible,
@@ -176,9 +393,19 @@ export default function ContentPage() {
     useState("");
 
   const [
+    editSourceMode,
+    setEditSourceMode,
+  ] = useState(EDIT_SOURCE_KEEP);
+
+  const [
     replacementFile,
     setReplacementFile,
   ] = useState(null);
+
+  const [
+    editObjectKey,
+    setEditObjectKey,
+  ] = useState("");
 
   const [savingEdit, setSavingEdit] =
     useState(false);
@@ -214,7 +441,7 @@ export default function ContentPage() {
         setItems(
           Array.isArray(response.data)
             ? response.data
-            : [],
+            : []
         );
 
         setLevel("units");
@@ -225,8 +452,8 @@ export default function ContentPage() {
         setError(
           getApiError(
             requestError,
-            "Couldn't load units.",
-          ),
+            "Couldn't load units."
+          )
         );
       } finally {
         setLoading(false);
@@ -237,7 +464,7 @@ export default function ContentPage() {
     useCallback(
       async (
         unit,
-        nextBreadcrumbs = null,
+        nextBreadcrumbs = null
       ) => {
         if (!unit?.id) {
           return;
@@ -249,15 +476,15 @@ export default function ContentPage() {
         try {
           const response =
             await api.get(
-              `/units/${unit.id}`,
+              `/units/${unit.id}`
             );
 
           setItems(
             Array.isArray(
-              response.data?.chapters,
+              response.data?.chapters
             )
               ? response.data.chapters
-              : [],
+              : []
           );
 
           setLevel("chapters");
@@ -269,7 +496,7 @@ export default function ContentPage() {
                 name: unit.name,
                 type: "unit",
               },
-            ],
+            ]
           );
         } catch (requestError) {
           setItems([]);
@@ -277,21 +504,21 @@ export default function ContentPage() {
           setError(
             getApiError(
               requestError,
-              "Couldn't load chapters.",
-            ),
+              "Couldn't load chapters."
+            )
           );
         } finally {
           setLoading(false);
         }
       },
-      [],
+      []
     );
 
   const loadTopics =
     useCallback(
       async (
         chapter,
-        nextBreadcrumbs,
+        nextBreadcrumbs
       ) => {
         if (!chapter?.id) {
           return;
@@ -303,21 +530,21 @@ export default function ContentPage() {
         try {
           const response =
             await api.get(
-              `/chapters/${chapter.id}`,
+              `/chapters/${chapter.id}`
             );
 
           setItems(
             Array.isArray(
-              response.data?.topics,
+              response.data?.topics
             )
               ? response.data.topics
-              : [],
+              : []
           );
 
           setLevel("topics");
 
           setBreadcrumbs(
-            nextBreadcrumbs,
+            nextBreadcrumbs
           );
         } catch (requestError) {
           setItems([]);
@@ -325,21 +552,21 @@ export default function ContentPage() {
           setError(
             getApiError(
               requestError,
-              "Couldn't load topics.",
-            ),
+              "Couldn't load topics."
+            )
           );
         } finally {
           setLoading(false);
         }
       },
-      [],
+      []
     );
 
   const loadResources =
     useCallback(
       async (
         topic,
-        nextBreadcrumbs,
+        nextBreadcrumbs
       ) => {
         if (!topic?.id) {
           return;
@@ -351,30 +578,30 @@ export default function ContentPage() {
         try {
           const response =
             await api.get(
-              `/topics/${topic.id}`,
+              `/topics/${topic.id}`
             );
 
           const materials =
             Array.isArray(
-              response.data?.materials,
+              response.data?.materials
             )
               ? response.data.materials.map(
                   (item) => ({
                     ...item,
                     kind: "material",
-                  }),
+                  })
                 )
               : [];
 
           const videos =
             Array.isArray(
-              response.data?.videos,
+              response.data?.videos
             )
               ? response.data.videos.map(
                   (item) => ({
                     ...item,
                     kind: "video",
-                  }),
+                  })
                 )
               : [];
 
@@ -386,7 +613,7 @@ export default function ContentPage() {
           setLevel("resources");
 
           setBreadcrumbs(
-            nextBreadcrumbs,
+            nextBreadcrumbs
           );
         } catch (requestError) {
           setItems([]);
@@ -394,14 +621,14 @@ export default function ContentPage() {
           setError(
             getApiError(
               requestError,
-              "Couldn't load topic resources.",
-            ),
+              "Couldn't load topic resources."
+            )
           );
         } finally {
           setLoading(false);
         }
       },
-      [],
+      []
     );
 
   useEffect(() => {
@@ -433,7 +660,7 @@ export default function ContentPage() {
     if (level === "chapters") {
       await loadChapters(
         breadcrumbs[0],
-        breadcrumbs.slice(0, 1),
+        breadcrumbs.slice(0, 1)
       );
 
       return;
@@ -442,7 +669,7 @@ export default function ContentPage() {
     if (level === "topics") {
       await loadTopics(
         breadcrumbs[1],
-        breadcrumbs.slice(0, 2),
+        breadcrumbs.slice(0, 2)
       );
 
       return;
@@ -451,7 +678,7 @@ export default function ContentPage() {
     if (level === "resources") {
       await loadResources(
         breadcrumbs[2],
-        breadcrumbs,
+        breadcrumbs
       );
     }
   }
@@ -496,17 +723,20 @@ export default function ContentPage() {
 
   function openBreadcrumb(
     breadcrumb,
-    index,
+    index
   ) {
     clearMessages();
 
     const nextBreadcrumbs =
-      breadcrumbs.slice(0, index + 1);
+      breadcrumbs.slice(
+        0,
+        index + 1
+      );
 
     if (breadcrumb.type === "unit") {
       loadChapters(
         breadcrumb,
-        nextBreadcrumbs,
+        nextBreadcrumbs
       );
 
       return;
@@ -517,16 +747,18 @@ export default function ContentPage() {
     ) {
       loadTopics(
         breadcrumb,
-        nextBreadcrumbs,
+        nextBreadcrumbs
       );
 
       return;
     }
 
-    if (breadcrumb.type === "topic") {
+    if (
+      breadcrumb.type === "topic"
+    ) {
       loadResources(
         breadcrumb,
-        nextBreadcrumbs,
+        nextBreadcrumbs
       );
     }
   }
@@ -552,7 +784,7 @@ export default function ContentPage() {
 
     if (!name) {
       setError(
-        `Enter a ${currentLevel.singular.toLowerCase()} name.`,
+        `Enter a ${currentLevel.singular.toLowerCase()} name.`
       );
 
       return;
@@ -563,9 +795,12 @@ export default function ContentPage() {
 
     try {
       if (level === "units") {
-        await api.post("/units", {
-          name,
-        });
+        await api.post(
+          "/units",
+          {
+            name,
+          }
+        );
       }
 
       if (level === "chapters") {
@@ -577,7 +812,7 @@ export default function ContentPage() {
           {
             name,
             unitId: unit.id,
-          },
+          }
         );
       }
 
@@ -585,10 +820,14 @@ export default function ContentPage() {
         const chapter =
           breadcrumbs[1];
 
-        await api.post("/topics", {
-          name,
-          chapterId: chapter.id,
-        });
+        await api.post(
+          "/topics",
+          {
+            name,
+            chapterId:
+              chapter.id,
+          }
+        );
       }
 
       setCreateModalVisible(false);
@@ -597,14 +836,14 @@ export default function ContentPage() {
       await refreshCurrentLevel();
 
       setSuccess(
-        `${currentLevel.singular} created successfully.`,
+        `${currentLevel.singular} created successfully.`
       );
     } catch (requestError) {
       setError(
         getApiError(
           requestError,
-          `Couldn't create the ${currentLevel.singular.toLowerCase()}.`,
-        ),
+          `Couldn't create the ${currentLevel.singular.toLowerCase()}.`
+        )
       );
     } finally {
       setCreating(false);
@@ -614,13 +853,17 @@ export default function ContentPage() {
   function openHierarchyEdit(item) {
     clearMessages();
 
-    setEditingHierarchyItem(item);
-
-    setHierarchyEditName(
-      item?.name || "",
+    setEditingHierarchyItem(
+      item
     );
 
-    setHierarchyEditVisible(true);
+    setHierarchyEditName(
+      item?.name || ""
+    );
+
+    setHierarchyEditVisible(
+      true
+    );
   }
 
   function closeHierarchyEdit() {
@@ -645,7 +888,7 @@ export default function ContentPage() {
 
     if (!name) {
       setError(
-        `Enter a ${currentLevel.singular.toLowerCase()} name.`,
+        `Enter a ${currentLevel.singular.toLowerCase()} name.`
       );
 
       return;
@@ -666,7 +909,7 @@ export default function ContentPage() {
         `/${endpoint}/${editingHierarchyItem.id}`,
         {
           name,
-        },
+        }
       );
 
       setHierarchyEditVisible(false);
@@ -676,14 +919,14 @@ export default function ContentPage() {
       await refreshCurrentLevel();
 
       setSuccess(
-        `${currentLevel.singular} updated successfully.`,
+        `${currentLevel.singular} updated successfully.`
       );
     } catch (requestError) {
       setError(
         getApiError(
           requestError,
-          `Couldn't update the ${currentLevel.singular.toLowerCase()}.`,
-        ),
+          `Couldn't update the ${currentLevel.singular.toLowerCase()}.`
+        )
       );
     } finally {
       setSavingHierarchyEdit(false);
@@ -691,7 +934,7 @@ export default function ContentPage() {
   }
 
   async function deleteHierarchyItem(
-    item,
+    item
   ) {
     if (!item?.id) {
       return;
@@ -705,43 +948,44 @@ export default function ContentPage() {
     }
 
     setDeletingHierarchyItemId(
-      item.id,
+      item.id
     );
 
     setError("");
 
     try {
       await api.delete(
-        `/${endpoint}/${item.id}`,
+        `/${endpoint}/${item.id}`
       );
 
       await refreshCurrentLevel();
 
       setSuccess(
-        `${currentLevel.singular} deleted successfully.`,
+        `${currentLevel.singular} deleted successfully.`
       );
     } catch (requestError) {
       setError(
         getApiError(
           requestError,
-          `Couldn't delete the ${currentLevel.singular.toLowerCase()}.`,
-        ),
+          `Couldn't delete the ${currentLevel.singular.toLowerCase()}.`
+        )
       );
     } finally {
       setDeletingHierarchyItemId(
-        null,
+        null
       );
     }
   }
 
   function confirmDeleteHierarchyItem(
-    item,
+    item
   ) {
     const type =
       currentLevel.singular.toLowerCase();
 
     const itemName =
-      item?.name || `this ${type}`;
+      item?.name ||
+      `this ${type}`;
 
     let message =
       `Delete "${itemName}"? This action cannot be undone.`;
@@ -784,15 +1028,17 @@ export default function ContentPage() {
           text: "Delete",
           style: "destructive",
           onPress: () =>
-            deleteHierarchyItem(item),
+            deleteHierarchyItem(
+              item
+            ),
         },
-      ],
+      ]
     );
   }
 
   async function addFileToFormData(
     formData,
-    file,
+    file
   ) {
     const fileName =
       file?.name ||
@@ -807,7 +1053,7 @@ export default function ContentPage() {
         formData.append(
           "file",
           file.file,
-          fileName,
+          fileName
         );
 
         return;
@@ -818,7 +1064,7 @@ export default function ContentPage() {
 
       if (!response.ok) {
         throw new Error(
-          "The selected file could not be prepared.",
+          "The selected file could not be prepared."
         );
       }
 
@@ -828,26 +1074,61 @@ export default function ContentPage() {
       formData.append(
         "file",
         blob,
-        fileName,
+        fileName
       );
 
       return;
     }
 
-    formData.append("file", {
-      uri: file.uri,
-      name: fileName,
-      type: mimeType,
-    });
+    formData.append(
+      "file",
+      {
+        uri: file.uri,
+        name: fileName,
+        type: mimeType,
+      }
+    );
+  }
+
+  async function chooseResourceFile(
+    type
+  ) {
+    return DocumentPicker.getDocumentAsync(
+      {
+        type:
+          type === "video"
+            ? ["video/*"]
+            : [
+                "application/pdf",
+                "image/*",
+              ],
+
+        copyToCacheDirectory: true,
+        multiple: false,
+      }
+    );
   }
 
   async function uploadResource(
-    type,
+    type
   ) {
+    const isMaterial =
+      type === "material";
+
     const rawTitle =
-      type === "material"
+      isMaterial
         ? materialTitle
         : videoTitle;
+
+    const sourceType =
+      isMaterial
+        ? materialSourceType
+        : videoSourceType;
+
+    const objectKey =
+      isMaterial
+        ? materialObjectKey
+        : videoObjectKey;
 
     const title =
       rawTitle.trim();
@@ -856,7 +1137,7 @@ export default function ContentPage() {
 
     if (!title) {
       setError(
-        `Enter a title for the ${type}.`,
+        `Enter a title for the ${type}.`
       );
 
       return;
@@ -864,85 +1145,127 @@ export default function ContentPage() {
 
     if (!currentParent?.id) {
       setError(
-        "Select a topic before uploading a resource.",
+        "Select a topic before adding a resource."
       );
 
       return;
     }
 
-    try {
-      const picker =
-        await DocumentPicker.getDocumentAsync(
-          {
-            type:
-              type === "video"
-                ? ["video/*"]
-                : [
-                    "application/pdf",
-                    "image/*",
-                  ],
+    if (
+      sourceType ===
+        SOURCE_R2_EXISTING &&
+      !objectKey.trim()
+    ) {
+      setError(
+        "Enter the existing R2 object key."
+      );
 
-            copyToCacheDirectory: true,
-            multiple: false,
-          },
+      return;
+    }
+
+    setUploadingType(type);
+
+    try {
+      if (
+        sourceType ===
+        SOURCE_R2_EXISTING
+      ) {
+        await api.post(
+          `/resources/${type}`,
+          {
+            title,
+            topicId:
+              currentParent.id,
+            sourceType:
+              SOURCE_R2_EXISTING,
+            objectKey:
+              objectKey.trim(),
+          }
+        );
+      } else {
+        const picker =
+          await chooseResourceFile(
+            type
+          );
+
+        if (
+          picker.canceled ||
+          !picker.assets?.length
+        ) {
+          return;
+        }
+
+        const formData =
+          new FormData();
+
+        formData.append(
+          "title",
+          title
         );
 
-      if (
-        picker.canceled ||
-        !picker.assets?.length
-      ) {
-        return;
+        formData.append(
+          "topicId",
+          currentParent.id
+        );
+
+        formData.append(
+          "sourceType",
+          SOURCE_UPLOAD
+        );
+
+        await addFileToFormData(
+          formData,
+          picker.assets[0]
+        );
+
+        await api.post(
+          `/resources/${type}`,
+          formData
+        );
       }
 
-      setUploadingType(type);
-
-      const formData =
-        new FormData();
-
-      formData.append(
-        "title",
-        title,
-      );
-
-      formData.append(
-        "topicId",
-        currentParent.id,
-      );
-
-      await addFileToFormData(
-        formData,
-        picker.assets[0],
-      );
-
-      await api.post(
-        `/resources/${type}`,
-        formData,
-      );
-
-      if (type === "material") {
+      if (isMaterial) {
         setMaterialTitle("");
+        setMaterialObjectKey("");
+        setMaterialSourceType(
+          SOURCE_UPLOAD
+        );
       } else {
         setVideoTitle("");
+        setVideoObjectKey("");
+        setVideoSourceType(
+          SOURCE_UPLOAD
+        );
       }
 
       await loadResources(
         currentParent,
-        breadcrumbs,
+        breadcrumbs
       );
 
       setSuccess(
-        `${
-          type === "video"
-            ? "Video"
-            : "Material"
-        } uploaded successfully.`,
+        sourceType ===
+          SOURCE_R2_EXISTING
+          ? `${
+              type === "video"
+                ? "Video"
+                : "Material"
+            } added from R2 successfully.`
+          : `${
+              type === "video"
+                ? "Video"
+                : "Material"
+            } uploaded successfully.`
       );
     } catch (requestError) {
       setError(
         getApiError(
           requestError,
-          `Couldn't upload the ${type}. Confirm that Cloudflare R2 is configured correctly.`,
-        ),
+          sourceType ===
+            SOURCE_R2_EXISTING
+            ? `Couldn't add the ${type} from R2. Check that the object key exists in the configured bucket.`
+            : `Couldn't upload the ${type}. Confirm that Cloudflare R2 is configured correctly.`
+        )
       );
     } finally {
       setUploadingType(null);
@@ -954,7 +1277,7 @@ export default function ContentPage() {
       getResourceType(item);
 
     router.push(
-      `/resource-viewer/${resourceType}/${item.id}`,
+      `/resource-viewer/${resourceType}/${item.id}`
     );
   }
 
@@ -964,10 +1287,16 @@ export default function ContentPage() {
     setEditingResource(item);
 
     setEditTitle(
-      item?.title || "",
+      item?.title || ""
+    );
+
+    setEditSourceMode(
+      EDIT_SOURCE_KEEP
     );
 
     setReplacementFile(null);
+    setEditObjectKey("");
+
     setEditModalVisible(true);
   }
 
@@ -979,7 +1308,35 @@ export default function ContentPage() {
     setEditModalVisible(false);
     setEditingResource(null);
     setEditTitle("");
+    setEditSourceMode(
+      EDIT_SOURCE_KEEP
+    );
     setReplacementFile(null);
+    setEditObjectKey("");
+  }
+
+  function selectEditSourceMode(
+    mode
+  ) {
+    if (savingEdit) {
+      return;
+    }
+
+    setEditSourceMode(mode);
+
+    if (
+      mode !==
+      EDIT_SOURCE_UPLOAD
+    ) {
+      setReplacementFile(null);
+    }
+
+    if (
+      mode !==
+      EDIT_SOURCE_R2
+    ) {
+      setEditObjectKey("");
+    }
   }
 
   async function selectReplacementFile() {
@@ -989,21 +1346,10 @@ export default function ContentPage() {
 
     try {
       const result =
-        await DocumentPicker.getDocumentAsync(
-          {
-            type:
-              getResourceType(
-                editingResource,
-              ) === "video"
-                ? ["video/*"]
-                : [
-                    "application/pdf",
-                    "image/*",
-                  ],
-
-            copyToCacheDirectory: true,
-            multiple: false,
-          },
+        await chooseResourceFile(
+          getResourceType(
+            editingResource
+          )
         );
 
       if (
@@ -1014,12 +1360,18 @@ export default function ContentPage() {
       }
 
       setReplacementFile(
-        result.assets[0],
+        result.assets[0]
       );
+
+      setEditSourceMode(
+        EDIT_SOURCE_UPLOAD
+      );
+
+      setEditObjectKey("");
     } catch (pickerError) {
       setError(
         pickerError?.message ||
-          "Couldn't select the replacement file.",
+          "Couldn't select the replacement file."
       );
     }
   }
@@ -1034,7 +1386,31 @@ export default function ContentPage() {
 
     if (!title) {
       setError(
-        "Enter a resource title.",
+        "Enter a resource title."
+      );
+
+      return;
+    }
+
+    if (
+      editSourceMode ===
+        EDIT_SOURCE_UPLOAD &&
+      !replacementFile
+    ) {
+      setError(
+        "Choose a replacement file first."
+      );
+
+      return;
+    }
+
+    if (
+      editSourceMode ===
+        EDIT_SOURCE_R2 &&
+      !editObjectKey.trim()
+    ) {
+      setError(
+        "Enter the existing R2 object key."
       );
 
       return;
@@ -1046,52 +1422,92 @@ export default function ContentPage() {
     try {
       const resourceType =
         getResourceType(
-          editingResource,
+          editingResource
         );
 
-      const formData =
-        new FormData();
-
-      formData.append(
-        "title",
-        title,
-      );
-
-      if (replacementFile) {
-        await addFileToFormData(
-          formData,
-          replacementFile,
+      if (
+        editSourceMode ===
+        EDIT_SOURCE_KEEP
+      ) {
+        await api.patch(
+          `/resources/${resourceType}/${editingResource.id}`,
+          {
+            title,
+          }
         );
       }
 
-      await api.patch(
-        `/resources/${resourceType}/${editingResource.id}`,
-        formData,
-      );
+      if (
+        editSourceMode ===
+        EDIT_SOURCE_R2
+      ) {
+        await api.patch(
+          `/resources/${resourceType}/${editingResource.id}`,
+          {
+            title,
+            sourceType:
+              SOURCE_R2_EXISTING,
+            objectKey:
+              editObjectKey.trim(),
+          }
+        );
+      }
+
+      if (
+        editSourceMode ===
+        EDIT_SOURCE_UPLOAD
+      ) {
+        const formData =
+          new FormData();
+
+        formData.append(
+          "title",
+          title
+        );
+
+        formData.append(
+          "sourceType",
+          SOURCE_UPLOAD
+        );
+
+        await addFileToFormData(
+          formData,
+          replacementFile
+        );
+
+        await api.patch(
+          `/resources/${resourceType}/${editingResource.id}`,
+          formData
+        );
+      }
 
       await loadResources(
         currentParent,
-        breadcrumbs,
+        breadcrumbs
       );
 
       setEditModalVisible(false);
       setEditingResource(null);
       setEditTitle("");
+      setEditSourceMode(
+        EDIT_SOURCE_KEEP
+      );
       setReplacementFile(null);
+      setEditObjectKey("");
 
       setSuccess(
         `${
           resourceType === "video"
             ? "Video"
             : "Material"
-        } updated successfully.`,
+        } updated successfully.`
       );
     } catch (requestError) {
       setError(
         getApiError(
           requestError,
-          "Couldn't update the resource.",
-        ),
+          "Couldn't update the resource."
+        )
       );
     } finally {
       setSavingEdit(false);
@@ -1103,19 +1519,19 @@ export default function ContentPage() {
       getResourceType(item);
 
     setDeletingResourceId(
-      item.id,
+      item.id
     );
 
     setError("");
 
     try {
       await api.delete(
-        `/resources/${resourceType}/${item.id}`,
+        `/resources/${resourceType}/${item.id}`
       );
 
       await loadResources(
         currentParent,
-        breadcrumbs,
+        breadcrumbs
       );
 
       setSuccess(
@@ -1123,14 +1539,19 @@ export default function ContentPage() {
           resourceType === "video"
             ? "Video"
             : "Material"
-        } deleted successfully.`,
+        } deleted successfully.${
+          getSourceType(item) ===
+          SOURCE_R2_EXISTING
+            ? " The manually managed R2 object was kept."
+            : ""
+        }`
       );
     } catch (requestError) {
       setError(
         getApiError(
           requestError,
-          "Couldn't delete the resource.",
-        ),
+          "Couldn't delete the resource."
+        )
       );
     } finally {
       setDeletingResourceId(null);
@@ -1138,13 +1559,20 @@ export default function ContentPage() {
   }
 
   function confirmDeleteResource(
-    item,
+    item
   ) {
     const title =
-      item?.title || "this resource";
+      item?.title ||
+      "this resource";
+
+    const manuallyManaged =
+      getSourceType(item) ===
+      SOURCE_R2_EXISTING;
 
     const message =
-      `Delete "${title}"? This action cannot be undone.`;
+      manuallyManaged
+        ? `Delete "${title}" from the platform? The database record will be deleted, but the manually managed R2 object will remain in Cloudflare R2.`
+        : `Delete "${title}"? This action cannot be undone and the uploaded R2 file will also be removed.`;
 
     if (Platform.OS === "web") {
       const confirmed =
@@ -1171,7 +1599,7 @@ export default function ContentPage() {
           onPress: () =>
             deleteResource(item),
         },
-      ],
+      ]
     );
   }
 
@@ -1226,7 +1654,7 @@ export default function ContentPage() {
                 onPress={() =>
                   openBreadcrumb(
                     breadcrumb,
-                    index,
+                    index
                   )
                 }
                 style={({
@@ -1252,7 +1680,7 @@ export default function ContentPage() {
                 </Text>
               </Pressable>
             </React.Fragment>
-          ),
+          )
         )}
       </ScrollView>
     );
@@ -1283,7 +1711,7 @@ export default function ContentPage() {
           style={styles.emptyText}
         >
           {level === "resources"
-            ? "Upload the first material or video for this topic."
+            ? "Add the first material or video for this topic using a device upload or an existing R2 object."
             : `Create the first ${currentLevel.singular.toLowerCase()} here.`}
         </Text>
 
@@ -1301,7 +1729,7 @@ export default function ContentPage() {
   }
 
   function renderHierarchyItem(
-    item,
+    item
   ) {
     const deleting =
       deletingHierarchyItemId ===
@@ -1397,7 +1825,7 @@ export default function ContentPage() {
             disabled={deleting}
             onPress={() =>
               confirmDeleteHierarchyItem(
-                item,
+                item
               )
             }
             style={({ pressed }) => [
@@ -1437,10 +1865,13 @@ export default function ContentPage() {
   }
 
   function renderResourceItem(
-    item,
+    item
   ) {
     const resourceType =
       getResourceType(item);
+
+    const sourceType =
+      getSourceType(item);
 
     const deleting =
       deletingResourceId ===
@@ -1500,19 +1931,66 @@ export default function ContentPage() {
 
             <View
               style={
-                styles.resourceTypeRow
+                styles.resourceMetaRow
               }
             >
-              <Text
+              <View
                 style={
-                  styles.resourceTypeText
+                  styles.resourceTypeRow
                 }
               >
-                {resourceType ===
-                "video"
-                  ? "Video"
-                  : "Material"}
-              </Text>
+                <Text
+                  style={
+                    styles.resourceTypeText
+                  }
+                >
+                  {resourceType ===
+                  "video"
+                    ? "Video"
+                    : "Material"}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.resourceSourceBadge,
+
+                  sourceType ===
+                    SOURCE_R2_EXISTING &&
+                    styles.resourceSourceBadgeR2,
+                ]}
+              >
+                <Ionicons
+                  name={
+                    sourceType ===
+                    SOURCE_R2_EXISTING
+                      ? "server-outline"
+                      : "cloud-upload-outline"
+                  }
+                  size={13}
+                  color={
+                    sourceType ===
+                    SOURCE_R2_EXISTING
+                      ? colors.primary
+                      : colors.textMuted
+                  }
+                />
+
+                <Text
+                  style={[
+                    styles.resourceSourceText,
+
+                    sourceType ===
+                      SOURCE_R2_EXISTING &&
+                      styles.resourceSourceTextR2,
+                  ]}
+                >
+                  {sourceType ===
+                  SOURCE_R2_EXISTING
+                    ? "Existing R2"
+                    : "Platform upload"}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -1548,7 +2026,7 @@ export default function ContentPage() {
             disabled={deleting}
             onPress={() =>
               confirmDeleteResource(
-                item,
+                item
               )
             }
           />
@@ -1591,12 +2069,228 @@ export default function ContentPage() {
       <View style={styles.itemList}>
         {level === "resources"
           ? items.map(
-              renderResourceItem,
+              renderResourceItem
             )
           : items.map(
-              renderHierarchyItem,
+              renderHierarchyItem
             )}
       </View>
+    );
+  }
+
+  function renderResourceCreateCard(
+    type
+  ) {
+    const isMaterial =
+      type === "material";
+
+    const title =
+      isMaterial
+        ? materialTitle
+        : videoTitle;
+
+    const setTitle =
+      isMaterial
+        ? setMaterialTitle
+        : setVideoTitle;
+
+    const sourceType =
+      isMaterial
+        ? materialSourceType
+        : videoSourceType;
+
+    const setSourceType =
+      isMaterial
+        ? setMaterialSourceType
+        : setVideoSourceType;
+
+    const objectKey =
+      isMaterial
+        ? materialObjectKey
+        : videoObjectKey;
+
+    const setObjectKey =
+      isMaterial
+        ? setMaterialObjectKey
+        : setVideoObjectKey;
+
+    const busy =
+      uploadingType === type;
+
+    const anyBusy =
+      Boolean(uploadingType);
+
+    return (
+      <Card
+        style={styles.actionCard}
+      >
+        <View
+          style={
+            styles.actionHeader
+          }
+        >
+          <View
+            style={[
+              styles.actionIcon,
+
+              !isMaterial &&
+                styles.videoActionIcon,
+            ]}
+          >
+            <Ionicons
+              name={
+                isMaterial
+                  ? "document-attach-outline"
+                  : "videocam-outline"
+              }
+              size={22}
+              color={
+                isMaterial
+                  ? colors.primary
+                  : colors.warning
+              }
+            />
+          </View>
+
+          <View
+            style={
+              styles.actionCopy
+            }
+          >
+            <Text
+              style={
+                styles.actionTitle
+              }
+            >
+              {isMaterial
+                ? "Add material"
+                : "Add video"}
+            </Text>
+
+            <Text
+              style={
+                styles.actionDescription
+              }
+            >
+              {isMaterial
+                ? "Upload a PDF/image or reference an existing R2 object."
+                : "Upload a lesson video or reference an existing R2 object."}
+            </Text>
+          </View>
+        </View>
+
+        <Text
+          style={styles.inputLabel}
+        >
+          {isMaterial
+            ? "Material title"
+            : "Video title"}
+        </Text>
+
+        <TextInput
+          value={title}
+          onChangeText={setTitle}
+          editable={!anyBusy}
+          placeholder={
+            isMaterial
+              ? "Material title"
+              : "Video title"
+          }
+          placeholderTextColor={
+            colors.textMuted
+          }
+          style={styles.input}
+        />
+
+        <View
+          style={
+            styles.sourceSection
+          }
+        >
+          <Text
+            style={
+              styles.sourceSectionLabel
+            }
+          >
+            FILE SOURCE
+          </Text>
+
+          <ResourceSourceSelector
+            value={sourceType}
+            onChange={(nextType) => {
+              setSourceType(
+                nextType
+              );
+
+              if (
+                nextType ===
+                SOURCE_UPLOAD
+              ) {
+                setObjectKey("");
+              }
+            }}
+            disabled={anyBusy}
+          />
+        </View>
+
+        {sourceType ===
+        SOURCE_R2_EXISTING ? (
+          <ExistingR2Field
+            value={objectKey}
+            onChangeText={
+              setObjectKey
+            }
+            disabled={anyBusy}
+          />
+        ) : (
+          <View
+            style={
+              styles.deviceUploadInfo
+            }
+          >
+            <Ionicons
+              name="cloud-upload-outline"
+              size={18}
+              color={colors.primary}
+            />
+
+            <Text
+              style={
+                styles.deviceUploadInfoText
+              }
+            >
+              {isMaterial
+                ? "The file picker will accept PDF and image files."
+                : "The file picker will accept video files."}
+            </Text>
+          </View>
+        )}
+
+        <Button
+          title={
+            sourceType ===
+            SOURCE_R2_EXISTING
+              ? busy
+                ? "Checking R2..."
+                : "Add existing R2 file"
+              : busy
+                ? "Uploading..."
+                : "Choose and upload"
+          }
+          variant="warning"
+          loading={busy}
+          disabled={
+            anyBusy ||
+            !title.trim() ||
+            (sourceType ===
+              SOURCE_R2_EXISTING &&
+              !objectKey.trim())
+          }
+          onPress={() =>
+            uploadResource(type)
+          }
+        />
+      </Card>
     );
   }
 
@@ -1607,148 +2301,13 @@ export default function ContentPage() {
 
     return (
       <>
-        <Card
-          style={styles.actionCard}
-        >
-          <View
-            style={
-              styles.actionHeader
-            }
-          >
-            <View
-              style={
-                styles.actionIcon
-              }
-            >
-              <Ionicons
-                name="document-attach-outline"
-                size={22}
-                color={colors.primary}
-              />
-            </View>
+        {renderResourceCreateCard(
+          "material"
+        )}
 
-            <View
-              style={
-                styles.actionCopy
-              }
-            >
-              <Text
-                style={
-                  styles.actionTitle
-                }
-              >
-                Upload material
-              </Text>
-
-              <Text
-                style={
-                  styles.actionDescription
-                }
-              >
-                Upload a PDF or image.
-              </Text>
-            </View>
-          </View>
-
-          <TextInput
-            value={materialTitle}
-            onChangeText={
-              setMaterialTitle
-            }
-            placeholder="Material title"
-            placeholderTextColor={
-              colors.textMuted
-            }
-            style={styles.input}
-          />
-
-          <Button
-            title="Choose and upload"
-            variant="warning"
-            loading={
-              uploadingType ===
-              "material"
-            }
-            disabled={
-              Boolean(uploadingType)
-            }
-            onPress={() =>
-              uploadResource(
-                "material",
-              )
-            }
-          />
-        </Card>
-
-        <Card
-          style={styles.actionCard}
-        >
-          <View
-            style={
-              styles.actionHeader
-            }
-          >
-            <View
-              style={[
-                styles.actionIcon,
-                styles.videoActionIcon,
-              ]}
-            >
-              <Ionicons
-                name="videocam-outline"
-                size={22}
-                color={colors.warning}
-              />
-            </View>
-
-            <View
-              style={
-                styles.actionCopy
-              }
-            >
-              <Text
-                style={
-                  styles.actionTitle
-                }
-              >
-                Upload video
-              </Text>
-
-              <Text
-                style={
-                  styles.actionDescription
-                }
-              >
-                Upload a lesson video.
-              </Text>
-            </View>
-          </View>
-
-          <TextInput
-            value={videoTitle}
-            onChangeText={setVideoTitle}
-            placeholder="Video title"
-            placeholderTextColor={
-              colors.textMuted
-            }
-            style={styles.input}
-          />
-
-          <Button
-            title="Choose and upload"
-            variant="warning"
-            loading={
-              uploadingType ===
-              "video"
-            }
-            disabled={
-              Boolean(uploadingType)
-            }
-            onPress={() =>
-              uploadResource("video")
-            }
-          />
-        </Card>
+        {renderResourceCreateCard(
+          "video"
+        )}
       </>
     );
   }
@@ -1802,9 +2361,9 @@ export default function ContentPage() {
               }
             >
               Manage the global Unit,
-              Chapter and Topic
-              hierarchy, then upload
-              resources to individual
+              Chapter and Topic hierarchy,
+              then upload or reference
+              resources inside individual
               topics.
             </Text>
           </View>
@@ -1866,7 +2425,9 @@ export default function ContentPage() {
               onPress={() =>
                 setError("")
               }
-              style={styles.closeMessage}
+              style={
+                styles.closeMessage
+              }
             >
               <Ionicons
                 name="close"
@@ -1902,7 +2463,9 @@ export default function ContentPage() {
               onPress={() =>
                 setSuccess("")
               }
-              style={styles.closeMessage}
+              style={
+                styles.closeMessage
+              }
             >
               <Ionicons
                 name="close"
@@ -2138,9 +2701,72 @@ export default function ContentPage() {
                 assignments only.
               </Text>
             </Card>
+
+            {level === "resources" ? (
+              <Card
+                style={
+                  styles.r2HelpCard
+                }
+              >
+                <View
+                  style={
+                    styles.r2HelpHeader
+                  }
+                >
+                  <View
+                    style={
+                      styles.r2HelpIcon
+                    }
+                  >
+                    <Ionicons
+                      name="server-outline"
+                      size={21}
+                      color={
+                        colors.primary
+                      }
+                    />
+                  </View>
+
+                  <Text
+                    style={
+                      styles.r2HelpTitle
+                    }
+                  >
+                    Existing R2 files
+                  </Text>
+                </View>
+
+                <Text
+                  style={
+                    styles.r2HelpText
+                  }
+                >
+                  Upload very large files
+                  directly through the
+                  Cloudflare R2 dashboard,
+                  then copy the object's key
+                  here. The platform verifies
+                  the object exists and
+                  generates temporary signed
+                  URLs when students open it.
+                </Text>
+
+                <Text
+                  style={
+                    styles.r2HelpImportant
+                  }
+                >
+                  Do not paste an expiring
+                  signed URL. Paste only the
+                  R2 object key.
+                </Text>
+              </Card>
+            ) : null}
           </View>
         </View>
       </View>
+
+      {/* CREATE HIERARCHY */}
 
       <Modal
         visible={createModalVisible}
@@ -2157,7 +2783,7 @@ export default function ContentPage() {
         >
           <Pressable
             style={
-              StyleSheet.absoluteFill
+              styles.modalFill
             }
             onPress={
               closeCreateModal
@@ -2279,6 +2905,8 @@ export default function ContentPage() {
         </View>
       </Modal>
 
+      {/* EDIT HIERARCHY */}
+
       <Modal
         visible={
           hierarchyEditVisible
@@ -2296,7 +2924,7 @@ export default function ContentPage() {
         >
           <Pressable
             style={
-              StyleSheet.absoluteFill
+              styles.modalFill
             }
             onPress={
               closeHierarchyEdit
@@ -2425,6 +3053,8 @@ export default function ContentPage() {
         </View>
       </Modal>
 
+      {/* EDIT RESOURCE */}
+
       <Modal
         visible={editModalVisible}
         transparent
@@ -2440,7 +3070,7 @@ export default function ContentPage() {
         >
           <Pressable
             style={
-              StyleSheet.absoluteFill
+              styles.modalFill
             }
             onPress={
               closeEditResource
@@ -2448,189 +3078,472 @@ export default function ContentPage() {
           />
 
           <View
-            style={styles.modalCard}
+            style={[
+              styles.modalCard,
+              styles.resourceEditModalCard,
+            ]}
           >
-            <View
-              style={
-                styles.modalHeader
+            <ScrollView
+              showsVerticalScrollIndicator={
+                false
+              }
+              contentContainerStyle={
+                styles.resourceEditScroll
               }
             >
               <View
                 style={
-                  styles.modalIcon
+                  styles.modalHeader
                 }
               >
-                <Ionicons
-                  name="create-outline"
-                  size={22}
-                  color={colors.primary}
-                />
-              </View>
-
-              <View
-                style={
-                  styles.modalHeadingCopy
-                }
-              >
-                <Text
+                <View
                   style={
-                    styles.modalTitle
+                    styles.modalIcon
                   }
                 >
-                  Edit resource
-                </Text>
-
-                <Text
-                  style={
-                    styles.modalDescription
-                  }
-                >
-                  Change the title or
-                  optionally replace the
-                  uploaded file.
-                </Text>
-              </View>
-
-              <Pressable
-                onPress={
-                  closeEditResource
-                }
-                style={
-                  styles.modalClose
-                }
-              >
-                <Ionicons
-                  name="close"
-                  size={22}
-                  color={
-                    colors.textPrimary
-                  }
-                />
-              </Pressable>
-            </View>
-
-            <Text
-              style={styles.inputLabel}
-            >
-              Resource title
-            </Text>
-
-            <TextInput
-              value={editTitle}
-              onChangeText={
-                setEditTitle
-              }
-              placeholder="Resource title"
-              placeholderTextColor={
-                colors.textMuted
-              }
-              style={styles.input}
-            />
-
-            <View
-              style={
-                styles.replacementBox
-              }
-            >
-              <View
-                style={
-                  styles.replacementInfo
-                }
-              >
-                <Ionicons
-                  name={
-                    replacementFile
-                      ? "checkmark-circle-outline"
-                      : "attach-outline"
-                  }
-                  size={22}
-                  color={colors.primary}
-                />
+                  <Ionicons
+                    name="create-outline"
+                    size={22}
+                    color={colors.primary}
+                  />
+                </View>
 
                 <View
                   style={
-                    styles.replacementCopy
+                    styles.modalHeadingCopy
                   }
                 >
                   <Text
                     style={
-                      styles.replacementTitle
+                      styles.modalTitle
                     }
                   >
-                    {replacementFile
-                      ? replacementFile.name
-                      : "Keep current file"}
+                    Edit resource
                   </Text>
 
                   <Text
                     style={
-                      styles.replacementDescription
+                      styles.modalDescription
                     }
                   >
-                    {replacementFile
-                      ? "The selected file will replace the existing upload."
-                      : "Replacing the file is optional."}
+                    Change the title, keep
+                    the current file, upload
+                    a replacement, or switch
+                    to an existing R2 object.
                   </Text>
                 </View>
-              </View>
 
-              <Button
-                title={
-                  replacementFile
-                    ? "Choose another"
-                    : "Replace file"
-                }
-                variant="outline"
-                onPress={
-                  selectReplacementFile
-                }
-                disabled={savingEdit}
-              />
-
-              {replacementFile ? (
                 <Pressable
-                  onPress={() =>
-                    setReplacementFile(
-                      null,
-                    )
+                  onPress={
+                    closeEditResource
                   }
                   style={
-                    styles.keepCurrentButton
+                    styles.modalClose
                   }
                 >
-                  <Text
+                  <Ionicons
+                    name="close"
+                    size={22}
+                    color={
+                      colors.textPrimary
+                    }
+                  />
+                </Pressable>
+              </View>
+
+              {editingResource ? (
+                <View
+                  style={
+                    styles.currentResourceSummary
+                  }
+                >
+                  <View
                     style={
-                      styles.keepCurrentText
+                      styles.currentResourceSummaryIcon
                     }
                   >
-                    Keep current file
-                    instead
-                  </Text>
-                </Pressable>
+                    <Ionicons
+                      name={
+                        getResourceType(
+                          editingResource
+                        ) ===
+                        "video"
+                          ? "videocam-outline"
+                          : "document-text-outline"
+                      }
+                      size={20}
+                      color={
+                        colors.primary
+                      }
+                    />
+                  </View>
+
+                  <View
+                    style={
+                      styles.currentResourceSummaryCopy
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.currentResourceSummaryLabel
+                      }
+                    >
+                      CURRENT SOURCE
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.currentResourceSummaryValue
+                      }
+                    >
+                      {getSourceType(
+                        editingResource
+                      ) ===
+                      SOURCE_R2_EXISTING
+                        ? "Existing R2 file"
+                        : "Platform upload"}
+                    </Text>
+                  </View>
+                </View>
               ) : null}
-            </View>
 
-            <View
-              style={
-                styles.modalActions
-              }
-            >
-              <Button
-                title="Cancel"
-                variant="outline"
-                onPress={
-                  closeEditResource
+              <Text
+                style={
+                  styles.inputLabel
                 }
-                disabled={savingEdit}
+              >
+                Resource title
+              </Text>
+
+              <TextInput
+                value={editTitle}
+                onChangeText={
+                  setEditTitle
+                }
+                editable={!savingEdit}
+                placeholder="Resource title"
+                placeholderTextColor={
+                  colors.textMuted
+                }
+                style={styles.input}
               />
 
-              <Button
-                title="Save changes"
-                variant="warning"
-                onPress={saveResource}
-                loading={savingEdit}
-              />
-            </View>
+              <View
+                style={
+                  styles.editSourceSection
+                }
+              >
+                <Text
+                  style={
+                    styles.sourceSectionLabel
+                  }
+                >
+                  FILE ACTION
+                </Text>
+
+                <Pressable
+                  disabled={savingEdit}
+                  onPress={() =>
+                    selectEditSourceMode(
+                      EDIT_SOURCE_KEEP
+                    )
+                  }
+                  style={({ pressed }) => [
+                    styles.editSourceOption,
+
+                    editSourceMode ===
+                      EDIT_SOURCE_KEEP &&
+                      styles.editSourceOptionActive,
+
+                    pressed &&
+                      !savingEdit &&
+                      styles.pressed,
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.editSourceRadio
+                    }
+                  >
+                    {editSourceMode ===
+                    EDIT_SOURCE_KEEP ? (
+                      <View
+                        style={
+                          styles.editSourceRadioDot
+                        }
+                      />
+                    ) : null}
+                  </View>
+
+                  <View
+                    style={
+                      styles.editSourceCopy
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.editSourceTitle
+                      }
+                    >
+                      Keep current file
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.editSourceDescription
+                      }
+                    >
+                      Update the title only.
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  disabled={savingEdit}
+                  onPress={() =>
+                    selectEditSourceMode(
+                      EDIT_SOURCE_UPLOAD
+                    )
+                  }
+                  style={({ pressed }) => [
+                    styles.editSourceOption,
+
+                    editSourceMode ===
+                      EDIT_SOURCE_UPLOAD &&
+                      styles.editSourceOptionActive,
+
+                    pressed &&
+                      !savingEdit &&
+                      styles.pressed,
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.editSourceRadio
+                    }
+                  >
+                    {editSourceMode ===
+                    EDIT_SOURCE_UPLOAD ? (
+                      <View
+                        style={
+                          styles.editSourceRadioDot
+                        }
+                      />
+                    ) : null}
+                  </View>
+
+                  <View
+                    style={
+                      styles.editSourceCopy
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.editSourceTitle
+                      }
+                    >
+                      Replace from device
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.editSourceDescription
+                      }
+                    >
+                      Upload a new platform-managed file.
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  disabled={savingEdit}
+                  onPress={() =>
+                    selectEditSourceMode(
+                      EDIT_SOURCE_R2
+                    )
+                  }
+                  style={({ pressed }) => [
+                    styles.editSourceOption,
+
+                    editSourceMode ===
+                      EDIT_SOURCE_R2 &&
+                      styles.editSourceOptionActive,
+
+                    pressed &&
+                      !savingEdit &&
+                      styles.pressed,
+                  ]}
+                >
+                  <View
+                    style={
+                      styles.editSourceRadio
+                    }
+                  >
+                    {editSourceMode ===
+                    EDIT_SOURCE_R2 ? (
+                      <View
+                        style={
+                          styles.editSourceRadioDot
+                        }
+                      />
+                    ) : null}
+                  </View>
+
+                  <View
+                    style={
+                      styles.editSourceCopy
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.editSourceTitle
+                      }
+                    >
+                      Existing R2 file
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.editSourceDescription
+                      }
+                    >
+                      Replace the reference with an
+                      object already stored in R2.
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+
+              {editSourceMode ===
+              EDIT_SOURCE_UPLOAD ? (
+                <View
+                  style={
+                    styles.replacementBox
+                  }
+                >
+                  <View
+                    style={
+                      styles.replacementInfo
+                    }
+                  >
+                    <Ionicons
+                      name={
+                        replacementFile
+                          ? "checkmark-circle-outline"
+                          : "attach-outline"
+                      }
+                      size={22}
+                      color={
+                        colors.primary
+                      }
+                    />
+
+                    <View
+                      style={
+                        styles.replacementCopy
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.replacementTitle
+                        }
+                      >
+                        {replacementFile
+                          ? replacementFile.name
+                          : "No replacement selected"}
+                      </Text>
+
+                      <Text
+                        style={
+                          styles.replacementDescription
+                        }
+                      >
+                        {replacementFile
+                          ? "This file will replace the existing resource."
+                          : "Choose the replacement file before saving."}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Button
+                    title={
+                      replacementFile
+                        ? "Choose another"
+                        : "Choose file"
+                    }
+                    variant="outline"
+                    onPress={
+                      selectReplacementFile
+                    }
+                    disabled={savingEdit}
+                  />
+
+                  {replacementFile ? (
+                    <Pressable
+                      onPress={() =>
+                        setReplacementFile(
+                          null
+                        )
+                      }
+                      style={
+                        styles.keepCurrentButton
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.keepCurrentText
+                        }
+                      >
+                        Clear selected file
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {editSourceMode ===
+              EDIT_SOURCE_R2 ? (
+                <ExistingR2Field
+                  value={editObjectKey}
+                  onChangeText={
+                    setEditObjectKey
+                  }
+                  disabled={savingEdit}
+                />
+              ) : null}
+
+              <View
+                style={
+                  styles.modalActions
+                }
+              >
+                <Button
+                  title="Cancel"
+                  variant="outline"
+                  onPress={
+                    closeEditResource
+                  }
+                  disabled={savingEdit}
+                />
+
+                <Button
+                  title="Save changes"
+                  variant="warning"
+                  onPress={saveResource}
+                  loading={savingEdit}
+                  disabled={
+                    savingEdit ||
+                    !editTitle.trim() ||
+                    (editSourceMode ===
+                      EDIT_SOURCE_UPLOAD &&
+                      !replacementFile) ||
+                    (editSourceMode ===
+                      EDIT_SOURCE_R2 &&
+                      !editObjectKey.trim())
+                  }
+                />
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
