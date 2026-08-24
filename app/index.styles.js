@@ -675,7 +675,7 @@ export const styles = StyleSheet.create({
   mobileContactRowPhone: {
     paddingTop: 0,
     paddingBottom: 8,
-    marginTop: -100,
+    
   },
 
   mobileContactRowLandscapePhone: {
