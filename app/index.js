@@ -1,4 +1,3 @@
-import Head from "expo-router/head";
 import React from "react";
 
 import {
@@ -26,26 +25,17 @@ const landingBackground = require(
   "../assets/images/mahmoud-landing-bg.jpeg"
 );
 
-const WHATSAPP_URL =
-  "https://wa.link/5l6f4m";
-
-const EMAIL_ADDRESS =
-  "mahmoudnagy196@gmail.com";
+const WHATSAPP_URL = "https://wa.link/5l6f4m";
+const EMAIL_ADDRESS = "mahmoudnagy196@gmail.com";
 
 export default function Index() {
   const router = useRouter();
+  const { width, height } = useWindowDimensions();
+  const { user, loading } = useAuth();
 
-  const { width, height } =
-    useWindowDimensions();
-
-  const { user, loading } =
-    useAuth();
-
-  const isMobile = width < 700;
-
-  const isTablet =
-    width >= 700 &&
-    width < 1050;
+  const isPhone = width < 600;
+  const isSmallTablet = width >= 600 && width < 900;
+  const isTablet = width >= 600 && width < 1100;
 
   if (loading) {
     return (
@@ -58,35 +48,20 @@ export default function Index() {
     );
   }
 
-  /*
-   * Keep the existing authenticated-user
-   * redirect behavior.
-   */
   if (user) {
     const isRegularAssistant =
       user.role === "ASSISTANT" &&
       !user.isHeadAssistant;
 
-    let destination =
-      "/(app)/dashboard";
+    let destination = "/(app)/dashboard";
 
-    if (
-      user.role === "STUDENT"
-    ) {
-      destination =
-        "/(app)/my-dashboard";
-    } else if (
-      isRegularAssistant
-    ) {
-      destination =
-        "/(app)/my-stats";
+    if (user.role === "STUDENT") {
+      destination = "/(app)/my-dashboard";
+    } else if (isRegularAssistant) {
+      destination = "/(app)/my-stats";
     }
 
-    return (
-      <Redirect
-        href={destination}
-      />
-    );
+    return <Redirect href={destination} />;
   }
 
   function goHome() {
@@ -102,19 +77,13 @@ export default function Index() {
   }
 
   function goToLogin() {
-    router.push(
-      "/(auth)/login"
-    );
+    router.push("/(auth)/login");
   }
 
   async function openWhatsApp() {
     try {
-      await Linking.openURL(
-        WHATSAPP_URL
-      );
-    } catch {
-      // Ignore OS/browser failure.
-    }
+      await Linking.openURL(WHATSAPP_URL);
+    } catch {}
   }
 
   async function openEmail() {
@@ -122,105 +91,49 @@ export default function Index() {
       await Linking.openURL(
         `mailto:${EMAIL_ADDRESS}`
       );
-    } catch {
-      // Ignore OS/browser failure.
-    }
+    } catch {}
   }
-  <Head>
-  <title>
-    Mahmoud Nagy Physics | IGCSE, O Level & AS Physics Courses
-  </title>
 
-  <meta
-    name="description"
-    content="Learn Physics with Mahmoud Nagy. Physics courses for Year 9 Core, Cambridge O Level, Edexcel O Level, Combined Science O Level, and Cambridge AS Physics."
-  />
-
-  <meta
-    name="keywords"
-    content="Mahmoud Nagy, Mahmoud Nagy Physics, Laytheg, IGCSE Physics, Physics courses IGCSE, O Level Physics, Cambridge Physics, Edexcel Physics, AS Physics, Physics tutor, Year 9 Physics, Combined Science Physics"
-  />
-
-  <meta
-    name="robots"
-    content="index, follow"
-  />
-
-  <link
-    rel="canonical"
-    href="https://laytheg.com/"
-  />
-
-  <meta
-    property="og:title"
-    content="Mahmoud Nagy Physics | IGCSE, O Level & AS Physics"
-  />
-
-  <meta
-    property="og:description"
-    content="Physics courses with Mahmoud Nagy for Cambridge, Edexcel, O Level, Combined Science and AS students."
-  />
-
-  <meta
-    property="og:url"
-    content="https://laytheg.com/"
-  />
-
-  <meta
-    property="og:type"
-    content="website"
-  />
-
-  <meta
-    property="og:site_name"
-    content="Mahmoud Nagy Physics"
-  />
-</Head>
   return (
     <View style={styles.root}>
       <ImageBackground
         source={landingBackground}
-        /*
-         * On desktop/tablet we use contain rather
-         * than cover. This reveals more of the
-         * original background and gives the
-         * requested slightly zoomed-out appearance.
-         *
-         * Mobile continues using cover so we don't
-         * get large empty strips around the image.
-         */
-        resizeMode={
-          isMobile
-            ? "cover"
-            : "contain"
-        }
+        resizeMode="cover"
         style={[
           styles.background,
           {
             minHeight: height,
           },
         ]}
-        imageStyle={
-          styles.backgroundImage
-        }
+        imageStyle={[
+          styles.backgroundImage,
+
+          isTablet &&
+            styles.backgroundImageTablet,
+
+          isPhone &&
+            styles.backgroundImagePhone,
+        ]}
       >
-        <View
-          style={
-            styles.darkOverlay
-          }
-        />
+        <View style={styles.darkOverlay} />
 
         <View
-          style={
-            styles.leftOverlay
-          }
+          style={[
+            styles.leftOverlay,
+            isTablet &&
+              styles.leftOverlayTablet,
+            isPhone &&
+              styles.leftOverlayPhone,
+          ]}
         />
 
         <View
           style={[
             styles.page,
-            isMobile &&
-              styles.pageMobile,
+            isTablet &&
+              styles.pageTablet,
+            isPhone &&
+              styles.pagePhone,
           ]}
         >
           {/* NAVBAR */}
@@ -228,92 +141,79 @@ export default function Index() {
           <View
             style={[
               styles.navbar,
-              isMobile &&
-                styles.navbarMobile,
+              isTablet &&
+                styles.navbarTablet,
+              isPhone &&
+                styles.navbarPhone,
             ]}
           >
             <Pressable
               onPress={goHome}
-              style={
-                styles.brandContainer
-              }
+              style={[
+                styles.brandContainer,
+                isPhone &&
+                  styles.brandContainerPhone,
+              ]}
             >
               <Text
-                style={
-                  styles.brandName
-                }
+                style={[
+                  styles.brandName,
+                  isTablet &&
+                    styles.brandNameTablet,
+                  isPhone &&
+                    styles.brandNamePhone,
+                ]}
               >
                 MAHMOUD NAGY
               </Text>
 
-              <View
-                style={
-                  styles.brandDivider
-                }
-              />
+              {!isPhone && (
+                <>
+                  <View
+                    style={styles.brandDivider}
+                  />
 
-              <Text
-                style={
-                  styles.brandSubject
-                }
-              >
-                PHYSICS
-              </Text>
+                  <Text
+                    style={[
+                      styles.brandSubject,
+                      isTablet &&
+                        styles.brandSubjectTablet,
+                    ]}
+                  >
+                    PHYSICS
+                  </Text>
+                </>
+              )}
             </Pressable>
 
-            {!isMobile ? (
-              <View
-                style={
-                  styles.navigation
-                }
-              >
+            {!isTablet && (
+              <View style={styles.navigation}>
                 <Pressable
                   onPress={goHome}
-                  style={
-                    styles.navItemActive
-                  }
+                  style={styles.navItemActive}
                 >
                   <Text
-                    style={
-                      styles.navTextActive
-                    }
+                    style={styles.navTextActive}
                   >
                     Home
                   </Text>
 
                   <View
-                    style={
-                      styles.navActiveLine
-                    }
+                    style={styles.navActiveLine}
                   />
                 </Pressable>
 
                 <Pressable
-                  onPress={
-                    goToCourses
-                  }
-                  style={
-                    styles.navItem
-                  }
+                  onPress={goToCourses}
+                  style={styles.navItem}
                 >
-                  <Text
-                    style={
-                      styles.navText
-                    }
-                  >
+                  <Text style={styles.navText}>
                     Courses
                   </Text>
                 </Pressable>
 
-                {/*
-                  About Me intentionally has no
-                  destination yet until the client
-                  decides what should be shown.
-                */}
                 <Pressable
-                  style={
-                    styles.navItem
-                  }
+                  style={styles.navItem}
                 >
                   <Text
                     style={[
@@ -326,66 +226,100 @@ export default function Index() {
                 </Pressable>
 
                 <Pressable
-                  onPress={
-                    goToContact
-                  }
-                  style={
-                    styles.navItem
-                  }
+                  onPress={goToContact}
+                  style={styles.navItem}
                 >
-                  <Text
-                    style={
-                      styles.navText
-                    }
-                  >
+                  <Text style={styles.navText}>
                     Contact
                   </Text>
                 </Pressable>
               </View>
-            ) : null}
+            )}
 
             <Pressable
               onPress={goToLogin}
-              style={({
-                pressed,
-              }) => [
+              style={({ pressed }) => [
                 styles.loginButton,
+                isPhone &&
+                  styles.loginButtonPhone,
                 pressed &&
                   styles.pressed,
               ]}
             >
               <Text
-                style={
-                  styles.loginButtonText
-                }
+                style={[
+                  styles.loginButtonText,
+                  isPhone &&
+                    styles.loginButtonTextPhone,
+                ]}
               >
                 Login
               </Text>
 
-              <Ionicons
-                name="arrow-forward"
-                size={16}
-                color="#FFFFFF"
-              />
+              {!isPhone && (
+                <Ionicons
+                  name="arrow-forward"
+                  size={16}
+                  color="#FFFFFF"
+                />
+              )}
             </Pressable>
           </View>
+
+          {/* TABLET / MOBILE NAV */}
+
+          {isTablet && (
+            <View
+              style={[
+                styles.compactNav,
+                isPhone &&
+                  styles.compactNavPhone,
+              ]}
+            >
+              <Pressable onPress={goHome}>
+                <Text
+                  style={styles.compactNavActive}
+                >
+                  Home
+                </Text>
+              </Pressable>
+
+              <Pressable onPress={goToCourses}>
+                <Text
+                  style={styles.compactNavText}
+                >
+                  Courses
+                </Text>
+              </Pressable>
+
+              <Pressable onPress={goToContact}>
+                <Text
+                  style={styles.compactNavText}
+                >
+                  Contact
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {/* HERO */}
 
           <View
             style={[
               styles.hero,
-              isMobile &&
-                styles.heroMobile,
-              isTablet &&
-                styles.heroTablet,
+              isSmallTablet &&
+                styles.heroSmallTablet,
+              isPhone &&
+                styles.heroPhone,
             ]}
           >
             <View
               style={[
                 styles.heroCopy,
-                isMobile &&
-                  styles.heroCopyMobile,
+                isTablet &&
+                  styles.heroCopyTablet,
+                isPhone &&
+                  styles.heroCopyPhone,
               ]}
             >
               <Text
@@ -393,8 +327,8 @@ export default function Index() {
                   styles.heroTitle,
                   isTablet &&
                     styles.heroTitleTablet,
-                  isMobile &&
-                    styles.heroTitleMobile,
+                  isPhone &&
+                    styles.heroTitlePhone,
                 ]}
               >
                 MASTER{"\n"}
@@ -406,8 +340,10 @@ export default function Index() {
               <Text
                 style={[
                   styles.heroSubtitle,
-                  isMobile &&
-                    styles.heroSubtitleMobile,
+                  isTablet &&
+                    styles.heroSubtitleTablet,
+                  isPhone &&
+                    styles.heroSubtitlePhone,
                 ]}
               >
                 Cambridge & Edexcel
@@ -418,61 +354,58 @@ export default function Index() {
               <View
                 style={[
                   styles.heroActions,
-                  isMobile &&
-                    styles.heroActionsMobile,
+                  isTablet &&
+                    styles.heroActionsTablet,
+                  isPhone &&
+                    styles.heroActionsPhone,
                 ]}
               >
                 <Pressable
-                  onPress={
-                    goToCourses
-                  }
-                  style={({
-                    pressed,
-                  }) => [
+                  onPress={goToCourses}
+                  style={({ pressed }) => [
                     styles.primaryCta,
+                    isTablet &&
+                      styles.primaryCtaTablet,
+                    isPhone &&
+                      styles.primaryCtaPhone,
                     pressed &&
                       styles.pressed,
                   ]}
                 >
                   <Text
-                    style={
-                      styles.primaryCtaText
-                    }
+                    style={[
+                      styles.primaryCtaText,
+                      isPhone &&
+                        styles.primaryCtaTextPhone,
+                    ]}
                   >
                     EXPLORE COURSES
                   </Text>
 
                   <Ionicons
                     name="arrow-forward"
-                    size={24}
+                    size={22}
                     color="#FFFFFF"
                   />
                 </Pressable>
 
                 <Text
-                  style={
-                    styles.heroStatement
-                  }
+                  style={[
+                    styles.heroStatement,
+                    isPhone &&
+                      styles.heroStatementPhone,
+                  ]}
                 >
-                  Learn. Understand.
-                  Achieve.
+                  Learn. Understand. Achieve.
                 </Text>
               </View>
             </View>
 
-            {/* CONTACT BUTTONS */}
-
-            {!isMobile ? (
-              <View
-                style={
-                  styles.contactRail
-                }
-              >
+            {!isTablet && (
+              <View style={styles.contactRail}>
                 <Pressable
                   onPress={openEmail}
-                  style={({
-                    pressed,
-                  }) => [
+                  style={({ pressed }) => [
                     styles.contactButton,
                     pressed &&
                       styles.pressed,
@@ -486,12 +419,8 @@ export default function Index() {
                 </Pressable>
 
                 <Pressable
-                  onPress={
-                    openWhatsApp
-                  }
-                  style={({
-                    pressed,
-                  }) => [
+                  onPress={openWhatsApp}
+                  style={({ pressed }) => [
                     styles.contactButton,
                     pressed &&
                       styles.pressed,
@@ -504,22 +433,20 @@ export default function Index() {
                   />
                 </Pressable>
               </View>
-            ) : null}
+            )}
           </View>
 
-          {/* MOBILE CONTACTS */}
-
-          {isMobile ? (
+          {isTablet && (
             <View
-              style={
-                styles.mobileContactRow
-              }
+              style={[
+                styles.mobileContactRow,
+                isPhone &&
+                  styles.mobileContactRowPhone,
+              ]}
             >
               <Pressable
                 onPress={openEmail}
-                style={
-                  styles.mobileContactButton
-                }
+                style={styles.mobileContactButton}
               >
                 <Ionicons
                   name="mail-outline"
@@ -529,12 +456,8 @@ export default function Index() {
               </Pressable>
 
               <Pressable
-                onPress={
-                  openWhatsApp
-                }
-                style={
-                  styles.mobileContactButton
-                }
+                onPress={openWhatsApp}
+                style={styles.mobileContactButton}
               >
                 <Ionicons
                   name="logo-whatsapp"
@@ -543,7 +466,7 @@ export default function Index() {
                 />
               </Pressable>
             </View>
-          ) : null}
+          )}
         </View>
       </ImageBackground>
     </View>
