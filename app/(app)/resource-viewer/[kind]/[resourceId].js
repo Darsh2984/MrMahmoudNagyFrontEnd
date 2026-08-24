@@ -85,6 +85,16 @@ function getProtectedPdfUrl(url) {
 export default function ResourceViewer() {
   const router = useRouter();
 
+
+  function handleBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace("/(app)/resources");
+  }
+
   const {
     kind,
     resourceId,
@@ -229,7 +239,7 @@ export default function ResourceViewer() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Go back"
-              onPress={() => router.back()}
+              onPress={handleBack}
               style={({ pressed }) => [
                 styles.backButton,
                 pressed && styles.pressed,
@@ -317,7 +327,7 @@ export default function ResourceViewer() {
                 <Button
                   title="Go back"
                   variant="outline"
-                  onPress={() => router.back()}
+                  onPress={handleBack}
                 />
 
                 <Button
@@ -475,6 +485,8 @@ function ResourceContent({
     />
   );
 }
+
+
 
 function NativeVideoViewer({ url }) {
   const player = useVideoPlayer(url);
