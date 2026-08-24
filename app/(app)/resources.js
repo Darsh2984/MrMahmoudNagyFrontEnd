@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+
 import {
   ActivityIndicator,
   Platform,
@@ -14,9 +15,12 @@ import {
 } from "react-native";
 
 import { useRouter } from "expo-router";
+
 import { Screen } from "../../src/components/layout/Screen";
 import { Card } from "../../src/components/ui/Card";
+
 import api from "../../src/lib/api";
+
 import {
   colors,
   radius,
@@ -33,357 +37,547 @@ const LEVELS = {
 
 export default function Resources() {
   const router = useRouter();
-  const [yearId, setYearId] = useState(null);
-  const [level, setLevel] = useState(LEVELS.UNITS);
 
-  const [navigationPath, setNavigationPath] =
-    useState([]);
+  const [
+    level,
+    setLevel,
+  ] = useState(LEVELS.UNITS);
 
-  const [items, setItems] = useState([]);
+  const [
+    navigationPath,
+    setNavigationPath,
+  ] = useState([]);
 
-  const [initialLoading, setInitialLoading] =
-    useState(true);
-  const [contentLoading, setContentLoading] =
-    useState(false);
+  const [
+    items,
+    setItems,
+  ] = useState([]);
 
-  const [openingResourceId, setOpeningResourceId] =
-    useState(null);
+  const [
+    initialLoading,
+    setInitialLoading,
+  ] = useState(true);
 
-  const [error, setError] = useState("");
+  const [
+    contentLoading,
+    setContentLoading,
+  ] = useState(false);
 
-  const currentTitle = useMemo(() => {
-    if (navigationPath.length === 0) {
-      return "Learning resources";
-    }
+  const [
+    openingResourceId,
+    setOpeningResourceId,
+  ] = useState(null);
 
-    return navigationPath[
-      navigationPath.length - 1
-    ].name;
-  }, [navigationPath]);
+  const [
+    error,
+    setError,
+  ] = useState("");
 
-  const currentDescription = useMemo(() => {
-    if (level === LEVELS.UNITS) {
-      return "Choose a unit to browse its chapters, topics, videos, and study materials.";
-    }
-
-    if (level === LEVELS.CHAPTERS) {
-      return "Choose a chapter to continue browsing the course structure.";
-    }
-
-    if (level === LEVELS.TOPICS) {
-      return "Choose a topic to view its available learning resources.";
-    }
-
-    return "Open a study material or watch an available lesson video.";
-  }, [level]);
-
-  const materialCount = useMemo(
-    () =>
-      level === LEVELS.RESOURCES
-        ? items.filter(
-            (item) => item.kind === "material"
-          ).length
-        : 0,
-    [items, level]
-  );
-
-  const videoCount = useMemo(
-    () =>
-      level === LEVELS.RESOURCES
-        ? items.filter(
-            (item) => item.kind === "video"
-          ).length
-        : 0,
-    [items, level]
-  );
-
-  const clearError = useCallback(() => {
-    setError("");
-  }, []);
-
-  const loadUnits = useCallback(async (targetYearId) => {
-    if (!targetYearId) {
-      return;
-    }
-
-    setContentLoading(true);
-    setError("");
-
-    try {
-      const response = await api.get(
-        `/units/year/${targetYearId}`
-      );
-
-      setItems(
-        Array.isArray(response.data)
-          ? response.data
-          : []
-      );
-
-      setLevel(LEVELS.UNITS);
-      setNavigationPath([]);
-    } catch (requestError) {
-      setItems([]);
-
-      setError(
-        requestError.response?.data?.msg ||
-          "Couldn't load units."
-      );
-    } finally {
-      setContentLoading(false);
-    }
-  }, []);
-
-  const loadChapters = useCallback(
-    async (unit) => {
-      if (!unit?.id) {
-        return;
+  const currentTitle =
+    useMemo(() => {
+      if (
+        navigationPath.length === 0
+      ) {
+        return "Learning resources";
       }
 
-      setContentLoading(true);
+      return navigationPath[
+        navigationPath.length - 1
+      ].name;
+    }, [navigationPath]);
+
+  const currentDescription =
+    useMemo(() => {
+      if (
+        level === LEVELS.UNITS
+      ) {
+        return "Choose a unit to browse its chapters, topics, videos, and study materials.";
+      }
+
+      if (
+        level === LEVELS.CHAPTERS
+      ) {
+        return "Choose a chapter to continue browsing the course structure.";
+      }
+
+      if (
+        level === LEVELS.TOPICS
+      ) {
+        return "Choose a topic to view its available learning resources.";
+      }
+
+      return "Open a study material or watch an available lesson video.";
+    }, [level]);
+
+  const materialCount =
+    useMemo(
+      () =>
+        level ===
+        LEVELS.RESOURCES
+          ? items.filter(
+              (item) =>
+                item.kind ===
+                "material"
+            ).length
+          : 0,
+      [
+        items,
+        level,
+      ]
+    );
+
+  const videoCount =
+    useMemo(
+      () =>
+        level ===
+        LEVELS.RESOURCES
+          ? items.filter(
+              (item) =>
+                item.kind ===
+                "video"
+            ).length
+          : 0,
+      [
+        items,
+        level,
+      ]
+    );
+
+  const clearError =
+    useCallback(() => {
       setError("");
+    }, []);
 
-      try {
-        const response = await api.get(
-          `/units/${unit.id}`
-        );
+  /*
+   * GLOBAL UNITS
+   *
+   * Units are not linked to academic years.
+   */
+  const loadUnits =
+    useCallback(
+      async ({
+        initial = false,
+      } = {}) => {
+        if (initial) {
+          setInitialLoading(true);
+        } else {
+          setContentLoading(true);
+        }
 
-        setItems(
-          Array.isArray(response.data?.chapters)
-            ? response.data.chapters
-            : []
-        );
+        setError("");
 
-        setLevel(LEVELS.CHAPTERS);
-        setNavigationPath([
-          {
-            id: unit.id,
-            name: unit.name,
-            type: LEVELS.UNITS,
-          },
-        ]);
-      } catch (requestError) {
-        setError(
-          requestError.response?.data?.msg ||
-            "Couldn't load chapters."
-        );
-      } finally {
-        setContentLoading(false);
-      }
-    },
-    []
-  );
+        try {
+          const response =
+            await api.get(
+              "/units"
+            );
 
-  const loadTopics = useCallback(
-    async (unit, chapter) => {
-      if (!chapter?.id) {
-        return;
-      }
-
-      setContentLoading(true);
-      setError("");
-
-      try {
-        const response = await api.get(
-          `/chapters/${chapter.id}`
-        );
-
-        setItems(
-          Array.isArray(response.data?.topics)
-            ? response.data.topics
-            : []
-        );
-
-        setLevel(LEVELS.TOPICS);
-        setNavigationPath([
-          {
-            id: unit.id,
-            name: unit.name,
-            type: LEVELS.UNITS,
-          },
-          {
-            id: chapter.id,
-            name: chapter.name,
-            type: LEVELS.CHAPTERS,
-          },
-        ]);
-      } catch (requestError) {
-        setError(
-          requestError.response?.data?.msg ||
-            "Couldn't load topics."
-        );
-      } finally {
-        setContentLoading(false);
-      }
-    },
-    []
-  );
-
-  const loadResources = useCallback(
-    async (unit, chapter, topic) => {
-      if (!topic?.id) {
-        return;
-      }
-
-      setContentLoading(true);
-      setError("");
-
-      try {
-        const response = await api.get(
-          `/topics/${topic.id}`
-        );
-
-        const materials = Array.isArray(
-          response.data?.materials
-        )
-          ? response.data.materials.map(
-              (material) => ({
-                ...material,
-                kind: "material",
-              })
+          setItems(
+            Array.isArray(
+              response.data
             )
-          : [];
+              ? response.data
+              : []
+          );
 
-        const videos = Array.isArray(
-          response.data?.videos
-        )
-          ? response.data.videos.map((video) => ({
-              ...video,
-              kind: "video",
-            }))
-          : [];
+          setLevel(
+            LEVELS.UNITS
+          );
 
-        setItems([...videos, ...materials]);
-        setLevel(LEVELS.RESOURCES);
+          setNavigationPath(
+            []
+          );
+        } catch (
+          requestError
+        ) {
+          setItems([]);
 
-        setNavigationPath([
-          {
-            id: unit.id,
-            name: unit.name,
-            type: LEVELS.UNITS,
-          },
-          {
-            id: chapter.id,
-            name: chapter.name,
-            type: LEVELS.CHAPTERS,
-          },
-          {
-            id: topic.id,
-            name: topic.name,
-            type: LEVELS.TOPICS,
-          },
-        ]);
-      } catch (requestError) {
-        setError(
-          requestError.response?.data?.msg ||
-            "Couldn't load resources."
+          setError(
+            requestError
+              .response
+              ?.data?.msg ||
+              requestError
+                .response
+                ?.data
+                ?.message ||
+              "Couldn't load units."
+          );
+        } finally {
+          if (initial) {
+            setInitialLoading(
+              false
+            );
+          } else {
+            setContentLoading(
+              false
+            );
+          }
+        }
+      },
+      []
+    );
+
+  /*
+   * UNIT → CHAPTERS
+   */
+  const loadChapters =
+    useCallback(
+      async (unit) => {
+        if (!unit?.id) {
+          return;
+        }
+
+        setContentLoading(
+          true
         );
-      } finally {
-        setContentLoading(false);
-      }
-    },
-    []
-  );
 
-  const loadStudentYear = useCallback(async () => {
-    setInitialLoading(true);
-    setError("");
+        setError("");
 
-    try {
-      const meResponse = await api.get("/auth/me");
-      const studentId = meResponse.data?.id;
+        try {
+          const response =
+            await api.get(
+              `/units/${unit.id}`
+            );
 
-      if (!studentId) {
-        throw {
-          response: {
-            data: {
-              msg: "Student account information is unavailable.",
+          setItems(
+            Array.isArray(
+              response.data
+                ?.chapters
+            )
+              ? response.data
+                  .chapters
+              : []
+          );
+
+          setLevel(
+            LEVELS.CHAPTERS
+          );
+
+          setNavigationPath([
+            {
+              id: unit.id,
+              name:
+                unit.name ||
+                "Unit",
+              type:
+                LEVELS.UNITS,
             },
-          },
-        };
-      }
+          ]);
+        } catch (
+          requestError
+        ) {
+          setItems([]);
 
-      const profileResponse = await api.get(
-        `/students/${studentId}`
-      );
+          setError(
+            requestError
+              .response
+              ?.data?.msg ||
+              requestError
+                .response
+                ?.data
+                ?.message ||
+              "Couldn't load chapters."
+          );
+        } finally {
+          setContentLoading(
+            false
+          );
+        }
+      },
+      []
+    );
 
-      const firstMembership =
-        profileResponse.data?.groupMemberships?.[0];
+  /*
+   * CHAPTER → TOPICS
+   */
+  const loadTopics =
+    useCallback(
+      async (
+        unit,
+        chapter
+      ) => {
+        if (
+          !unit?.id ||
+          !chapter?.id
+        ) {
+          return;
+        }
 
-      const firstGroup = firstMembership?.group;
-      const studentYearId = firstGroup?.year?.id;
-
-      if (!studentYearId) {
-        setError(
-          "You are not assigned to an academic group yet."
+        setContentLoading(
+          true
         );
 
-        return;
-      }
+        setError("");
 
-      setYearId(studentYearId);
-    } catch (requestError) {
-      setError(
-        requestError.response?.data?.msg ||
-          "Couldn't load your academic year."
+        try {
+          const response =
+            await api.get(
+              `/chapters/${chapter.id}`
+            );
+
+          setItems(
+            Array.isArray(
+              response.data
+                ?.topics
+            )
+              ? response.data
+                  .topics
+              : []
+          );
+
+          setLevel(
+            LEVELS.TOPICS
+          );
+
+          setNavigationPath([
+            {
+              id: unit.id,
+              name:
+                unit.name ||
+                "Unit",
+              type:
+                LEVELS.UNITS,
+            },
+            {
+              id:
+                chapter.id,
+              name:
+                chapter.name ||
+                "Chapter",
+              type:
+                LEVELS.CHAPTERS,
+            },
+          ]);
+        } catch (
+          requestError
+        ) {
+          setItems([]);
+
+          setError(
+            requestError
+              .response
+              ?.data?.msg ||
+              requestError
+                .response
+                ?.data
+                ?.message ||
+              "Couldn't load topics."
+          );
+        } finally {
+          setContentLoading(
+            false
+          );
+        }
+      },
+      []
+    );
+
+  /*
+   * TOPIC → MATERIALS + VIDEOS
+   */
+  const loadResources =
+    useCallback(
+      async (
+        unit,
+        chapter,
+        topic
+      ) => {
+        if (
+          !unit?.id ||
+          !chapter?.id ||
+          !topic?.id
+        ) {
+          return;
+        }
+
+        setContentLoading(
+          true
+        );
+
+        setError("");
+
+        try {
+          const response =
+            await api.get(
+              `/topics/${topic.id}`
+            );
+
+          const materials =
+            Array.isArray(
+              response.data
+                ?.materials
+            )
+              ? response.data.materials.map(
+                  (
+                    material
+                  ) => ({
+                    ...material,
+                    kind:
+                      "material",
+                  })
+                )
+              : [];
+
+          const videos =
+            Array.isArray(
+              response.data
+                ?.videos
+            )
+              ? response.data.videos.map(
+                  (
+                    video
+                  ) => ({
+                    ...video,
+                    kind:
+                      "video",
+                  })
+                )
+              : [];
+
+          setItems([
+            ...videos,
+            ...materials,
+          ]);
+
+          setLevel(
+            LEVELS.RESOURCES
+          );
+
+          setNavigationPath([
+            {
+              id: unit.id,
+              name:
+                unit.name ||
+                "Unit",
+              type:
+                LEVELS.UNITS,
+            },
+            {
+              id:
+                chapter.id,
+              name:
+                chapter.name ||
+                "Chapter",
+              type:
+                LEVELS.CHAPTERS,
+            },
+            {
+              id:
+                topic.id,
+              name:
+                topic.name ||
+                "Topic",
+              type:
+                LEVELS.TOPICS,
+            },
+          ]);
+        } catch (
+          requestError
+        ) {
+          setItems([]);
+
+          setError(
+            requestError
+              .response
+              ?.data?.msg ||
+              requestError
+                .response
+                ?.data
+                ?.message ||
+              "Couldn't load resources."
+          );
+        } finally {
+          setContentLoading(
+            false
+          );
+        }
+      },
+      []
+    );
+
+  /*
+   * Initial root load.
+   *
+   * The app layout already prevents a student
+   * without a group from entering the platform,
+   * so Resources does not need to fetch the
+   * student's year/group before loading Units.
+   */
+  useEffect(() => {
+    loadUnits({
+      initial: true,
+    });
+  }, [loadUnits]);
+
+  async function handleItemPress(
+    item
+  ) {
+    if (
+      contentLoading
+    ) {
+      return;
+    }
+
+    if (
+      level ===
+      LEVELS.UNITS
+    ) {
+      await loadChapters(
+        item
       );
-    } finally {
-      setInitialLoading(false);
-    }
-  }, []);
 
-  useEffect(() => {
-    loadStudentYear();
-  }, [loadStudentYear]);
-
-  useEffect(() => {
-    if (yearId) {
-      loadUnits(yearId);
-    }
-  }, [yearId, loadUnits]);
-
-  async function handleItemPress(item) {
-    if (contentLoading) {
       return;
     }
 
-    if (level === LEVELS.UNITS) {
-      await loadChapters(item);
-      return;
-    }
-
-    if (level === LEVELS.CHAPTERS) {
+    if (
+      level ===
+      LEVELS.CHAPTERS
+    ) {
       await loadTopics(
         navigationPath[0],
         item
       );
+
       return;
     }
 
-    if (level === LEVELS.TOPICS) {
+    if (
+      level ===
+      LEVELS.TOPICS
+    ) {
       await loadResources(
         navigationPath[0],
         navigationPath[1],
         item
       );
+
       return;
     }
 
-    await openResource(item);
+    await openResource(
+      item
+    );
   }
 
-  async function handleBreadcrumbPress(index) {
-    if (contentLoading) {
+  async function handleBreadcrumbPress(
+    index
+  ) {
+    if (
+      contentLoading
+    ) {
       return;
     }
 
     if (index === -1) {
-      await loadUnits(yearId);
+      await loadUnits();
       return;
     }
 
     if (index === 0) {
-      await loadChapters(navigationPath[0]);
+      await loadChapters(
+        navigationPath[0]
+      );
+
       return;
     }
 
@@ -395,15 +589,24 @@ export default function Resources() {
     }
   }
 
-  async function openResource(item) {
-    if (!item?.id || !item?.kind) {
+  async function openResource(
+    item
+  ) {
+    if (
+      !item?.id ||
+      !item?.kind
+    ) {
       setError(
         "This resource cannot be opened."
       );
+
       return;
     }
 
-    setOpeningResourceId(item.id);
+    setOpeningResourceId(
+      item.id
+    );
+
     setError("");
 
     try {
@@ -415,31 +618,41 @@ export default function Resources() {
         "Couldn't open this resource."
       );
     } finally {
-      setOpeningResourceId(null);
+      setOpeningResourceId(
+        null
+      );
     }
   }
 
   function retryCurrentLevel() {
-    if (!yearId) {
-      loadStudentYear();
+    if (
+      level ===
+      LEVELS.UNITS
+    ) {
+      loadUnits();
       return;
     }
 
-    if (level === LEVELS.UNITS) {
-      loadUnits(yearId);
+    if (
+      level ===
+      LEVELS.CHAPTERS
+    ) {
+      loadChapters(
+        navigationPath[0]
+      );
+
       return;
     }
 
-    if (level === LEVELS.CHAPTERS) {
-      loadChapters(navigationPath[0]);
-      return;
-    }
-
-    if (level === LEVELS.TOPICS) {
+    if (
+      level ===
+      LEVELS.TOPICS
+    ) {
       loadTopics(
         navigationPath[0],
         navigationPath[1]
       );
+
       return;
     }
 
@@ -454,15 +667,24 @@ export default function Resources() {
     return (
       <Screen
         scroll={false}
-        style={styles.centeredScreen}
+        style={
+          styles.centeredScreen
+        }
       >
         <ActivityIndicator
-          color={colors.primary}
+          color={
+            colors.primary
+          }
           size="large"
         />
 
-        <Text style={styles.loadingText}>
-          Preparing your resources...
+        <Text
+          style={
+            styles.loadingText
+          }
+        >
+          Preparing your
+          resources...
         </Text>
       </Screen>
     );
@@ -470,20 +692,42 @@ export default function Resources() {
 
   return (
     <Screen>
-      <View style={styles.pageHeader}>
-        <View style={styles.pageHeaderText}>
-          <Text style={styles.eyebrow}>
+      <View
+        style={
+          styles.pageHeader
+        }
+      >
+        <View
+          style={
+            styles.pageHeaderText
+          }
+        >
+          <Text
+            style={
+              styles.eyebrow
+            }
+          >
             STUDY LIBRARY
           </Text>
 
-          <Text style={styles.pageTitle}>
+          <Text
+            style={
+              styles.pageTitle
+            }
+          >
             Resources
           </Text>
 
-          <Text style={styles.pageSubtitle}>
-            Browse your course structure and access
-            materials and lesson videos assigned to
-            your academic year.
+          <Text
+            style={
+              styles.pageSubtitle
+            }
+          >
+            Browse the learning
+            structure and access
+            available study
+            materials and lesson
+            videos.
           </Text>
         </View>
       </View>
@@ -491,106 +735,154 @@ export default function Resources() {
       {error ? (
         <ErrorBanner
           message={error}
-          onDismiss={clearError}
-          onRetry={retryCurrentLevel}
+          onDismiss={
+            clearError
+          }
+          onRetry={
+            retryCurrentLevel
+          }
         />
       ) : null}
 
-      {yearId ? (
-        <>
-          <Breadcrumbs
-            path={navigationPath}
-            disabled={contentLoading}
-            onPress={handleBreadcrumbPress}
-          />
+      <Breadcrumbs
+        path={
+          navigationPath
+        }
+        disabled={
+          contentLoading
+        }
+        onPress={
+          handleBreadcrumbPress
+        }
+      />
 
-          <Card style={styles.contentCard}>
-            <View style={styles.contentHeader}>
-              <View style={styles.contentHeaderText}>
-                <Text style={styles.contentTitle}>
-                  {currentTitle}
-                </Text>
+      <Card
+        style={
+          styles.contentCard
+        }
+      >
+        <View
+          style={
+            styles.contentHeader
+          }
+        >
+          <View
+            style={
+              styles.contentHeaderText
+            }
+          >
+            <Text
+              style={
+                styles.contentTitle
+              }
+            >
+              {currentTitle}
+            </Text>
 
-                <Text
-                  style={styles.contentDescription}
-                >
-                  {currentDescription}
-                </Text>
-              </View>
-
-              <LevelBadge
-                level={level}
-                count={items.length}
-              />
-            </View>
-
-            {level === LEVELS.RESOURCES &&
-            items.length > 0 ? (
-              <View style={styles.summaryRow}>
-                <SummaryItem
-                  label="Videos"
-                  value={videoCount}
-                />
-
-                <View
-                  style={styles.summaryDivider}
-                />
-
-                <SummaryItem
-                  label="Materials"
-                  value={materialCount}
-                />
-              </View>
-            ) : null}
-
-            <View style={styles.sectionDivider} />
-
-            {contentLoading ? (
-              <LoadingState />
-            ) : items.length === 0 ? (
-              <EmptyState level={level} />
-            ) : (
-              <View style={styles.itemList}>
-                {items.map((item, index) => (
-                  <ResourceRow
-                    key={item.id}
-                    item={item}
-                    level={level}
-                    index={index}
-                    opening={
-                      openingResourceId === item.id
-                    }
-                    disabled={Boolean(
-                      openingResourceId
-                    )}
-                    onPress={() =>
-                      handleItemPress(item)
-                    }
-                  />
-                ))}
-              </View>
-            )}
-          </Card>
-        </>
-      ) : (
-        <Card style={styles.noGroupCard}>
-          <View style={styles.noGroupIcon}>
-            <Text style={styles.noGroupIconText}>
-              —
+            <Text
+              style={
+                styles.contentDescription
+              }
+            >
+              {
+                currentDescription
+              }
             </Text>
           </View>
 
-          <Text style={styles.noGroupTitle}>
-            Resources are not available yet
-          </Text>
+          <LevelBadge
+            level={level}
+            count={
+              items.length
+            }
+          />
+        </View>
 
-          <Text style={styles.noGroupDescription}>
-            Your account must be assigned to an
-            academic group before course resources
-            become available.
-          </Text>
-        </Card>
-      )}
+        {level ===
+          LEVELS.RESOURCES &&
+        items.length > 0 ? (
+          <View
+            style={
+              styles.summaryRow
+            }
+          >
+            <SummaryItem
+              label="Videos"
+              value={
+                videoCount
+              }
+            />
+
+            <View
+              style={
+                styles.summaryDivider
+              }
+            />
+
+            <SummaryItem
+              label="Materials"
+              value={
+                materialCount
+              }
+            />
+          </View>
+        ) : null}
+
+        <View
+          style={
+            styles.sectionDivider
+          }
+        />
+
+        {contentLoading ? (
+          <LoadingState />
+        ) : items.length ===
+          0 ? (
+          <EmptyState
+            level={level}
+          />
+        ) : (
+          <View
+            style={
+              styles.itemList
+            }
+          >
+            {items.map(
+              (
+                item,
+                index
+              ) => (
+                <ResourceRow
+                  key={
+                    item.id
+                  }
+                  item={
+                    item
+                  }
+                  level={
+                    level
+                  }
+                  index={
+                    index
+                  }
+                  opening={
+                    openingResourceId ===
+                    item.id
+                  }
+                  disabled={Boolean(
+                    openingResourceId
+                  )}
+                  onPress={() =>
+                    handleItemPress(
+                      item
+                    )
+                  }
+                />
+              )
+            )}
+          </View>
+        )}
+      </Card>
     </Screen>
   );
 }
@@ -601,65 +893,113 @@ function Breadcrumbs({
   onPress,
 }) {
   return (
-    <View style={styles.breadcrumbContainer}>
+    <View
+      style={
+        styles.breadcrumbContainer
+      }
+    >
       <Pressable
         accessibilityRole="button"
-        disabled={disabled}
-        onPress={() => onPress(-1)}
-        style={({ pressed }) => [
+        disabled={
+          disabled
+        }
+        onPress={() =>
+          onPress(-1)
+        }
+        style={({
+          pressed,
+        }) => [
           styles.breadcrumbButton,
+
           pressed &&
             !disabled &&
             styles.pressedOpacity,
         ]}
       >
-        <Text style={styles.breadcrumbButtonText}>
+        <Text
+          style={
+            styles.breadcrumbButtonText
+          }
+        >
           Resources
         </Text>
       </Pressable>
 
-      {path.map((entry, index) => {
-        const isCurrent =
-          index === path.length - 1;
+      {path.map(
+        (
+          entry,
+          index
+        ) => {
+          const isCurrent =
+            index ===
+            path.length - 1;
 
-        return (
-          <React.Fragment key={entry.id}>
-            <Text style={styles.breadcrumbSeparator}>
-              ›
-            </Text>
-
-            {isCurrent ? (
+          return (
+            <React.Fragment
+              key={
+                entry.id
+              }
+            >
               <Text
-                numberOfLines={1}
-                style={styles.breadcrumbCurrent}
+                style={
+                  styles.breadcrumbSeparator
+                }
               >
-                {entry.name}
+                ›
               </Text>
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                disabled={disabled}
-                onPress={() => onPress(index)}
-                style={({ pressed }) => [
-                  styles.breadcrumbButton,
-                  pressed &&
-                    !disabled &&
-                    styles.pressedOpacity,
-                ]}
-              >
+
+              {isCurrent ? (
                 <Text
-                  numberOfLines={1}
+                  numberOfLines={
+                    1
+                  }
                   style={
-                    styles.breadcrumbButtonText
+                    styles.breadcrumbCurrent
                   }
                 >
-                  {entry.name}
+                  {
+                    entry.name
+                  }
                 </Text>
-              </Pressable>
-            )}
-          </React.Fragment>
-        );
-      })}
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={
+                    disabled
+                  }
+                  onPress={() =>
+                    onPress(
+                      index
+                    )
+                  }
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.breadcrumbButton,
+
+                    pressed &&
+                      !disabled &&
+                      styles.pressedOpacity,
+                  ]}
+                >
+                  <Text
+                    numberOfLines={
+                      1
+                    }
+                    style={
+                      styles.breadcrumbButtonText
+                    }
+                  >
+                    {
+                      entry.name
+                    }
+                  </Text>
+                </Pressable>
+              )}
+            </React.Fragment>
+          );
+        }
+      )}
     </View>
   );
 }
@@ -673,29 +1013,48 @@ function ResourceRow({
   onPress,
 }) {
   const isResource =
-    level === LEVELS.RESOURCES;
-  const isVideo =
-    isResource && item.kind === "video";
+    level ===
+    LEVELS.RESOURCES;
 
-  const title = item.name || item.title;
-  const subtitle = getItemSubtitle(
-    item,
-    level,
-    index
-  );
+  const isVideo =
+    isResource &&
+    item.kind ===
+      "video";
+
+  const title =
+    item.name ||
+    item.title ||
+    "Untitled";
+
+  const subtitle =
+    getItemSubtitle(
+      item,
+      level,
+      index
+    );
 
   return (
     <Pressable
       accessibilityRole={
-        isResource ? "link" : "button"
+        isResource
+          ? "link"
+          : "button"
       }
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => [
+      disabled={
+        disabled
+      }
+      onPress={
+        onPress
+      }
+      style={({
+        pressed,
+      }) => [
         styles.itemPressable,
+
         pressed &&
           !disabled &&
           styles.itemPressablePressed,
+
         disabled &&
           !opening &&
           styles.disabledOpacity,
@@ -704,52 +1063,89 @@ function ResourceRow({
       <View
         style={[
           styles.itemIcon,
+
           isVideo &&
             styles.itemIconVideo,
+
           isResource &&
             !isVideo &&
             styles.itemIconDocument,
         ]}
       >
-        <Text style={styles.itemIconText}>
-          {getItemIcon(level, item.kind)}
+        <Text
+          style={
+            styles.itemIconText
+          }
+        >
+          {getItemIcon(
+            level,
+            item.kind
+          )}
         </Text>
       </View>
 
-      <View style={styles.itemText}>
+      <View
+        style={
+          styles.itemText
+        }
+      >
         <Text
           numberOfLines={2}
-          style={styles.itemTitle}
+          style={
+            styles.itemTitle
+          }
         >
           {title}
         </Text>
 
         <Text
           numberOfLines={2}
-          style={styles.itemSubtitle}
+          style={
+            styles.itemSubtitle
+          }
         >
           {subtitle}
         </Text>
       </View>
 
-      <View style={styles.itemAction}>
+      <View
+        style={
+          styles.itemAction
+        }
+      >
         {opening ? (
           <ActivityIndicator
             size="small"
-            color={colors.primary}
+            color={
+              colors.primary
+            }
           />
         ) : isResource ? (
           <>
-            <Text style={styles.itemActionLabel}>
-              {isVideo ? "Watch" : "Open"}
+            <Text
+              style={
+                styles.itemActionLabel
+              }
+            >
+              {isVideo
+                ? "Watch"
+                : "Open"}
             </Text>
 
-            <Text style={styles.externalArrow}>
+            <Text
+              style={
+                styles.externalArrow
+              }
+            >
               ›
             </Text>
           </>
         ) : (
-          <Text style={styles.navigationArrow}>
+          <Text
+            style={
+              styles.navigationArrow
+            }
+          >
             ›
           </Text>
         )}
@@ -758,19 +1154,30 @@ function ResourceRow({
   );
 }
 
-function LevelBadge({ level, count }) {
+function LevelBadge({
+  level,
+  count,
+}) {
   const label =
     level === LEVELS.UNITS
-      ? `${count} ${count === 1 ? "unit" : "units"}`
-      : level === LEVELS.CHAPTERS
+      ? `${count} ${
+          count === 1
+            ? "unit"
+            : "units"
+        }`
+      : level ===
+          LEVELS.CHAPTERS
         ? `${count} ${
             count === 1
               ? "chapter"
               : "chapters"
           }`
-        : level === LEVELS.TOPICS
+        : level ===
+            LEVELS.TOPICS
           ? `${count} ${
-              count === 1 ? "topic" : "topics"
+              count === 1
+                ? "topic"
+                : "topics"
             }`
           : `${count} ${
               count === 1
@@ -779,22 +1186,45 @@ function LevelBadge({ level, count }) {
             }`;
 
   return (
-    <View style={styles.levelBadge}>
-      <Text style={styles.levelBadgeText}>
+    <View
+      style={
+        styles.levelBadge
+      }
+    >
+      <Text
+        style={
+          styles.levelBadgeText
+        }
+      >
         {label}
       </Text>
     </View>
   );
 }
 
-function SummaryItem({ label, value }) {
+function SummaryItem({
+  label,
+  value,
+}) {
   return (
-    <View style={styles.summaryItem}>
-      <Text style={styles.summaryValue}>
+    <View
+      style={
+        styles.summaryItem
+      }
+    >
+      <Text
+        style={
+          styles.summaryValue
+        }
+      >
         {value}
       </Text>
 
-      <Text style={styles.summaryLabel}>
+      <Text
+        style={
+          styles.summaryLabel
+        }
+      >
         {label}
       </Text>
     </View>
@@ -803,58 +1233,100 @@ function SummaryItem({ label, value }) {
 
 function LoadingState() {
   return (
-    <View style={styles.loadingPanel}>
+    <View
+      style={
+        styles.loadingPanel
+      }
+    >
       <ActivityIndicator
         size="small"
-        color={colors.primary}
+        color={
+          colors.primary
+        }
       />
 
-      <Text style={styles.loadingPanelText}>
+      <Text
+        style={
+          styles.loadingPanelText
+        }
+      >
         Loading content...
       </Text>
     </View>
   );
 }
 
-function EmptyState({ level }) {
+function EmptyState({
+  level,
+}) {
   const content =
     level === LEVELS.UNITS
       ? {
-          title: "No units available",
+          title:
+            "No units available",
+
           description:
-            "Your teacher has not added any units to this academic year yet.",
+            "No learning units have been added yet.",
         }
-      : level === LEVELS.CHAPTERS
+      : level ===
+          LEVELS.CHAPTERS
         ? {
-            title: "No chapters available",
+            title:
+              "No chapters available",
+
             description:
               "This unit does not contain any chapters yet.",
           }
-        : level === LEVELS.TOPICS
+        : level ===
+            LEVELS.TOPICS
           ? {
-              title: "No topics available",
+              title:
+                "No topics available",
+
               description:
                 "This chapter does not contain any topics yet.",
             }
           : {
-              title: "No resources available",
+              title:
+                "No resources available",
+
               description:
                 "No materials or videos have been uploaded for this topic yet.",
             };
 
   return (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIcon}>
-        <Text style={styles.emptyIconText}>
+    <View
+      style={
+        styles.emptyState
+      }
+    >
+      <View
+        style={
+          styles.emptyIcon
+        }
+      >
+        <Text
+          style={
+            styles.emptyIconText
+          }
+        >
           —
         </Text>
       </View>
 
-      <Text style={styles.emptyTitle}>
+      <Text
+        style={
+          styles.emptyTitle
+        }
+      >
         {content.title}
       </Text>
 
-      <Text style={styles.emptyDescription}>
+      <Text
+        style={
+          styles.emptyDescription
+        }
+      >
         {content.description}
       </Text>
     </View>
@@ -869,29 +1341,57 @@ function ErrorBanner({
   return (
     <View
       accessibilityRole="alert"
-      style={styles.errorBanner}
+      style={
+        styles.errorBanner
+      }
     >
-      <View style={styles.errorIndicator} />
+      <View
+        style={
+          styles.errorIndicator
+        }
+      />
 
-      <View style={styles.errorContent}>
-        <Text style={styles.errorTitle}>
+      <View
+        style={
+          styles.errorContent
+        }
+      >
+        <Text
+          style={
+            styles.errorTitle
+          }
+        >
           Something went wrong
         </Text>
 
-        <Text style={styles.errorMessage}>
+        <Text
+          style={
+            styles.errorMessage
+          }
+        >
           {message}
         </Text>
       </View>
 
       <Pressable
         accessibilityRole="button"
-        onPress={onRetry}
-        style={({ pressed }) => [
+        onPress={
+          onRetry
+        }
+        style={({
+          pressed,
+        }) => [
           styles.retryButton,
-          pressed && styles.pressedOpacity,
+
+          pressed &&
+            styles.pressedOpacity,
         ]}
       >
-        <Text style={styles.retryButtonText}>
+        <Text
+          style={
+            styles.retryButtonText
+          }
+        >
           Retry
         </Text>
       </Pressable>
@@ -899,13 +1399,23 @@ function ErrorBanner({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Dismiss error"
-        onPress={onDismiss}
-        style={({ pressed }) => [
+        onPress={
+          onDismiss
+        }
+        style={({
+          pressed,
+        }) => [
           styles.dismissButton,
-          pressed && styles.pressedOpacity,
+
+          pressed &&
+            styles.pressedOpacity,
         ]}
       >
-        <Text style={styles.dismissButtonText}>
+        <Text
+          style={
+            styles.dismissButtonText
+          }
+        >
           ×
         </Text>
       </Pressable>
@@ -913,49 +1423,97 @@ function ErrorBanner({
   );
 }
 
-function getItemIcon(level, resourceKind) {
-  if (level === LEVELS.UNITS) {
+function getItemIcon(
+  level,
+  resourceKind
+) {
+  if (
+    level ===
+    LEVELS.UNITS
+  ) {
     return "U";
   }
 
-  if (level === LEVELS.CHAPTERS) {
+  if (
+    level ===
+    LEVELS.CHAPTERS
+  ) {
     return "C";
   }
 
-  if (level === LEVELS.TOPICS) {
+  if (
+    level ===
+    LEVELS.TOPICS
+  ) {
     return "T";
   }
 
-  return resourceKind === "video" ? "▶" : "PDF";
+  return resourceKind ===
+    "video"
+    ? "▶"
+    : "PDF";
 }
 
-function getItemSubtitle(item, level, index) {
-  if (level === LEVELS.UNITS) {
-    const count = item._count?.chapters;
+function getItemSubtitle(
+  item,
+  level,
+  index
+) {
+  if (
+    level ===
+    LEVELS.UNITS
+  ) {
+    const count =
+      item._count
+        ?.chapters;
 
-    return typeof count === "number"
+    return typeof count ===
+      "number"
       ? `${count} ${
-          count === 1 ? "chapter" : "chapters"
+          count === 1
+            ? "chapter"
+            : "chapters"
         }`
-      : `Unit ${index + 1}`;
+      : `Unit ${
+          index + 1
+        }`;
   }
 
-  if (level === LEVELS.CHAPTERS) {
-    const count = item._count?.topics;
+  if (
+    level ===
+    LEVELS.CHAPTERS
+  ) {
+    const count =
+      item._count
+        ?.topics;
 
-    return typeof count === "number"
+    return typeof count ===
+      "number"
       ? `${count} ${
-          count === 1 ? "topic" : "topics"
+          count === 1
+            ? "topic"
+            : "topics"
         }`
-      : `Chapter ${index + 1}`;
+      : `Chapter ${
+          index + 1
+        }`;
   }
 
-  if (level === LEVELS.TOPICS) {
+  if (
+    level ===
+    LEVELS.TOPICS
+  ) {
     const materialCount =
-      item._count?.materials || 0;
+      item._count
+        ?.materials || 0;
+
     const videoCount =
-      item._count?.videos || 0;
-    const total = materialCount + videoCount;
+      item._count
+        ?.videos || 0;
+
+    const total =
+      materialCount +
+      videoCount;
 
     return total > 0
       ? `${total} ${
@@ -963,414 +1521,566 @@ function getItemSubtitle(item, level, index) {
             ? "resource"
             : "resources"
         }`
-      : `Topic ${index + 1}`;
+      : `Topic ${
+          index + 1
+        }`;
   }
 
-  return item.kind === "video"
+  return item.kind ===
+    "video"
     ? "Lesson video"
     : "Study material";
 }
 
-const styles = StyleSheet.create({
-  centeredScreen: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
+const styles =
+  StyleSheet.create({
+    centeredScreen: {
+      alignItems: "center",
+      justifyContent:
+        "center",
+      gap: spacing.sm,
+    },
 
-  loadingText: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
+    loadingText: {
+      ...typography.body,
+      color:
+        colors.textMuted,
+    },
 
-  pageHeader: {
-    marginBottom: spacing.lg,
-  },
+    pageHeader: {
+      marginBottom:
+        spacing.lg,
+    },
 
-  pageHeaderText: {
-    maxWidth: 760,
-  },
+    pageHeaderText: {
+      maxWidth: 760,
+    },
 
-  eyebrow: {
-    ...typography.caption,
-    color: colors.secondary,
-    fontWeight: "800",
-    letterSpacing: 1.2,
-    marginBottom: spacing.xs,
-  },
+    eyebrow: {
+      ...typography.caption,
 
-  pageTitle: {
-    ...typography.h1,
-    color: colors.primary,
-    marginBottom: spacing.xs,
-  },
+      color:
+        colors.secondary,
 
-  pageSubtitle: {
-    ...typography.body,
-    color: colors.textMuted,
-    lineHeight: 22,
-  },
+      fontWeight: "800",
 
-  errorBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    overflow: "hidden",
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: `${colors.danger}55`,
-    borderRadius: radius.md,
-    backgroundColor: `${colors.danger}0D`,
-  },
+      letterSpacing: 1.2,
 
-  errorIndicator: {
-    alignSelf: "stretch",
-    width: 4,
-    backgroundColor: colors.danger,
-  },
+      marginBottom:
+        spacing.xs,
+    },
 
-  errorContent: {
-    flex: 1,
-    padding: spacing.sm,
-  },
+    pageTitle: {
+      ...typography.h1,
 
-  errorTitle: {
-    ...typography.bodyBold,
-    color: colors.danger,
-    marginBottom: 2,
-  },
+      color:
+        colors.primary,
 
-  errorMessage: {
-    ...typography.caption,
-    color: colors.danger,
-    lineHeight: 18,
-  },
+      marginBottom:
+        spacing.xs,
+    },
 
-  retryButton: {
-    minHeight: 38,
-    justifyContent: "center",
-    paddingHorizontal: spacing.sm,
-  },
+    pageSubtitle: {
+      ...typography.body,
 
-  retryButtonText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: colors.danger,
-  },
+      color:
+        colors.textMuted,
 
-  dismissButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+      lineHeight: 22,
+    },
 
-  dismissButtonText: {
-    fontSize: 22,
-    color: colors.danger,
-  },
+    errorBanner: {
+      flexDirection: "row",
+      alignItems: "center",
 
-  breadcrumbContainer: {
-    minHeight: 40,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
+      overflow: "hidden",
 
-  breadcrumbButton: {
-    minHeight: 32,
-    justifyContent: "center",
-    maxWidth: 220,
-  },
+      marginBottom:
+        spacing.md,
 
-  breadcrumbButtonText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: "700",
-  },
+      borderWidth: 1,
 
-  breadcrumbCurrent: {
-    ...typography.caption,
-    maxWidth: 240,
-    color: colors.textMuted,
-    fontWeight: "600",
-  },
+      borderColor:
+        `${colors.danger}55`,
 
-  breadcrumbSeparator: {
-    fontSize: 18,
-    color: colors.textMuted,
-  },
+      borderRadius:
+        radius.md,
 
-  contentCard: {
-    padding: spacing.lg,
-  },
+      backgroundColor:
+        `${colors.danger}0D`,
+    },
 
-  contentHeader: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
+    errorIndicator: {
+      alignSelf: "stretch",
 
-  contentHeaderText: {
-    flexGrow: 1,
-    flexShrink: 1,
-    flexBasis: 280,
-  },
+      width: 4,
 
-  contentTitle: {
-    ...typography.h2,
-    color: colors.primary,
-    marginBottom: 4,
-  },
+      backgroundColor:
+        colors.danger,
+    },
 
-  contentDescription: {
-    ...typography.body,
-    color: colors.textMuted,
-    lineHeight: 21,
-  },
+    errorContent: {
+      flex: 1,
+      padding: spacing.sm,
+    },
 
-  levelBadge: {
-    minHeight: 34,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.pill,
-    backgroundColor: `${colors.primary}0D`,
-  },
+    errorTitle: {
+      ...typography.bodyBold,
 
-  levelBadgeText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: colors.primary,
-  },
+      color:
+        colors.danger,
 
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    marginTop: spacing.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.background,
-  },
+      marginBottom: 2,
+    },
 
-  summaryItem: {
-    minWidth: 82,
-    alignItems: "center",
-  },
+    errorMessage: {
+      ...typography.caption,
 
-  summaryValue: {
-    ...typography.h3,
-    color: colors.primary,
-  },
+      color:
+        colors.danger,
 
-  summaryLabel: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginTop: 2,
-  },
+      lineHeight: 18,
+    },
 
-  summaryDivider: {
-    width: 1,
-    height: 34,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.sm,
-  },
+    retryButton: {
+      minHeight: 38,
 
-  sectionDivider: {
-    height: 1,
-    marginVertical: spacing.lg,
-    backgroundColor: colors.border,
-  },
+      justifyContent:
+        "center",
 
-  itemList: {
-    gap: spacing.sm,
-  },
+      paddingHorizontal:
+        spacing.sm,
+    },
 
-  itemPressable: {
-    minHeight: 76,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-    ...(Platform.OS === "web"
-      ? {
-          transitionDuration: "140ms",
-          transitionProperty:
-            "background-color, border-color, transform",
-        }
-      : null),
-  },
+    retryButtonText: {
+      fontSize: 12,
 
-  itemPressablePressed: {
-    opacity: 0.74,
-    transform: [{ scale: 0.995 }],
-  },
+      fontWeight: "800",
 
-  itemIcon: {
-    width: 46,
-    height: 46,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radius.md,
-    backgroundColor: `${colors.primary}10`,
-  },
+      color:
+        colors.danger,
+    },
 
-  itemIconVideo: {
-    backgroundColor: `${colors.warning}14`,
-  },
+    dismissButton: {
+      width: 40,
+      height: 40,
 
-  itemIconDocument: {
-    backgroundColor: `${colors.secondary}18`,
-  },
+      alignItems: "center",
+      justifyContent:
+        "center",
+    },
 
-  itemIconText: {
-    fontSize: 12,
-    fontWeight: "900",
-    color: colors.primary,
-  },
+    dismissButtonText: {
+      fontSize: 22,
 
-  itemText: {
-    flex: 1,
-    minWidth: 0,
-  },
+      color:
+        colors.danger,
+    },
 
-  itemTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-  },
+    breadcrumbContainer: {
+      minHeight: 40,
 
-  itemSubtitle: {
-    ...typography.caption,
-    color: colors.textMuted,
-    lineHeight: 17,
-    marginTop: 3,
-  },
+      flexDirection: "row",
+      flexWrap: "wrap",
 
-  itemAction: {
-    minWidth: 52,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 5,
-  },
+      alignItems: "center",
 
-  itemActionLabel: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: colors.primary,
-  },
+      gap: spacing.xs,
 
-  externalArrow: {
-    fontSize: 17,
-    color: colors.primary,
-  },
+      marginBottom:
+        spacing.sm,
+    },
 
-  navigationArrow: {
-    fontSize: 28,
-    color: colors.primary,
-  },
+    breadcrumbButton: {
+      minHeight: 32,
 
-  loadingPanel: {
-    minHeight: 180,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
+      justifyContent:
+        "center",
 
-  loadingPanelText: {
-    ...typography.body,
-    color: colors.textMuted,
-  },
+      maxWidth: 220,
+    },
 
-  emptyState: {
-    minHeight: 220,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
+    breadcrumbButtonText: {
+      ...typography.caption,
 
-  emptyIcon: {
-    width: 46,
-    height: 46,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 23,
-    backgroundColor: colors.background,
-    marginBottom: spacing.sm,
-  },
+      color:
+        colors.primary,
 
-  emptyIconText: {
-    fontSize: 22,
-    color: colors.textMuted,
-  },
+      fontWeight: "700",
+    },
 
-  emptyTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
+    breadcrumbCurrent: {
+      ...typography.caption,
 
-  emptyDescription: {
-    ...typography.body,
-    maxWidth: 440,
-    color: colors.textMuted,
-    textAlign: "center",
-    lineHeight: 21,
-    marginTop: spacing.xs,
-  },
+      maxWidth: 240,
 
-  noGroupCard: {
-    minHeight: 260,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
+      color:
+        colors.textMuted,
 
-  noGroupIcon: {
-    width: 52,
-    height: 52,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 26,
-    backgroundColor: colors.background,
-    marginBottom: spacing.md,
-  },
+      fontWeight: "600",
+    },
 
-  noGroupIconText: {
-    fontSize: 24,
-    color: colors.textMuted,
-  },
+    breadcrumbSeparator: {
+      fontSize: 18,
 
-  noGroupTitle: {
-    ...typography.h3,
-    color: colors.textPrimary,
-    textAlign: "center",
-  },
+      color:
+        colors.textMuted,
+    },
 
-  noGroupDescription: {
-    ...typography.body,
-    maxWidth: 500,
-    color: colors.textMuted,
-    textAlign: "center",
-    lineHeight: 22,
-    marginTop: spacing.xs,
-  },
+    contentCard: {
+      padding: spacing.lg,
+    },
 
-  pressedOpacity: {
-    opacity: 0.68,
-  },
+    contentHeader: {
+      flexDirection: "row",
+      flexWrap: "wrap",
 
-  disabledOpacity: {
-    opacity: 0.5,
-  },
-});
+      alignItems:
+        "flex-start",
+
+      justifyContent:
+        "space-between",
+
+      gap: spacing.md,
+    },
+
+    contentHeaderText: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 280,
+    },
+
+    contentTitle: {
+      ...typography.h2,
+
+      color:
+        colors.primary,
+
+      marginBottom: 4,
+    },
+
+    contentDescription: {
+      ...typography.body,
+
+      color:
+        colors.textMuted,
+
+      lineHeight: 21,
+    },
+
+    levelBadge: {
+      minHeight: 34,
+
+      alignItems: "center",
+      justifyContent:
+        "center",
+
+      paddingHorizontal:
+        spacing.sm,
+
+      borderRadius:
+        radius.pill,
+
+      backgroundColor:
+        `${colors.primary}0D`,
+    },
+
+    levelBadgeText: {
+      fontSize: 12,
+
+      fontWeight: "800",
+
+      color:
+        colors.primary,
+    },
+
+    summaryRow: {
+      flexDirection: "row",
+      alignItems: "center",
+
+      alignSelf:
+        "flex-start",
+
+      marginTop:
+        spacing.lg,
+
+      paddingHorizontal:
+        spacing.md,
+
+      paddingVertical:
+        spacing.sm,
+
+      borderRadius:
+        radius.md,
+
+      backgroundColor:
+        colors.background,
+    },
+
+    summaryItem: {
+      minWidth: 82,
+      alignItems: "center",
+    },
+
+    summaryValue: {
+      ...typography.h3,
+
+      color:
+        colors.primary,
+    },
+
+    summaryLabel: {
+      ...typography.caption,
+
+      color:
+        colors.textMuted,
+
+      marginTop: 2,
+    },
+
+    summaryDivider: {
+      width: 1,
+      height: 34,
+
+      backgroundColor:
+        colors.border,
+
+      marginHorizontal:
+        spacing.sm,
+    },
+
+    sectionDivider: {
+      height: 1,
+
+      marginVertical:
+        spacing.lg,
+
+      backgroundColor:
+        colors.border,
+    },
+
+    itemList: {
+      gap: spacing.sm,
+    },
+
+    itemPressable: {
+      minHeight: 76,
+
+      flexDirection: "row",
+      alignItems: "center",
+
+      gap: spacing.sm,
+
+      padding: spacing.sm,
+
+      borderWidth: 1,
+
+      borderColor:
+        colors.border,
+
+      borderRadius:
+        radius.md,
+
+      backgroundColor:
+        colors.white,
+
+      ...(Platform.OS ===
+      "web"
+        ? {
+            transitionDuration:
+              "140ms",
+
+            transitionProperty:
+              "background-color, border-color, transform",
+          }
+        : null),
+    },
+
+    itemPressablePressed: {
+      opacity: 0.74,
+
+      transform: [
+        {
+          scale:
+            0.995,
+        },
+      ],
+    },
+
+    itemIcon: {
+      width: 46,
+      height: 46,
+
+      flexShrink: 0,
+
+      alignItems: "center",
+      justifyContent:
+        "center",
+
+      borderRadius:
+        radius.md,
+
+      backgroundColor:
+        `${colors.primary}10`,
+    },
+
+    itemIconVideo: {
+      backgroundColor:
+        `${colors.warning}14`,
+    },
+
+    itemIconDocument: {
+      backgroundColor:
+        `${colors.secondary}18`,
+    },
+
+    itemIconText: {
+      fontSize: 12,
+
+      fontWeight: "900",
+
+      color:
+        colors.primary,
+    },
+
+    itemText: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    itemTitle: {
+      ...typography.bodyBold,
+
+      color:
+        colors.textPrimary,
+    },
+
+    itemSubtitle: {
+      ...typography.caption,
+
+      color:
+        colors.textMuted,
+
+      lineHeight: 17,
+
+      marginTop: 3,
+    },
+
+    itemAction: {
+      minWidth: 52,
+
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent:
+        "flex-end",
+
+      gap: 5,
+    },
+
+    itemActionLabel: {
+      fontSize: 12,
+
+      fontWeight: "800",
+
+      color:
+        colors.primary,
+    },
+
+    externalArrow: {
+      fontSize: 17,
+
+      color:
+        colors.primary,
+    },
+
+    navigationArrow: {
+      fontSize: 28,
+
+      color:
+        colors.primary,
+    },
+
+    loadingPanel: {
+      minHeight: 180,
+
+      alignItems: "center",
+      justifyContent:
+        "center",
+
+      gap: spacing.sm,
+    },
+
+    loadingPanelText: {
+      ...typography.body,
+
+      color:
+        colors.textMuted,
+    },
+
+    emptyState: {
+      minHeight: 220,
+
+      alignItems: "center",
+      justifyContent:
+        "center",
+
+      padding: spacing.xl,
+    },
+
+    emptyIcon: {
+      width: 46,
+      height: 46,
+
+      alignItems: "center",
+      justifyContent:
+        "center",
+
+      borderRadius: 23,
+
+      backgroundColor:
+        colors.background,
+
+      marginBottom:
+        spacing.sm,
+    },
+
+    emptyIconText: {
+      fontSize: 22,
+
+      color:
+        colors.textMuted,
+    },
+
+    emptyTitle: {
+      ...typography.bodyBold,
+
+      color:
+        colors.textPrimary,
+
+      textAlign: "center",
+    },
+
+    emptyDescription: {
+      ...typography.body,
+
+      maxWidth: 440,
+
+      color:
+        colors.textMuted,
+
+      textAlign: "center",
+
+      lineHeight: 21,
+
+      marginTop:
+        spacing.xs,
+    },
+
+    pressedOpacity: {
+      opacity: 0.68,
+    },
+
+    disabledOpacity: {
+      opacity: 0.5,
+    },
+  });
