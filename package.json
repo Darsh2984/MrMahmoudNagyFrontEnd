@@ -26,6 +26,7 @@
     "expo-secure-store": "~57.0.1",
     "expo-sharing": "~57.0.15",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.17",
     "expo-video": "~57.0.2",
     "libphonenumber-js": "^1.13.8",
     "pretty-format": "^30.4.1",

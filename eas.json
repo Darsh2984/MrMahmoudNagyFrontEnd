@@ -3,28 +3,27 @@
     "version": ">= 22.2.0",
     "appVersionSource": "remote"
   },
-
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "environment": "development"
+      "environment": "development",
+      "channel": "development"
     },
-
     "preview": {
       "distribution": "internal",
       "environment": "preview",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "channel": "preview"
     },
-
     "production": {
       "autoIncrement": true,
-      "environment": "production"
+      "environment": "production",
+      "channel": "production"
     }
   },
-
   "submit": {
     "production": {}
   }

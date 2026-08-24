@@ -28,6 +28,14 @@ module.exports = {
       },
     },
 
+    updates: {
+      url: "https://u.expo.dev/90eb2cf0-5907-4cce-b605-d08d4a9515c1",
+    },
+
+    runtimeVersion: {
+      policy: "appVersion",
+    },
+
     web: {
       bundler: "metro",
       output: "static",
@@ -44,6 +52,7 @@ module.exports = {
       "expo-audio",
       "expo-video",
     ],
+
 
     extra: {
       apiUrl:
