@@ -23,20 +23,49 @@ export const styles = StyleSheet.create({
   },
 
   backgroundImage: {
-    transform: [{ scale: 0.94 }],
+    transform: [
+      {
+        scale: 0.96,
+      },
+    ],
+  },
+
+  backgroundImageCompactDesktop: {
+    transform: [
+      {
+        scale: 1,
+      },
+    ],
   },
 
   backgroundImageTablet: {
-    transform: [{ scale: 1 }],
+    transform: [
+      {
+        scale: 1,
+      },
+    ],
   },
 
   backgroundImagePhone: {
-    transform: [{ scale: 1.07 }],
+    transform: [
+      {
+        scale: 1,
+      },
+    ],
+  },
+
+  backgroundImageLandscapePhone: {
+    transform: [
+      {
+        scale: 1,
+      },
+    ],
   },
 
   darkOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 7, 11, 0.25)",
+    backgroundColor:
+      "rgba(0, 7, 11, 0.26)",
   },
 
   leftOverlay: {
@@ -44,18 +73,34 @@ export const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    width: "58%",
-    backgroundColor: "rgba(0, 5, 8, 0.40)",
+    width: "56%",
+    backgroundColor:
+      "rgba(0, 5, 8, 0.43)",
+  },
+
+  leftOverlayCompactDesktop: {
+    width: "61%",
   },
 
   leftOverlayTablet: {
-    width: "72%",
-    backgroundColor: "rgba(0, 5, 8, 0.48)",
+    width: "80%",
+    backgroundColor:
+      "rgba(0, 5, 8, 0.54)",
   },
 
   leftOverlayPhone: {
     width: "100%",
-    backgroundColor: "rgba(0, 5, 8, 0.51)",
+    backgroundColor:
+      "rgba(0, 7, 11, 0.70)",
+  },
+
+  scroll: {
+    flex: 1,
+    width: "100%",
+  },
+
+  scrollContent: {
+    flexGrow: 1,
   },
 
   page: {
@@ -64,45 +109,61 @@ export const styles = StyleSheet.create({
     maxWidth: 1600,
     alignSelf: "center",
     paddingHorizontal: 60,
-    paddingTop: 28,
-    paddingBottom: 36,
+    paddingTop: 26,
+    paddingBottom: 34,
+  },
+
+  pageCompactDesktop: {
+    paddingHorizontal: 42,
   },
 
   pageTablet: {
-    paddingHorizontal: 34,
-    paddingTop: 24,
+    paddingHorizontal: 30,
+    paddingTop: 22,
     paddingBottom: 28,
   },
 
   pagePhone: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 22,
+    paddingBottom: 28,
+  },
+
+  pageVerySmallPhone: {
+    paddingHorizontal: 16,
+  },
+
+  pageLandscapePhone: {
+    paddingTop: 12,
+    paddingBottom: 16,
   },
 
   navbar: {
     width: "100%",
-    minHeight: 62,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
     zIndex: 10,
   },
 
   navbarTablet: {
-    minHeight: 56,
+    minHeight: 54,
   },
 
   navbarPhone: {
-    minHeight: 46,
+    minHeight: 42,
+    width: "100%",
   },
 
   brandContainer: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 0,
   },
 
   brandContainerPhone: {
     flex: 1,
+    minWidth: 0,
   },
 
   brandName: {
@@ -112,29 +173,49 @@ export const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  brandNameTablet: {
+  brandNameCompactDesktop: {
     fontSize: 19,
   },
 
+  brandNameTablet: {
+    fontSize: 18,
+  },
+
   brandNamePhone: {
+    fontSize: 18,
+    lineHeight: 22,
+  },
+
+  brandNameVerySmallPhone: {
     fontSize: 16,
   },
 
   brandDivider: {
     width: 1,
-    height: 28,
-    marginHorizontal: 11,
-    backgroundColor: "rgba(255,255,255,0.65)",
+    height: 27,
+    marginHorizontal: 10,
+    backgroundColor:
+      "rgba(255,255,255,0.60)",
+  },
+
+  brandDividerTablet: {
+    height: 23,
+    marginHorizontal: 8,
   },
 
   brandSubject: {
-    color: "rgba(255,255,255,0.90)",
-    fontSize: 19,
+    color:
+      "rgba(255,255,255,0.90)",
+    fontSize: 18,
     fontWeight: "300",
   },
 
-  brandSubjectTablet: {
+  brandSubjectCompactDesktop: {
     fontSize: 16,
+  },
+
+  brandSubjectTablet: {
+    fontSize: 15,
   },
 
   navigation: {
@@ -142,26 +223,32 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 42,
-    paddingHorizontal: 24,
+    gap: 38,
+    paddingHorizontal: 20,
+  },
+
+  navigationCompactDesktop: {
+    gap: 24,
+    paddingHorizontal: 14,
   },
 
   navItem: {
-    minHeight: 44,
+    minHeight: 42,
     alignItems: "center",
     justifyContent: "center",
   },
 
   navItemActive: {
-    minHeight: 44,
+    minHeight: 42,
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
   },
 
   navText: {
-    color: "rgba(255,255,255,0.88)",
-    fontSize: 15,
+    color:
+      "rgba(255,255,255,0.88)",
+    fontSize: 14,
     fontWeight: "500",
   },
 
@@ -171,14 +258,14 @@ export const styles = StyleSheet.create({
 
   navTextActive: {
     color: "#FFFFFF",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
 
   navActiveLine: {
     position: "absolute",
     bottom: 0,
-    width: 52,
+    width: 48,
     height: 3,
     borderRadius: 4,
     backgroundColor: "#09C9F3",
@@ -187,21 +274,21 @@ export const styles = StyleSheet.create({
   authActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 9,
+    flexShrink: 0,
   },
 
   registerButton: {
-    minHeight: 42,
+    minHeight: 41,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     borderRadius: 5,
     backgroundColor: "#09C8EE",
   },
 
-  registerButtonPhone: {
-    minHeight: 38,
-    paddingHorizontal: 13,
+  registerButtonTablet: {
+    paddingHorizontal: 15,
   },
 
   registerButtonText: {
@@ -210,25 +297,22 @@ export const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
-  registerButtonTextPhone: {
-    fontSize: 12,
-  },
-
   loginButton: {
-    minHeight: 42,
+    minHeight: 41,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
-    paddingHorizontal: 18,
+    paddingHorizontal: 17,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
+    borderColor:
+      "rgba(255,255,255,0.35)",
     borderRadius: 5,
-    backgroundColor: "rgba(0,0,0,0.28)",
+    backgroundColor:
+      "rgba(0,0,0,0.28)",
   },
 
-  loginButtonPhone: {
-    minHeight: 38,
+  loginButtonTablet: {
     paddingHorizontal: 14,
   },
 
@@ -238,75 +322,158 @@ export const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  loginButtonTextPhone: {
-    fontSize: 12,
+  mobileHeaderActions: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 14,
+  },
+
+  mobileRegisterButton: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 5,
+    backgroundColor: "#09C8EE",
+  },
+
+  mobileRegisterText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  mobileLoginButton: {
+    flex: 1,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor:
+      "rgba(255,255,255,0.40)",
+    borderRadius: 5,
+    backgroundColor:
+      "rgba(0,0,0,0.30)",
+  },
+
+  mobileLoginText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
 
   compactNav: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 26,
-    paddingTop: 16,
+    gap: 28,
+    paddingTop: 14,
   },
 
   compactNavPhone: {
-    gap: 22,
-    paddingTop: 13,
+    width: "100%",
+    justifyContent: "space-between",
+    gap: 0,
+    paddingTop: 18,
+    paddingBottom: 4,
+    paddingHorizontal: 4,
+  },
+
+  compactNavLandscapePhone: {
+    paddingTop: 8,
   },
 
   compactNavText: {
-    color: "rgba(255,255,255,0.74)",
-    fontSize: 14,
+    color:
+      "rgba(255,255,255,0.76)",
+    fontSize: 13,
     fontWeight: "600",
   },
 
   compactNavActive: {
     color: "#09C9F3",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "800",
   },
 
   hero: {
     flex: 1,
-    minHeight: 620,
-    justifyContent: "center",
     position: "relative",
-    paddingTop: 36,
+    justifyContent: "center",
+    paddingTop: 50,
+    paddingBottom: 50,
+  },
+
+  heroCompactDesktop: {
+    paddingTop: 42,
+    paddingBottom: 42,
+  },
+
+  heroTablet: {
+    justifyContent: "center",
+    paddingTop: 54,
+    paddingBottom: 42,
   },
 
   heroSmallTablet: {
-    minHeight: 590,
+    paddingTop: 48,
   },
 
   heroPhone: {
-    minHeight: 560,
-    justifyContent: "flex-end",
-    paddingTop: 130,
+    flex: 0,
+    justifyContent: "flex-start",
+    paddingTop: 72,
+    paddingBottom: 38,
+  },
+
+  heroVerySmallPhone: {
+    paddingTop: 58,
+    paddingBottom: 30,
+  },
+
+  heroShortScreen: {
+    paddingTop: 36,
     paddingBottom: 24,
   },
 
+  heroLandscapePhone: {
+    paddingTop: 22,
+    paddingBottom: 20,
+  },
+
   heroCopy: {
-    width: "48%",
+    width: "49%",
     maxWidth: 680,
     zIndex: 4,
   },
 
+  heroCopyCompactDesktop: {
+    width: "52%",
+    maxWidth: 610,
+  },
+
   heroCopyTablet: {
-    width: "66%",
-    maxWidth: 570,
+    width: "72%",
+    maxWidth: 580,
   },
 
   heroCopyPhone: {
     width: "100%",
-    maxWidth: 430,
+    maxWidth: 390,
+  },
+
+  heroCopyLandscapePhone: {
+    width: "60%",
+    maxWidth: 470,
   },
 
   heroTitle: {
     color: "#FFFFFF",
-    fontSize: 86,
-    lineHeight: 80,
+    fontSize: 82,
+    lineHeight: 77,
     fontWeight: "900",
-    letterSpacing: -4.1,
+    letterSpacing: -3.8,
 
     ...(Platform.OS === "web"
       ? {
@@ -314,7 +481,8 @@ export const styles = StyleSheet.create({
             "0 5px 20px rgba(0,0,0,0.38)",
         }
       : {
-          textShadowColor: "rgba(0,0,0,0.38)",
+          textShadowColor:
+            "rgba(0,0,0,0.38)",
           textShadowOffset: {
             width: 0,
             height: 4,
@@ -323,28 +491,49 @@ export const styles = StyleSheet.create({
         }),
   },
 
+  heroTitleCompactDesktop: {
+    fontSize: 70,
+    lineHeight: 66,
+    letterSpacing: -3,
+  },
+
   heroTitleTablet: {
-    fontSize: 64,
-    lineHeight: 61,
-    letterSpacing: -2.8,
+    fontSize: 58,
+    lineHeight: 55,
+    letterSpacing: -2.4,
   },
 
   heroTitlePhone: {
-    fontSize: 41,
-    lineHeight: 40,
-    letterSpacing: -1.7,
+    fontSize: 46,
+    lineHeight: 44,
+    letterSpacing: -1.8,
+  },
+
+  heroTitleVerySmallPhone: {
+    fontSize: 39,
+    lineHeight: 38,
+    letterSpacing: -1.4,
+  },
+
+  heroTitleLandscapePhone: {
+    fontSize: 40,
+    lineHeight: 38,
+    letterSpacing: -1.6,
   },
 
   heroSubtitle: {
     marginTop: 20,
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 19,
-    lineHeight: 26,
+    color:
+      "rgba(255,255,255,0.92)",
+    fontSize: 18,
+    lineHeight: 25,
     fontWeight: "400",
   },
 
   heroSubtitleTablet: {
-    fontSize: 17,
+    marginTop: 18,
+    fontSize: 16,
+    lineHeight: 23,
   },
 
   heroSubtitlePhone: {
@@ -353,79 +542,124 @@ export const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
+  heroSubtitleVerySmallPhone: {
+    fontSize: 13,
+  },
+
+  heroSubtitleLandscapePhone: {
+    marginTop: 10,
+    fontSize: 13,
+  },
+
   heroActions: {
-    marginTop: 30,
+    marginTop: 28,
     flexDirection: "row",
     alignItems: "center",
-    gap: 24,
+    gap: 22,
   },
 
   heroActionsTablet: {
+    marginTop: 24,
     flexDirection: "column",
     alignItems: "flex-start",
-    gap: 16,
+    gap: 15,
   },
 
   heroActionsPhone: {
     width: "100%",
-    marginTop: 22,
-    gap: 13,
+    marginTop: 24,
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 14,
+  },
+
+  heroActionsLandscapePhone: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
   },
 
   primaryCta: {
-    width: 320,
-    minHeight: 58,
-    paddingHorizontal: 24,
+    width: 310,
+    minHeight: 56,
+    paddingHorizontal: 22,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    borderRadius: 2,
     backgroundColor: "#09C8EE",
   },
 
+  primaryCtaCompactDesktop: {
+    width: 285,
+  },
+
   primaryCtaTablet: {
-    width: 290,
+    width: 280,
   },
 
   primaryCtaPhone: {
     width: "100%",
-    maxWidth: 360,
+    maxWidth: "100%",
     minHeight: 54,
     paddingHorizontal: 20,
   },
 
+  primaryCtaVerySmallPhone: {
+    minHeight: 50,
+  },
+
+  primaryCtaLandscapePhone: {
+    width: 235,
+    minHeight: 48,
+  },
+
   primaryCtaText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "700",
     letterSpacing: 0.35,
   },
 
   primaryCtaTextPhone: {
-    fontSize: 14,
+    fontSize: 13,
+  },
+
+  primaryCtaTextVerySmallPhone: {
+    fontSize: 12,
   },
 
   heroStatement: {
-    color: "rgba(255,255,255,0.90)",
-    fontSize: 16,
+    color:
+      "rgba(255,255,255,0.90)",
+    fontSize: 15,
     fontWeight: "400",
   },
 
   heroStatementPhone: {
+    width: "100%",
     fontSize: 14,
+    lineHeight: 20,
+    textAlign: "left",
+  },
+
+  heroStatementVerySmallPhone: {
+    fontSize: 12,
   },
 
   contactRail: {
     position: "absolute",
     right: 4,
     top: "34%",
-    gap: 30,
+    gap: 26,
     alignItems: "center",
   },
 
   contactButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
@@ -434,11 +668,17 @@ export const styles = StyleSheet.create({
   mobileContactRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingTop: 4,
+    gap: 11,
+    paddingTop: 2,
   },
 
   mobileContactRowPhone: {
+    paddingTop: 0,
+    paddingBottom: 8,
+    marginTop: -100,
+  },
+
+  mobileContactRowLandscapePhone: {
     paddingTop: 0,
   },
 
@@ -447,8 +687,10 @@ export const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.30)",
-    backgroundColor: "rgba(0,0,0,0.34)",
+    borderColor:
+      "rgba(255,255,255,0.30)",
+    backgroundColor:
+      "rgba(0,0,0,0.34)",
     alignItems: "center",
     justifyContent: "center",
   },

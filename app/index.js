@@ -5,6 +5,7 @@ import {
   ImageBackground,
   Linking,
   Pressable,
+  ScrollView,
   Text,
   View,
   useWindowDimensions,
@@ -30,12 +31,55 @@ const EMAIL_ADDRESS = "mahmoudnagy196@gmail.com";
 
 export default function Index() {
   const router = useRouter();
-  const { width, height } = useWindowDimensions();
-  const { user, loading } = useAuth();
 
-  const isPhone = width < 600;
-  const isSmallTablet = width >= 600 && width < 900;
-  const isTablet = width >= 600 && width < 1100;
+  const {
+    width,
+    height,
+  } = useWindowDimensions();
+
+  const {
+    user,
+    loading,
+  } = useAuth();
+
+  const isPortrait =
+    height > width;
+
+  const isPhone =
+    width < 700 ||
+    (
+      isPortrait &&
+      width < 950
+    );
+
+  const isVerySmallPhone =
+    width < 390;
+
+  const isTablet =
+    !isPhone &&
+    (
+      width < 1180 ||
+      (
+        isPortrait &&
+        width < 1300
+      )
+    );
+
+  const isSmallTablet =
+    isTablet &&
+    width < 900;
+
+  const isCompactDesktop =
+    !isPhone &&
+    !isTablet &&
+    width < 1400;
+
+  const isLandscapePhone =
+    width < 950 &&
+    height < 600;
+
+  const isShortScreen =
+    height < 720;
 
   if (loading) {
     return (
@@ -53,15 +97,22 @@ export default function Index() {
       user.role === "ASSISTANT" &&
       !user.isHeadAssistant;
 
-    let destination = "/(app)/dashboard";
+    let destination =
+      "/(app)/dashboard";
 
     if (user.role === "STUDENT") {
-      destination = "/(app)/my-dashboard";
+      destination =
+        "/(app)/my-dashboard";
     } else if (isRegularAssistant) {
-      destination = "/(app)/my-stats";
+      destination =
+        "/(app)/my-stats";
     }
 
-    return <Redirect href={destination} />;
+    return (
+      <Redirect
+        href={destination}
+      />
+    );
   }
 
   function goHome() {
@@ -86,7 +137,9 @@ export default function Index() {
 
   async function openWhatsApp() {
     try {
-      await Linking.openURL(WHATSAPP_URL);
+      await Linking.openURL(
+        WHATSAPP_URL
+      );
     } catch {}
   }
 
@@ -112,389 +165,673 @@ export default function Index() {
         imageStyle={[
           styles.backgroundImage,
 
+          isCompactDesktop &&
+            styles.backgroundImageCompactDesktop,
+
           isTablet &&
             styles.backgroundImageTablet,
 
           isPhone &&
             styles.backgroundImagePhone,
+
+          isLandscapePhone &&
+            styles.backgroundImageLandscapePhone,
         ]}
       >
-        <View style={styles.darkOverlay} />
+        <View
+          style={styles.darkOverlay}
+        />
 
         <View
           style={[
             styles.leftOverlay,
+
+            isCompactDesktop &&
+              styles.leftOverlayCompactDesktop,
+
             isTablet &&
               styles.leftOverlayTablet,
+
             isPhone &&
               styles.leftOverlayPhone,
           ]}
         />
 
-        <View
-          style={[
-            styles.page,
-            isTablet &&
-              styles.pageTablet,
-            isPhone &&
-              styles.pagePhone,
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              minHeight: height,
+            },
           ]}
+          showsVerticalScrollIndicator={
+            false
+          }
         >
-          {/* NAVBAR */}
-
           <View
             style={[
-              styles.navbar,
+              styles.page,
+
+              isCompactDesktop &&
+                styles.pageCompactDesktop,
+
               isTablet &&
-                styles.navbarTablet,
+                styles.pageTablet,
+
               isPhone &&
-                styles.navbarPhone,
+                styles.pagePhone,
+
+              isVerySmallPhone &&
+                styles.pageVerySmallPhone,
+
+              isLandscapePhone &&
+                styles.pageLandscapePhone,
             ]}
           >
-            <Pressable
-              onPress={goHome}
+            {/* HEADER */}
+
+            <View
               style={[
-                styles.brandContainer,
+                styles.navbar,
+
+                isTablet &&
+                  styles.navbarTablet,
+
                 isPhone &&
-                  styles.brandContainerPhone,
+                  styles.navbarPhone,
               ]}
             >
-              <Text
+              <Pressable
+                onPress={goHome}
                 style={[
-                  styles.brandName,
-                  isTablet &&
-                    styles.brandNameTablet,
+                  styles.brandContainer,
+
                   isPhone &&
-                    styles.brandNamePhone,
+                    styles.brandContainerPhone,
                 ]}
               >
-                MAHMOUD NAGY
-              </Text>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.brandName,
 
-              {!isPhone && (
-                <>
+                    isCompactDesktop &&
+                      styles.brandNameCompactDesktop,
+
+                    isTablet &&
+                      styles.brandNameTablet,
+
+                    isPhone &&
+                      styles.brandNamePhone,
+
+                    isVerySmallPhone &&
+                      styles.brandNameVerySmallPhone,
+                  ]}
+                >
+                  MAHMOUD NAGY
+                </Text>
+
+                {!isPhone && (
+                  <>
+                    <View
+                      style={[
+                        styles.brandDivider,
+
+                        isTablet &&
+                          styles.brandDividerTablet,
+                      ]}
+                    />
+
+                    <Text
+                      style={[
+                        styles.brandSubject,
+
+                        isCompactDesktop &&
+                          styles.brandSubjectCompactDesktop,
+
+                        isTablet &&
+                          styles.brandSubjectTablet,
+                      ]}
+                    >
+                      PHYSICS
+                    </Text>
+                  </>
+                )}
+              </Pressable>
+
+              {!isTablet &&
+                !isPhone && (
                   <View
-                    style={styles.brandDivider}
-                  />
-
-                  <Text
                     style={[
-                      styles.brandSubject,
-                      isTablet &&
-                        styles.brandSubjectTablet,
+                      styles.navigation,
+
+                      isCompactDesktop &&
+                        styles.navigationCompactDesktop,
                     ]}
                   >
-                    PHYSICS
-                  </Text>
-                </>
-              )}
-            </Pressable>
+                    <Pressable
+                      onPress={goHome}
+                      style={
+                        styles.navItemActive
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.navTextActive
+                        }
+                      >
+                        Home
+                      </Text>
 
-            {!isTablet && (
-              <View style={styles.navigation}>
+                      <View
+                        style={
+                          styles.navActiveLine
+                        }
+                      />
+                    </Pressable>
+
+                    <Pressable
+                      onPress={goToCourses}
+                      style={
+                        styles.navItem
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.navText
+                        }
+                      >
+                        Courses
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      style={
+                        styles.navItem
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.navText,
+                          styles.navTextPending,
+                        ]}
+                      >
+                        About Me
+                      </Text>
+                    </Pressable>
+
+                    <Pressable
+                      onPress={goToContact}
+                      style={
+                        styles.navItem
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.navText
+                        }
+                      >
+                        Contact
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+
+              {!isPhone && (
+                <View
+                  style={
+                    styles.authActions
+                  }
+                >
+                  <Pressable
+                    onPress={
+                      goToRegister
+                    }
+                    style={({
+                      pressed,
+                    }) => [
+                      styles.registerButton,
+
+                      isTablet &&
+                        styles.registerButtonTablet,
+
+                      pressed &&
+                        styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={
+                        styles.registerButtonText
+                      }
+                    >
+                      Register
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={goToLogin}
+                    style={({
+                      pressed,
+                    }) => [
+                      styles.loginButton,
+
+                      isTablet &&
+                        styles.loginButtonTablet,
+
+                      pressed &&
+                        styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={
+                        styles.loginButtonText
+                      }
+                    >
+                      Login
+                    </Text>
+
+                    <Ionicons
+                      name="arrow-forward"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                  </Pressable>
+                </View>
+              )}
+            </View>
+
+            {/* MOBILE AUTH */}
+
+            {isPhone && (
+              <View
+                style={
+                  styles.mobileHeaderActions
+                }
+              >
                 <Pressable
-                  onPress={goHome}
-                  style={styles.navItemActive}
+                  onPress={
+                    goToRegister
+                  }
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.mobileRegisterButton,
+
+                    pressed &&
+                      styles.pressed,
+                  ]}
                 >
                   <Text
-                    style={styles.navTextActive}
+                    style={
+                      styles.mobileRegisterText
+                    }
                   >
-                    Home
+                    Register
                   </Text>
-
-                  <View
-                    style={styles.navActiveLine}
-                  />
                 </Pressable>
 
                 <Pressable
-                  onPress={goToCourses}
-                  style={styles.navItem}
+                  onPress={goToLogin}
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.mobileLoginButton,
+
+                    pressed &&
+                      styles.pressed,
+                  ]}
                 >
-                  <Text style={styles.navText}>
+                  <Text
+                    style={
+                      styles.mobileLoginText
+                    }
+                  >
+                    Login
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* COMPACT NAV */}
+
+            {(isTablet ||
+              isPhone) && (
+              <View
+                style={[
+                  styles.compactNav,
+
+                  isPhone &&
+                    styles.compactNavPhone,
+
+                  isLandscapePhone &&
+                    styles.compactNavLandscapePhone,
+                ]}
+              >
+                <Pressable
+                  onPress={goHome}
+                >
+                  <Text
+                    style={
+                      styles.compactNavActive
+                    }
+                  >
+                    Home
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={
+                    goToCourses
+                  }
+                >
+                  <Text
+                    style={
+                      styles.compactNavText
+                    }
+                  >
                     Courses
                   </Text>
                 </Pressable>
 
                 <Pressable
-                  style={styles.navItem}
+                  onPress={
+                    goToContact
+                  }
                 >
                   <Text
-                    style={[
-                      styles.navText,
-                      styles.navTextPending,
-                    ]}
+                    style={
+                      styles.compactNavText
+                    }
                   >
-                    About Me
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={goToContact}
-                  style={styles.navItem}
-                >
-                  <Text style={styles.navText}>
                     Contact
                   </Text>
                 </Pressable>
               </View>
             )}
 
-            <View style={styles.authActions}>
-              <Pressable
-                onPress={goToRegister}
-                style={({ pressed }) => [
-                  styles.registerButton,
-                  isPhone &&
-                    styles.registerButtonPhone,
-                  pressed &&
-                    styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.registerButtonText,
-                    isPhone &&
-                      styles.registerButtonTextPhone,
-                  ]}
-                >
-                  Register
-                </Text>
-              </Pressable>
+            {/* HERO */}
 
-              <Pressable
-                onPress={goToLogin}
-                style={({ pressed }) => [
-                  styles.loginButton,
-                  isPhone &&
-                    styles.loginButtonPhone,
-                  pressed &&
-                    styles.pressed,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.loginButtonText,
-                    isPhone &&
-                      styles.loginButtonTextPhone,
-                  ]}
-                >
-                  Login
-                </Text>
-
-                {!isPhone && (
-                  <Ionicons
-                    name="arrow-forward"
-                    size={16}
-                    color="#FFFFFF"
-                  />
-                )}
-              </Pressable>
-            </View>
-          </View>
-
-          {/* TABLET / MOBILE NAV */}
-
-          {isTablet && (
             <View
               style={[
-                styles.compactNav,
-                isPhone &&
-                  styles.compactNavPhone,
-              ]}
-            >
-              <Pressable onPress={goHome}>
-                <Text
-                  style={styles.compactNavActive}
-                >
-                  Home
-                </Text>
-              </Pressable>
+                styles.hero,
 
-              <Pressable onPress={goToCourses}>
-                <Text
-                  style={styles.compactNavText}
-                >
-                  Courses
-                </Text>
-              </Pressable>
+                isCompactDesktop &&
+                  styles.heroCompactDesktop,
 
-              <Pressable onPress={goToContact}>
-                <Text
-                  style={styles.compactNavText}
-                >
-                  Contact
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* HERO */}
-
-          <View
-            style={[
-              styles.hero,
-              isSmallTablet &&
-                styles.heroSmallTablet,
-              isPhone &&
-                styles.heroPhone,
-            ]}
-          >
-            <View
-              style={[
-                styles.heroCopy,
                 isTablet &&
-                  styles.heroCopyTablet,
+                  styles.heroTablet,
+
+                isSmallTablet &&
+                  styles.heroSmallTablet,
+
                 isPhone &&
-                  styles.heroCopyPhone,
+                  styles.heroPhone,
+
+                isVerySmallPhone &&
+                  styles.heroVerySmallPhone,
+
+                isShortScreen &&
+                  styles.heroShortScreen,
+
+                isLandscapePhone &&
+                  styles.heroLandscapePhone,
               ]}
             >
-              <Text
-                style={[
-                  styles.heroTitle,
-                  isTablet &&
-                    styles.heroTitleTablet,
-                  isPhone &&
-                    styles.heroTitlePhone,
-                ]}
-              >
-                MASTER{"\n"}
-                PHYSICS.{"\n"}
-                OWN YOUR{"\n"}
-                FUTURE.
-              </Text>
-
-              <Text
-                style={[
-                  styles.heroSubtitle,
-                  isTablet &&
-                    styles.heroSubtitleTablet,
-                  isPhone &&
-                    styles.heroSubtitlePhone,
-                ]}
-              >
-                Cambridge & Edexcel
-                {"  •  "}
-                O Level & AS
-              </Text>
-
               <View
                 style={[
-                  styles.heroActions,
+                  styles.heroCopy,
+
+                  isCompactDesktop &&
+                    styles.heroCopyCompactDesktop,
+
                   isTablet &&
-                    styles.heroActionsTablet,
+                    styles.heroCopyTablet,
+
                   isPhone &&
-                    styles.heroActionsPhone,
+                    styles.heroCopyPhone,
+
+                  isLandscapePhone &&
+                    styles.heroCopyLandscapePhone,
                 ]}
               >
-                <Pressable
-                  onPress={goToCourses}
-                  style={({ pressed }) => [
-                    styles.primaryCta,
+                <Text
+                  style={[
+                    styles.heroTitle,
+
+                    isCompactDesktop &&
+                      styles.heroTitleCompactDesktop,
+
                     isTablet &&
-                      styles.primaryCtaTablet,
+                      styles.heroTitleTablet,
+
                     isPhone &&
-                      styles.primaryCtaPhone,
-                    pressed &&
-                      styles.pressed,
+                      styles.heroTitlePhone,
+
+                    isVerySmallPhone &&
+                      styles.heroTitleVerySmallPhone,
+
+                    isLandscapePhone &&
+                      styles.heroTitleLandscapePhone,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.primaryCtaText,
-                      isPhone &&
-                        styles.primaryCtaTextPhone,
-                    ]}
-                  >
-                    EXPLORE COURSES
-                  </Text>
-
-                  <Ionicons
-                    name="arrow-forward"
-                    size={22}
-                    color="#FFFFFF"
-                  />
-                </Pressable>
+                  MASTER{"\n"}
+                  PHYSICS.{"\n"}
+                  OWN YOUR{"\n"}
+                  FUTURE.
+                </Text>
 
                 <Text
                   style={[
-                    styles.heroStatement,
+                    styles.heroSubtitle,
+
+                    isTablet &&
+                      styles.heroSubtitleTablet,
+
                     isPhone &&
-                      styles.heroStatementPhone,
+                      styles.heroSubtitlePhone,
+
+                    isVerySmallPhone &&
+                      styles.heroSubtitleVerySmallPhone,
+
+                    isLandscapePhone &&
+                      styles.heroSubtitleLandscapePhone,
                   ]}
                 >
-                  Learn. Understand. Achieve.
+                  Cambridge & Edexcel
+                  {"  •  "}
+                  O Level & AS
                 </Text>
+
+                <View
+                  style={[
+                    styles.heroActions,
+
+                    isTablet &&
+                      styles.heroActionsTablet,
+
+                    isPhone &&
+                      styles.heroActionsPhone,
+
+                    isLandscapePhone &&
+                      styles.heroActionsLandscapePhone,
+                  ]}
+                >
+                  <Pressable
+                    onPress={
+                      goToCourses
+                    }
+                    style={({
+                      pressed,
+                    }) => [
+                      styles.primaryCta,
+
+                      isCompactDesktop &&
+                        styles.primaryCtaCompactDesktop,
+
+                      isTablet &&
+                        styles.primaryCtaTablet,
+
+                      isPhone &&
+                        styles.primaryCtaPhone,
+
+                      isVerySmallPhone &&
+                        styles.primaryCtaVerySmallPhone,
+
+                      isLandscapePhone &&
+                        styles.primaryCtaLandscapePhone,
+
+                      pressed &&
+                        styles.pressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.primaryCtaText,
+
+                        isPhone &&
+                          styles.primaryCtaTextPhone,
+
+                        isVerySmallPhone &&
+                          styles.primaryCtaTextVerySmallPhone,
+                      ]}
+                    >
+                      EXPLORE COURSES
+                    </Text>
+
+                    <Ionicons
+                      name="arrow-forward"
+                      size={
+                        isPhone
+                          ? 19
+                          : 22
+                      }
+                      color="#FFFFFF"
+                    />
+                  </Pressable>
+
+                  <Text
+                    style={[
+                      styles.heroStatement,
+
+                      isPhone &&
+                        styles.heroStatementPhone,
+
+                      isVerySmallPhone &&
+                        styles.heroStatementVerySmallPhone,
+                    ]}
+                  >
+                    Learn. Understand. Achieve.
+                  </Text>
+                </View>
               </View>
+
+              {!isTablet &&
+                !isPhone && (
+                  <View
+                    style={
+                      styles.contactRail
+                    }
+                  >
+                    <Pressable
+                      onPress={
+                        openEmail
+                      }
+                      style={({
+                        pressed,
+                      }) => [
+                        styles.contactButton,
+
+                        pressed &&
+                          styles.pressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name="mail-outline"
+                        size={27}
+                        color="#07161C"
+                      />
+                    </Pressable>
+
+                    <Pressable
+                      onPress={
+                        openWhatsApp
+                      }
+                      style={({
+                        pressed,
+                      }) => [
+                        styles.contactButton,
+
+                        pressed &&
+                          styles.pressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name="logo-whatsapp"
+                        size={28}
+                        color="#07161C"
+                      />
+                    </Pressable>
+                  </View>
+                )}
             </View>
 
-            {!isTablet && (
-              <View style={styles.contactRail}>
+            {/* MOBILE/TABLET CONTACT */}
+
+            {(isTablet ||
+              isPhone) && (
+              <View
+                style={[
+                  styles.mobileContactRow,
+
+                  isPhone &&
+                    styles.mobileContactRowPhone,
+
+                  isLandscapePhone &&
+                    styles.mobileContactRowLandscapePhone,
+                ]}
+              >
                 <Pressable
                   onPress={openEmail}
-                  style={({ pressed }) => [
-                    styles.contactButton,
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.mobileContactButton,
+
                     pressed &&
                       styles.pressed,
                   ]}
                 >
                   <Ionicons
                     name="mail-outline"
-                    size={27}
-                    color="#07161C"
+                    size={21}
+                    color="#FFFFFF"
                   />
                 </Pressable>
 
                 <Pressable
-                  onPress={openWhatsApp}
-                  style={({ pressed }) => [
-                    styles.contactButton,
+                  onPress={
+                    openWhatsApp
+                  }
+                  style={({
+                    pressed,
+                  }) => [
+                    styles.mobileContactButton,
+
                     pressed &&
                       styles.pressed,
                   ]}
                 >
                   <Ionicons
                     name="logo-whatsapp"
-                    size={28}
-                    color="#07161C"
+                    size={22}
+                    color="#FFFFFF"
                   />
                 </Pressable>
               </View>
             )}
           </View>
-
-          {isTablet && (
-            <View
-              style={[
-                styles.mobileContactRow,
-                isPhone &&
-                  styles.mobileContactRowPhone,
-              ]}
-            >
-              <Pressable
-                onPress={openEmail}
-                style={styles.mobileContactButton}
-              >
-                <Ionicons
-                  name="mail-outline"
-                  size={21}
-                  color="#FFFFFF"
-                />
-              </Pressable>
-
-              <Pressable
-                onPress={openWhatsApp}
-                style={styles.mobileContactButton}
-              >
-                <Ionicons
-                  name="logo-whatsapp"
-                  size={22}
-                  color="#FFFFFF"
-                />
-              </Pressable>
-            </View>
-          )}
-        </View>
+        </ScrollView>
       </ImageBackground>
     </View>
   );
