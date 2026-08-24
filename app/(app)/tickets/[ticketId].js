@@ -22,7 +22,15 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-import { Audio } from "expo-av";
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from "expo-audio";
 import * as DocumentPicker from "expo-document-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 
@@ -91,6 +99,14 @@ export default function TicketThread() {
   const router = useRouter();
   const { user } = useAuth();
   const { width } = useWindowDimensions();
+  const audioRecorder = useAudioRecorder(
+    RecordingPresets.HIGH_QUALITY
+  );
+
+  const recorderState = useAudioRecorderState(
+    audioRecorder,
+    250
+  );
 
   const isDesktop = width >= DESKTOP_BREAKPOINT;
 
@@ -108,7 +124,7 @@ export default function TicketThread() {
 
   const [attachment, setAttachment] = useState(null);
 
-  const [recording, setRecording] = useState(null);
+  const [recording, setRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
 
   const [typingUsers, setTypingUsers] = useState({});
@@ -357,14 +373,23 @@ export default function TicketThread() {
   }, [messages, typingUsers]);
 
   useEffect(() => {
-    return () => {
-      if (recording) {
-        recording
-          .stopAndUnloadAsync()
-          .catch(() => {});
-      }
-    };
-  }, [recording]);
+  if (recording) {
+    setRecordingDuration(
+      recorderState.durationMillis || 0
+    );
+  }
+}, [
+  recording,
+  recorderState.durationMillis,
+]);
+
+useEffect(() => {
+  return () => {
+    if (audioRecorder.isRecording) {
+      audioRecorder.stop().catch(() => {});
+    }
+  };
+}, [audioRecorder]);
 
   const studentName =
     ticket?.createdBy?.name || "Student";
@@ -530,7 +555,7 @@ export default function TicketThread() {
       setError("");
 
       const permission =
-        await Audio.requestPermissionsAsync();
+        await requestRecordingPermissionsAsync();
 
       if (!permission.granted) {
         Alert.alert(
@@ -540,26 +565,16 @@ export default function TicketThread() {
         return;
       }
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
       });
 
-      const created =
-        await Audio.Recording.createAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY,
-          (status) => {
-            if (status.isRecording) {
-              setRecordingDuration(
-                status.durationMillis || 0
-              );
-            }
-          },
-          250
-        );
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
 
       setAttachment(null);
-      setRecording(created.recording);
+      setRecording(true);
       setRecordingDuration(0);
     } catch (err) {
       setError(
@@ -576,24 +591,25 @@ export default function TicketThread() {
       return;
     }
 
-    const currentRecording = recording;
-    const duration = recordingDuration;
-
-    setRecording(null);
-    setRecordingDuration(0);
+    const duration =
+      recorderState.durationMillis ||
+      recordingDuration;
 
     try {
-      await currentRecording.stopAndUnloadAsync();
+      await audioRecorder.stop();
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
+      await setAudioModeAsync({
+        allowsRecording: false,
       });
+
+      const uri = audioRecorder.uri;
+
+      setRecording(false);
+      setRecordingDuration(0);
 
       if (discard) {
         return;
       }
-
-      const uri = currentRecording.getURI();
 
       if (!uri) {
         throw new Error(
@@ -610,6 +626,9 @@ export default function TicketThread() {
         audioDuration: duration,
       });
     } catch (err) {
+      setRecording(false);
+      setRecordingDuration(0);
+
       setError(
         err.message ||
           "Couldn't finish voice recording."
@@ -1359,67 +1378,45 @@ function MessageAttachment({ message }) {
 }
 
 function AudioMessage({ uri, duration }) {
-  const soundRef = useRef(null);
+  const player = useAudioPlayer(uri);
+  const status = useAudioPlayerStatus(player);
 
-  const [playing, setPlaying] = useState(false);
-  const [position, setPosition] = useState(0);
+  const playing = Boolean(status.playing);
 
-  useEffect(() => {
-    return () => {
-      soundRef.current
-        ?.unloadAsync()
-        .catch(() => {});
-    };
-  }, []);
+  const position = Math.max(
+    0,
+    Number(status.currentTime || 0) * 1000
+  );
+
+  const total =
+    Number(status.duration || 0) > 0
+      ? Number(status.duration) * 1000
+      : Number(duration || 0);
 
   async function togglePlayback() {
     try {
-      if (!soundRef.current) {
-        const created =
-          await Audio.Sound.createAsync(
-            { uri },
-            { shouldPlay: true },
-            (status) => {
-              if (!status.isLoaded) return;
-
-              setPlaying(status.isPlaying);
-              setPosition(
-                status.positionMillis || 0
-              );
-
-              if (status.didJustFinish) {
-                setPlaying(false);
-                setPosition(0);
-              }
-            }
-          );
-
-        soundRef.current = created.sound;
-        setPlaying(true);
+      if (!status.isLoaded) {
         return;
       }
 
-      const status =
-        await soundRef.current.getStatusAsync();
-
-      if (!status.isLoaded) return;
-
-      if (status.isPlaying) {
-        await soundRef.current.pauseAsync();
-      } else if (status.didJustFinish) {
-        await soundRef.current.replayAsync();
-      } else {
-        await soundRef.current.playAsync();
+      if (status.playing) {
+        player.pause();
+        return;
       }
+
+      if (
+        status.didJustFinish ||
+        (status.duration > 0 &&
+          status.currentTime >= status.duration)
+      ) {
+        await player.seekTo(0);
+      }
+
+      player.play();
     } catch {
       openExternalFile(uri);
     }
   }
-
-  const total =
-    duration && duration > 0
-      ? duration
-      : 0;
 
   return (
     <View style={styles.audioCard}>
@@ -1427,13 +1424,23 @@ function AudioMessage({ uri, duration }) {
         onPress={togglePlayback}
         style={styles.audioPlayButton}
       >
-        <Ionicons
-          name={
-            playing ? "pause" : "play"
-          }
-          size={21}
-          color={colors.white}
-        />
+        {status.isBuffering ||
+        !status.isLoaded ? (
+          <ActivityIndicator
+            size="small"
+            color={colors.white}
+          />
+        ) : (
+          <Ionicons
+            name={
+              playing
+                ? "pause"
+                : "play"
+            }
+            size={21}
+            color={colors.white}
+          />
+        )}
       </Pressable>
 
       <View style={styles.audioContent}>

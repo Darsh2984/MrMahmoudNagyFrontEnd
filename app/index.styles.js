@@ -184,6 +184,36 @@ export const styles = StyleSheet.create({
     backgroundColor: "#09C9F3",
   },
 
+  authActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  registerButton: {
+    minHeight: 42,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    backgroundColor: "#09C8EE",
+  },
+
+  registerButtonPhone: {
+    minHeight: 38,
+    paddingHorizontal: 13,
+  },
+
+  registerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  registerButtonTextPhone: {
+    fontSize: 12,
+  },
+
   loginButton: {
     minHeight: 42,
     flexDirection: "row",
@@ -209,7 +239,7 @@ export const styles = StyleSheet.create({
   },
 
   loginButtonTextPhone: {
-    fontSize: 13,
+    fontSize: 12,
   },
 
   compactNav: {

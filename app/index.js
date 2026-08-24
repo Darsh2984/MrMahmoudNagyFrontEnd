@@ -80,6 +80,10 @@ export default function Index() {
     router.push("/(auth)/login");
   }
 
+  function goToRegister() {
+    router.push("/register");
+  }
+
   async function openWhatsApp() {
     try {
       await Linking.openURL(WHATSAPP_URL);
@@ -236,34 +240,57 @@ export default function Index() {
               </View>
             )}
 
-            <Pressable
-              onPress={goToLogin}
-              style={({ pressed }) => [
-                styles.loginButton,
-                isPhone &&
-                  styles.loginButtonPhone,
-                pressed &&
-                  styles.pressed,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.loginButtonText,
+            <View style={styles.authActions}>
+              <Pressable
+                onPress={goToRegister}
+                style={({ pressed }) => [
+                  styles.registerButton,
                   isPhone &&
-                    styles.loginButtonTextPhone,
+                    styles.registerButtonPhone,
+                  pressed &&
+                    styles.pressed,
                 ]}
               >
-                Login
-              </Text>
+                <Text
+                  style={[
+                    styles.registerButtonText,
+                    isPhone &&
+                      styles.registerButtonTextPhone,
+                  ]}
+                >
+                  Register
+                </Text>
+              </Pressable>
 
-              {!isPhone && (
-                <Ionicons
-                  name="arrow-forward"
-                  size={16}
-                  color="#FFFFFF"
-                />
-              )}
-            </Pressable>
+              <Pressable
+                onPress={goToLogin}
+                style={({ pressed }) => [
+                  styles.loginButton,
+                  isPhone &&
+                    styles.loginButtonPhone,
+                  pressed &&
+                    styles.pressed,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.loginButtonText,
+                    isPhone &&
+                      styles.loginButtonTextPhone,
+                  ]}
+                >
+                  Login
+                </Text>
+
+                {!isPhone && (
+                  <Ionicons
+                    name="arrow-forward"
+                    size={16}
+                    color="#FFFFFF"
+                  />
+                )}
+              </Pressable>
+            </View>
           </View>
 
           {/* TABLET / MOBILE NAV */}

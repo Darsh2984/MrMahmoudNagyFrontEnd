@@ -208,9 +208,11 @@ export default function Register() {
 
   function validateForm() {
     const name = form.name.trim();
+
     const email = form.email
       .trim()
       .toLowerCase();
+
     const password = form.password;
 
     if (!name) {
@@ -225,16 +227,21 @@ export default function Register() {
       return "Enter a valid email address.";
     }
 
-    if (form.studentPhone.trim()) {
-      const studentPhone =
-        buildInternationalPhoneNumber(
-          studentCountry.callingCode,
-          form.studentPhone
-        );
+    /*
+     * Student phone number is mandatory.
+     */
+    if (!form.studentPhone.trim()) {
+      return "Enter the student's phone number.";
+    }
 
-      if (!isPhoneNumberValid(studentPhone)) {
-        return "Enter a valid student phone number.";
-      }
+    const studentPhone =
+      buildInternationalPhoneNumber(
+        studentCountry.callingCode,
+        form.studentPhone
+      );
+
+    if (!isPhoneNumberValid(studentPhone)) {
+      return "Enter a valid student phone number.";
     }
 
     if (!schoolId) {
@@ -325,17 +332,21 @@ export default function Register() {
 
       const payload = {
         name: form.name.trim(),
+
         email: form.email
           .trim()
           .toLowerCase(),
+
         password: form.password,
 
-        studentPhone: form.studentPhone.trim()
-          ? normalizePhoneNumber(
-              studentCountry.callingCode,
-              form.studentPhone
-            )
-          : undefined,
+        /*
+         * Student phone is always included because
+         * it is now mandatory.
+         */
+        studentPhone: normalizePhoneNumber(
+          studentCountry.callingCode,
+          form.studentPhone
+        ),
 
         schoolId,
 
@@ -523,7 +534,6 @@ export default function Register() {
 
             <InternationalPhoneField
               label="Phone number"
-              optional
               value={form.studentPhone}
               onChangeText={(value) =>
                 updateField(
@@ -940,6 +950,7 @@ function InternationalPhoneField({
 }) {
   const [pickerVisible, setPickerVisible] =
     useState(false);
+
   const [search, setSearch] = useState("");
 
   const selectedCountry = useMemo(
@@ -1514,8 +1525,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     color: colors.textPrimary,
+
     ...(Platform.OS === "web"
-      ? { outlineStyle: "none" }
+      ? {
+          outlineStyle: "none",
+        }
       : null),
   },
 
@@ -1809,6 +1823,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.lg,
     backgroundColor: colors.white,
+
     ...(Platform.OS === "web"
       ? {
           boxShadow:
@@ -1896,8 +1911,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     color: colors.textPrimary,
+
     ...(Platform.OS === "web"
-      ? { outlineStyle: "none" }
+      ? {
+          outlineStyle: "none",
+        }
       : null),
   },
 

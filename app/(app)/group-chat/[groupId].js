@@ -22,7 +22,15 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-import { Audio } from "expo-av";
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  useAudioRecorderState,
+} from "expo-audio";
 import * as DocumentPicker from "expo-document-picker";
 import {
   useLocalSearchParams,
@@ -338,6 +346,15 @@ export default function GroupChatThread() {
   const { width } =
     useWindowDimensions();
 
+  const audioRecorder = useAudioRecorder(
+    RecordingPresets.HIGH_QUALITY,
+  );
+
+  const recorderState = useAudioRecorderState(
+    audioRecorder,
+    250,
+  );
+
   const isDesktop =
     width >= DESKTOP_BREAKPOINT;
 
@@ -367,7 +384,7 @@ export default function GroupChatThread() {
     useState({});
 
   const [recording, setRecording] =
-    useState(null);
+    useState(false); 
 
   const [
     recordingDuration,
@@ -787,14 +804,23 @@ export default function GroupChatThread() {
   ]);
 
   useEffect(() => {
+  if (recording) {
+    setRecordingDuration(
+      recorderState.durationMillis || 0,
+    );
+  }
+}, [
+  recording,
+  recorderState.durationMillis,
+]);
+
+  useEffect(() => {
     return () => {
-      if (recording) {
-        recording
-          .stopAndUnloadAsync()
-          .catch(() => {});
+      if (audioRecorder.isRecording) {
+        audioRecorder.stop().catch(() => {});
       }
     };
-  }, [recording]);
+  }, [audioRecorder]);
 
   const typingText =
     useMemo(() => {
@@ -970,70 +996,43 @@ export default function GroupChatThread() {
   }
 
   async function startRecording() {
-    if (sending || recording) {
+  if (sending || recording) {
+    return;
+  }
+
+  setError("");
+
+  try {
+    const permission =
+      await requestRecordingPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert(
+        "Microphone permission",
+        "Microphone access is required to record a voice message.",
+      );
+
       return;
     }
 
-    setError("");
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+    });
 
-    try {
-      const permission =
-        await Audio
-          .requestPermissionsAsync();
+    await audioRecorder.prepareToRecordAsync();
+    audioRecorder.record();
 
-      if (!permission.granted) {
-        Alert.alert(
-          "Microphone permission",
-          "Microphone access is required to record a voice message.",
-        );
-
-        return;
-      }
-
-      await Audio
-        .setAudioModeAsync({
-          allowsRecordingIOS:
-            true,
-
-          playsInSilentModeIOS:
-            true,
-        });
-
-      const created =
-        await Audio.Recording
-          .createAsync(
-            Audio
-              .RecordingOptionsPresets
-              .HIGH_QUALITY,
-
-            (status) => {
-              if (
-                status.isRecording
-              ) {
-                setRecordingDuration(
-                  status.durationMillis ||
-                    0,
-                );
-              }
-            },
-
-            250,
-          );
-
-      setAttachment(null);
-
-      setRecording(
-        created.recording,
-      );
-
-      setRecordingDuration(0);
-    } catch (recordingError) {
-      setError(
-        recordingError?.message ||
-          "Couldn't start recording.",
-      );
-    }
+    setAttachment(null);
+    setRecording(true);
+    setRecordingDuration(0);
+  } catch (recordingError) {
+    setError(
+      recordingError?.message ||
+        "Couldn't start recording.",
+    );
   }
+}
 
   async function stopRecording({
     discard = false,
@@ -1042,31 +1041,25 @@ export default function GroupChatThread() {
       return;
     }
 
-    const currentRecording =
-      recording;
-
     const duration =
+      recorderState.durationMillis ||
       recordingDuration;
 
-    setRecording(null);
-    setRecordingDuration(0);
-
     try {
-      await currentRecording
-        .stopAndUnloadAsync();
+      await audioRecorder.stop();
 
-      await Audio
-        .setAudioModeAsync({
-          allowsRecordingIOS:
-            false,
-        });
+      await setAudioModeAsync({
+        allowsRecording: false,
+      });
+
+      const uri = audioRecorder.uri;
+
+      setRecording(false);
+      setRecordingDuration(0);
 
       if (discard) {
         return;
       }
-
-      const uri =
-        currentRecording.getURI();
 
       if (!uri) {
         throw new Error(
@@ -1093,6 +1086,9 @@ export default function GroupChatThread() {
           duration,
       });
     } catch (recordingError) {
+      setRecording(false);
+      setRecordingDuration(0);
+
       setError(
         recordingError?.message ||
           "Couldn't finish the recording.",
@@ -2199,111 +2195,51 @@ function VoiceMessagePlayer({
   duration,
   mine,
 }) {
-  const soundRef =
-    useRef(null);
+  const player = useAudioPlayer(url);
+  const status = useAudioPlayerStatus(player);
 
-  const [playing, setPlaying] =
-    useState(false);
+  const loading =
+    !status.isLoaded ||
+    status.isBuffering;
 
-  const [loading, setLoading] =
-    useState(false);
+  const playing =
+    Boolean(status.playing);
 
-  const [position, setPosition] =
-    useState(0);
+  const position = Math.max(
+    0,
+    Number(status.currentTime || 0) * 1000,
+  );
 
-  const [totalDuration, setTotalDuration] =
-    useState(
-      Number(duration || 0),
-    );
-
-  useEffect(() => {
-    return () => {
-      soundRef.current
-        ?.unloadAsync()
-        .catch(() => {});
-    };
-  }, []);
+  const totalDuration =
+    Number(status.duration || 0) > 0
+      ? Number(status.duration) * 1000
+      : Number(duration || 0);
 
   async function togglePlayback() {
     try {
-      setLoading(true);
-
-      if (!soundRef.current) {
-        const result =
-          await Audio.Sound
-            .createAsync(
-              { uri: url },
-
-              {
-                shouldPlay: true,
-              },
-
-              (status) => {
-                if (
-                  !status.isLoaded
-                ) {
-                  return;
-                }
-
-                setPlaying(
-                  status.isPlaying,
-                );
-
-                setPosition(
-                  status.positionMillis ||
-                    0,
-                );
-
-                setTotalDuration(
-                  status.durationMillis ||
-                    totalDuration,
-                );
-
-                if (
-                  status
-                    .didJustFinish
-                ) {
-                  setPlaying(false);
-                  setPosition(0);
-
-                  soundRef.current
-                    ?.setPositionAsync(
-                      0,
-                    )
-                    .catch(() => {});
-                }
-              },
-            );
-
-        soundRef.current =
-          result.sound;
-
-        setPlaying(true);
-        return;
-      }
-
-      const status =
-        await soundRef.current
-          .getStatusAsync();
-
       if (!status.isLoaded) {
         return;
       }
 
-      if (status.isPlaying) {
-        await soundRef.current
-          .pauseAsync();
-      } else {
-        await soundRef.current
-          .playAsync();
+      if (status.playing) {
+        player.pause();
+        return;
       }
+
+      if (
+        status.didJustFinish ||
+        (status.duration > 0 &&
+          status.currentTime >= status.duration)
+      ) {
+        await player.seekTo(0);
+      }
+
+      player.play();
     } catch {
       Alert.alert(
         "Voice message",
         "This voice message could not be played.",
       );
-    } finally {
-      setLoading(false);
     }
   }
 

@@ -21,7 +21,10 @@ import {
 } from "expo-router";
 
 import { Ionicons } from "@expo/vector-icons";
-import { Video, ResizeMode } from "expo-av";
+import {
+  VideoView,
+  useVideoPlayer,
+} from "expo-video";
 import { WebView } from "react-native-webview";
 
 import { Screen } from "../../../../src/components/layout/Screen";
@@ -149,56 +152,60 @@ export default function ResourceViewer() {
   }, [loadResource]);
 
   useEffect(() => {
-  if (Platform.OS !== "web") {
-    return undefined;
-  }
+    if (Platform.OS !== "web") {
+      return undefined;
+    }
 
-  function preventProtectedActions(event) {
-    const key = event.key?.toLowerCase();
+    function preventProtectedActions(event) {
+      const key = event.key?.toLowerCase();
 
-    const isSave =
-      (event.ctrlKey || event.metaKey) &&
-      key === "s";
+      const isSave =
+        (event.ctrlKey || event.metaKey) &&
+        key === "s";
 
-    const isPrint =
-      (event.ctrlKey || event.metaKey) &&
-      key === "p";
+      const isPrint =
+        (event.ctrlKey || event.metaKey) &&
+        key === "p";
 
-    const isViewSource =
-      (event.ctrlKey || event.metaKey) &&
-      key === "u";
+      const isViewSource =
+        (event.ctrlKey || event.metaKey) &&
+        key === "u";
 
-    if (isSave || isPrint || isViewSource) {
+      if (
+        isSave ||
+        isPrint ||
+        isViewSource
+      ) {
+        event.preventDefault();
+      }
+    }
+
+    function preventContextMenu(event) {
       event.preventDefault();
     }
-  }
 
-  function preventContextMenu(event) {
-    event.preventDefault();
-  }
-
-  document.addEventListener(
-    "keydown",
-    preventProtectedActions
-  );
-
-  document.addEventListener(
-    "contextmenu",
-    preventContextMenu
-  );
-
-  return () => {
-    document.removeEventListener(
+    document.addEventListener(
       "keydown",
       preventProtectedActions
     );
 
-    document.removeEventListener(
+    document.addEventListener(
       "contextmenu",
       preventContextMenu
     );
-  };
-}, []);
+
+    return () => {
+      document.removeEventListener(
+        "keydown",
+        preventProtectedActions
+      );
+
+      document.removeEventListener(
+        "contextmenu",
+        preventContextMenu
+      );
+    };
+  }, []);
 
   const viewerType = getViewerType(
     resource?.contentType,
@@ -234,7 +241,9 @@ export default function ResourceViewer() {
                 color={colors.primary}
               />
 
-              <Text style={styles.backButtonText}>
+              <Text
+                style={styles.backButtonText}
+              >
                 Back
               </Text>
             </Pressable>
@@ -260,7 +269,9 @@ export default function ResourceViewer() {
 
             {resource ? (
               <View style={styles.typeBadge}>
-                <Text style={styles.typeBadgeText}>
+                <Text
+                  style={styles.typeBadgeText}
+                >
                   {viewerType === "pdf"
                     ? "PDF"
                     : viewerType === "image"
@@ -346,39 +357,39 @@ function ResourceContent({
       <View
         style={styles.imageViewer}
         onContextMenu={
-            Platform.OS === "web"
+          Platform.OS === "web"
             ? (event) =>
                 event.preventDefault()
             : undefined
         }
-        >
+      >
         <Image
-            source={{
+          source={{
             uri: resource.url,
-            }}
-            resizeMode="contain"
-            style={styles.image}
-            draggable={false}
+          }}
+          resizeMode="contain"
+          style={styles.image}
+          draggable={false}
         />
 
         <View
-            pointerEvents="none"
-            style={styles.imageProtectionLayer}
+          pointerEvents="none"
+          style={styles.imageProtectionLayer}
         />
-        </View>
+      </View>
     );
   }
 
   if (type === "video") {
     if (Platform.OS === "web") {
-        return (
+      return (
         <View
-            style={styles.videoViewer}
-            onContextMenu={(event) =>
+          style={styles.videoViewer}
+          onContextMenu={(event) =>
             event.preventDefault()
-            }
+          }
         >
-            <video
+          <video
             src={resource.url}
             controls
             controlsList="nodownload noremoteplayback"
@@ -386,57 +397,52 @@ function ResourceContent({
             playsInline
             preload="metadata"
             onContextMenu={(event) =>
-                event.preventDefault()
+              event.preventDefault()
             }
             style={{
-                width: "100%",
-                height: "100%",
-                maxWidth: "100%",
-                maxHeight: "100%",
-                objectFit: "contain",
-                backgroundColor: "#000000",
+              width: "100%",
+              height: "100%",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain",
+              backgroundColor: "#000000",
             }}
-            >
-            Your browser does not support video playback.
-            </video>
+          >
+            Your browser does not support
+            video playback.
+          </video>
         </View>
-        );
+      );
     }
 
     return (
-        <View style={styles.videoViewer}>
-        <Video
-            source={{
-            uri: resource.url,
-            }}
-            useNativeControls
-            shouldPlay={false}
-            resizeMode={ResizeMode.CONTAIN}
-            style={styles.video}
-        />
-        </View>
+      <NativeVideoViewer
+        url={resource.url}
+      />
     );
-    }
+  }
 
   if (type === "pdf") {
     if (Platform.OS === "web") {
       return (
         <View style={styles.webFrameContainer}>
           <iframe
-            src={getProtectedPdfUrl(resource.url)}
+            src={getProtectedPdfUrl(
+              resource.url
+            )}
             title={resource.title || "PDF"}
             draggable={false}
             onContextMenu={(event) =>
-                event.preventDefault()
+              event.preventDefault()
             }
             style={{
-                width: "100%",
-                height: "100%",
-                border: "none",
-                backgroundColor: "#ffffff",
-                userSelect: "none",
+              width: "100%",
+              height: "100%",
+              border: "none",
+              backgroundColor: "#ffffff",
+              userSelect: "none",
             }}
-            />
+          />
         </View>
       );
     }
@@ -467,6 +473,21 @@ function ResourceContent({
     <UnsupportedViewer
       message="This file type cannot currently be displayed inside the platform."
     />
+  );
+}
+
+function NativeVideoViewer({ url }) {
+  const player = useVideoPlayer(url);
+
+  return (
+    <View style={styles.videoViewer}>
+      <VideoView
+        player={player}
+        nativeControls
+        contentFit="contain"
+        style={styles.video}
+      />
+    </View>
   );
 }
 
@@ -577,7 +598,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.md,
     backgroundColor: colors.background,
-    },
+  },
 
   image: {
     width: "100%",
@@ -593,14 +614,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
     backgroundColor: "#000000",
-    },
+  },
 
-    video: {
+  video: {
     width: "100%",
     height: "100%",
     minHeight: 420,
     alignSelf: "center",
-    },
+  },
 
   webFrameContainer: {
     flex: 1,
@@ -662,7 +683,7 @@ const styles = StyleSheet.create({
   },
 
   imageProtectionLayer: {
-  ...StyleSheet.absoluteFillObject,
-  backgroundColor: "transparent",
-},
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "transparent",
+  },
 });
