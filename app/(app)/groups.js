@@ -191,8 +191,15 @@ export default function Groups() {
     setUnassigningAssistantId,
   ] = useState(null);
 
-  const [addingStudentId, setAddingStudentId] =
-    useState(null);
+  const [
+    selectedUnassignedStudentIds,
+    setSelectedUnassignedStudentIds,
+  ] = useState([]);
+
+  const [
+    addingSelectedStudents,
+    setAddingSelectedStudents,
+  ] = useState(false);
 
   const [
     removingStudentId,
@@ -256,6 +263,17 @@ export default function Groups() {
       ),
     [allAssistants, assignedAssistantIds]
   );
+
+  const selectedUnassignedIdSet = useMemo(
+    () =>
+      new Set(
+        selectedUnassignedStudentIds.map(String)
+      ),
+    [selectedUnassignedStudentIds]
+  );
+
+  const selectedUnassignedCount =
+    selectedUnassignedStudentIds.length;
 
   const filteredGroups = useMemo(() => {
     const query = groupSearch
@@ -321,6 +339,9 @@ export default function Groups() {
           .includes(query) ||
         student.school?.name
           ?.toLowerCase()
+          .includes(query) ||
+        student.desiredYear?.name
+          ?.toLowerCase()
           .includes(query)
       );
     });
@@ -354,6 +375,7 @@ export default function Groups() {
       setGroupSearch("");
       setStudentSearch("");
       setUnassignedSearch("");
+      setSelectedUnassignedStudentIds([]);
       setShowAddPicker(false);
       setShowAssistantPicker(false);
       closeStudentEditor();
@@ -452,6 +474,7 @@ export default function Groups() {
       setShowAssistantPicker(false);
       setStudentSearch("");
       setUnassignedSearch("");
+      setSelectedUnassignedStudentIds([]);
       closeStudentEditor();
 
       try {
@@ -818,54 +841,105 @@ export default function Groups() {
     setShowAddPicker(true);
     setShowAssistantPicker(false);
     setUnassignedSearch("");
+    setSelectedUnassignedStudentIds([]);
 
     await loadUnassigned();
   }
 
-  async function handleAddStudent(
-    studentId
+function toggleUnassignedStudent(studentId) {
+  if (!studentId || addingSelectedStudents) {
+    return;
+  }
+
+  setSelectedUnassignedStudentIds(
+    (current) => {
+      const normalizedId = String(studentId);
+
+      if (
+        current.map(String).includes(normalizedId)
+      ) {
+        return current.filter(
+          (id) => String(id) !== normalizedId
+        );
+      }
+
+      return [...current, studentId];
+    }
+  );
+
+  clearError();
+}
+
+function selectAllFilteredUnassigned() {
+  if (
+    addingSelectedStudents ||
+    filteredUnassigned.length === 0
   ) {
+    return;
+  }
+
+  setSelectedUnassignedStudentIds(
+    filteredUnassigned.map(
+      (student) => student.id
+    )
+  );
+
+  clearError();
+}
+
+function clearSelectedUnassigned() {
+  if (addingSelectedStudents) {
+    return;
+  }
+
+  setSelectedUnassignedStudentIds([]);
+}
+
+async function handleAddSelectedStudents() {
     if (
       !selectedGroup?.id ||
-      addingStudentId
+      addingSelectedStudents
     ) {
       return;
     }
 
-    setAddingStudentId(studentId);
+    if (!selectedUnassignedStudentIds.length) {
+      setError(
+        "Select at least one student to add to the group."
+      );
+      return;
+    }
+
+    setAddingSelectedStudents(true);
     setError("");
 
     try {
       await api.post(
         `/groups/${selectedGroup.id}/students`,
         {
-          studentId,
+          studentIds:
+            selectedUnassignedStudentIds,
         }
       );
 
+      setSelectedUnassignedStudentIds([]);
+
       await Promise.all([
-        loadGroupDetail(
-          selectedGroup.id
-        ),
-
-        loadGroupsWithoutReset(
-          selectedYearId
-        ),
-
+        loadGroupDetail(selectedGroup.id),
+        loadGroupsWithoutReset(selectedYearId),
         loadUnassigned(),
       ]);
     } catch (requestError) {
       setError(
         getRequestError(
           requestError,
-          "Couldn't add the student."
+          "Couldn't add the selected students."
         )
       );
     } finally {
-      setAddingStudentId(null);
+      setAddingSelectedStudents(false);
     }
   }
-
   async function handleRemoveStudent(
     studentId
   ) {
@@ -1694,16 +1768,12 @@ export default function Groups() {
 
                     {canManageGroups ? (
                       <Button
-                        title="Add student"
+                        title="Add students"
                         variant="secondary"
-                        onPress={
-                          openAddStudentPicker
-                        }
+                        onPress={openAddStudentPicker}
                         disabled={
                           unassignedLoading ||
-                          Boolean(
-                            addingStudentId
-                          )
+                          addingSelectedStudents
                         }
                       />
                     ) : null}
@@ -2327,206 +2397,264 @@ export default function Groups() {
                   </View>
 
                   {showAddPicker ? (
-                    <View
-                      style={
-                        styles.pickerPanel
-                      }
-                    >
-                      <View
-                        style={
-                          styles.subsectionHeader
-                        }
-                      >
-                        <View
-                          style={
-                            styles.subsectionHeaderText
-                          }
-                        >
-                          <Text
-                            style={
-                              styles.pickerPanelTitle
-                            }
-                          >
-                            Unassigned
-                            students
+                    <View style={styles.pickerPanel}>
+                      <View style={styles.subsectionHeader}>
+                        <View style={styles.subsectionHeaderText}>
+                          <Text style={styles.pickerPanelTitle}>
+                            Unassigned students
                           </Text>
 
-                          <Text
-                            style={
-                              styles.subsectionDescription
-                            }
-                          >
-                            Select a student
-                            to add to
-                            {` ${selectedGroup.name}`}.
+                          <Text style={styles.subsectionDescription}>
+                            Select one or more students to add to{" "}
+                            {selectedGroup.name}. The school and
+                            requested academic year are shown to help
+                            you choose the correct dedicated group.
                           </Text>
                         </View>
 
                         <Pressable
-                          onPress={() =>
-                            setShowAddPicker(
-                              false
-                            )
-                          }
-                          style={({
-                            pressed,
-                          }) => [
+                          onPress={() => {
+                            setShowAddPicker(false);
+                            setSelectedUnassignedStudentIds([]);
+                          }}
+                          disabled={addingSelectedStudents}
+                          style={({ pressed }) => [
                             styles.iconActionButton,
-
                             pressed &&
+                              !addingSelectedStudents &&
                               styles.pressedOpacity,
+                            addingSelectedStudents &&
+                              styles.disabledOpacity,
                           ]}
                         >
                           <MaterialCommunityIcons
                             name="close"
                             size={20}
-                            color={
-                              colors.textPrimary
-                            }
+                            color={colors.textPrimary}
                           />
                         </Pressable>
                       </View>
 
                       {!unassignedLoading &&
-                      unassigned.length >
-                        4 ? (
+                      unassigned.length > 4 ? (
                         <SearchInput
-                          value={
-                            unassignedSearch
-                          }
-                          onChangeText={
-                            setUnassignedSearch
-                          }
-                          placeholder="Search unassigned students"
+                          value={unassignedSearch}
+                          onChangeText={setUnassignedSearch}
+                          placeholder="Search by name, email, school, or academic year"
                         />
+                      ) : null}
+
+                      {!unassignedLoading &&
+                      filteredUnassigned.length > 0 ? (
+                        <View style={styles.unassignedBulkBar}>
+                          <View style={styles.bulkSelectionInfo}>
+                            <Text style={styles.bulkSelectionTitle}>
+                              {selectedUnassignedCount} selected
+                            </Text>
+
+                            <Text style={styles.bulkSelectionText}>
+                              Add selected students to{" "}
+                              {selectedGroup.name}.
+                            </Text>
+                          </View>
+
+                          <View style={styles.bulkActionRow}>
+                            <Pressable
+                              onPress={selectAllFilteredUnassigned}
+                              disabled={addingSelectedStudents}
+                              style={({ pressed }) => [
+                                styles.bulkTextButton,
+                                pressed &&
+                                  !addingSelectedStudents &&
+                                  styles.pressedOpacity,
+                                addingSelectedStudents &&
+                                  styles.disabledOpacity,
+                              ]}
+                            >
+                              <Text style={styles.bulkTextButtonLabel}>
+                                Select all visible
+                              </Text>
+                            </Pressable>
+
+                            {selectedUnassignedCount > 0 ? (
+                              <Pressable
+                                onPress={clearSelectedUnassigned}
+                                disabled={addingSelectedStudents}
+                                style={({ pressed }) => [
+                                  styles.bulkTextButton,
+                                  pressed &&
+                                    !addingSelectedStudents &&
+                                    styles.pressedOpacity,
+                                  addingSelectedStudents &&
+                                    styles.disabledOpacity,
+                                ]}
+                              >
+                                <Text style={styles.bulkTextButtonLabel}>
+                                  Clear
+                                </Text>
+                              </Pressable>
+                            ) : null}
+
+                            <Button
+                              title={
+                                addingSelectedStudents
+                                  ? "Adding..."
+                                  : `Add selected (${selectedUnassignedCount})`
+                              }
+                              variant="secondary"
+                              onPress={handleAddSelectedStudents}
+                              loading={addingSelectedStudents}
+                              disabled={
+                                addingSelectedStudents ||
+                                selectedUnassignedCount === 0
+                              }
+                            />
+                          </View>
+                        </View>
                       ) : null}
 
                       {unassignedLoading ? (
                         <LoadingPanel message="Loading students..." />
-                      ) : unassigned.length ===
-                        0 ? (
+                      ) : unassigned.length === 0 ? (
                         <InlineEmpty
                           icon="account-check-outline"
                           text="There are no unassigned students."
                         />
-                      ) : filteredUnassigned.length ===
-                        0 ? (
+                      ) : filteredUnassigned.length === 0 ? (
                         <InlineEmpty
                           icon="magnify"
                           text="No students match your search."
                         />
                       ) : (
-                        <View
-                          style={
-                            styles.unassignedList
-                          }
-                        >
-                          {filteredUnassigned.map(
-                            (
-                              student
-                            ) => {
-                              const adding =
-                                addingStudentId ===
-                                student.id;
+                        <View style={styles.unassignedList}>
+                          {filteredUnassigned.map((student) => {
+                            const selected =
+                              selectedUnassignedIdSet.has(
+                                String(student.id)
+                              );
 
-                              return (
-                                <Pressable
-                                  key={
+                            return (
+                              <Pressable
+                                key={student.id}
+                                disabled={addingSelectedStudents}
+                                onPress={() =>
+                                  toggleUnassignedStudent(
                                     student.id
-                                  }
-                                  disabled={Boolean(
-                                    addingStudentId
-                                  )}
-                                  onPress={() =>
-                                    handleAddStudent(
-                                      student.id
-                                    )
-                                  }
-                                  style={({
-                                    pressed,
-                                  }) => [
-                                    styles.unassignedRow,
-
-                                    pressed &&
-                                      styles.pressedOpacity,
-
-                                    adding &&
-                                      styles.disabledOpacity,
+                                  )
+                                }
+                                style={({ pressed }) => [
+                                  styles.unassignedRow,
+                                  selected &&
+                                    styles.unassignedRowSelected,
+                                  pressed &&
+                                    !addingSelectedStudents &&
+                                    styles.pressedOpacity,
+                                  addingSelectedStudents &&
+                                    styles.disabledOpacity,
+                                ]}
+                              >
+                                <View
+                                  style={[
+                                    styles.studentCheckbox,
+                                    selected &&
+                                      styles.studentCheckboxSelected,
                                   ]}
                                 >
-                                  <Avatar
-                                    name={
-                                      student.name
-                                    }
-                                  />
+                                  {selected ? (
+                                    <MaterialCommunityIcons
+                                      name="check"
+                                      size={15}
+                                      color={colors.white}
+                                    />
+                                  ) : null}
+                                </View>
 
-                                  <View
-                                    style={
-                                      styles.unassignedInfo
-                                    }
+                                <Avatar name={student.name} />
+
+                                <View style={styles.unassignedInfo}>
+                                  <Text
+                                    numberOfLines={1}
+                                    style={styles.unassignedName}
                                   >
-                                    <Text
-                                      numberOfLines={
-                                        1
-                                      }
-                                      style={
-                                        styles.unassignedName
-                                      }
-                                    >
-                                      {
-                                        student.name
-                                      }
-                                    </Text>
+                                    {student.name}
+                                  </Text>
+
+                                  <View style={styles.unassignedMetaRow}>
+                                    <MaterialCommunityIcons
+                                      name="office-building-outline"
+                                      size={14}
+                                      color={colors.textMuted}
+                                    />
 
                                     <Text
-                                      numberOfLines={
-                                        1
-                                      }
-                                      style={
-                                        styles.unassignedSchool
-                                      }
+                                      numberOfLines={1}
+                                      style={styles.unassignedMetaText}
                                     >
-                                      {student
-                                        .school
-                                        ?.name ||
+                                      {student.school?.name ||
                                         "No school selected"}
                                     </Text>
                                   </View>
 
-                                  {adding ? (
-                                    <ActivityIndicator
-                                      size="small"
+                                  <View style={styles.unassignedMetaRow}>
+                                    <MaterialCommunityIcons
+                                      name="calendar-text-outline"
+                                      size={14}
                                       color={
-                                        colors.primary
+                                        student.desiredYear?.name
+                                          ? colors.primary
+                                          : colors.textMuted
                                       }
                                     />
-                                  ) : (
-                                    <View
-                                      style={
-                                        styles.addStudentAction
-                                      }
-                                    >
-                                      <MaterialCommunityIcons
-                                        name="plus"
-                                        size={16}
-                                        color={
-                                          colors.primary
-                                        }
-                                      />
 
-                                      <Text
-                                        style={
-                                          styles.addStudentLabel
-                                        }
-                                      >
-                                        Add
-                                      </Text>
-                                    </View>
-                                  )}
-                                </Pressable>
-                              );
-                            }
-                          )}
+                                    <Text
+                                      numberOfLines={1}
+                                      style={[
+                                        styles.unassignedMetaText,
+                                        student.desiredYear?.name &&
+                                          styles.unassignedDesiredYearText,
+                                      ]}
+                                    >
+                                      Wanted academic year:{" "}
+                                      {student.desiredYear?.name ||
+                                        "Not selected"}
+                                    </Text>
+                                  </View>
+                                </View>
+
+                                <View
+                                  style={[
+                                    styles.addStudentAction,
+                                    selected &&
+                                      styles.addStudentActionSelected,
+                                  ]}
+                                >
+                                  <MaterialCommunityIcons
+                                    name={
+                                      selected
+                                        ? "check-circle-outline"
+                                        : "plus"
+                                    }
+                                    size={16}
+                                    color={
+                                      selected
+                                        ? colors.white
+                                        : colors.primary
+                                    }
+                                  />
+
+                                  <Text
+                                    style={[
+                                      styles.addStudentLabel,
+                                      selected &&
+                                        styles.addStudentLabelSelected,
+                                    ]}
+                                  >
+                                    {selected ? "Selected" : "Select"}
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            );
+                          })}
                         </View>
                       )}
                     </View>
@@ -2718,6 +2846,23 @@ export default function Groups() {
                                             .school
                                             .name
                                         }
+                                      </Text>
+                                    </View>
+                                  ) : null}
+                                  {student.desiredYear?.name ? (
+                                    <View style={styles.studentMetaRow}>
+                                      <MaterialCommunityIcons
+                                        name="calendar-text-outline"
+                                        size={14}
+                                        color={colors.textMuted}
+                                      />
+
+                                      <Text
+                                        numberOfLines={1}
+                                        style={styles.studentMeta}
+                                      >
+                                        Wanted year:{" "}
+                                        {student.desiredYear.name}
                                       </Text>
                                     </View>
                                   ) : null}

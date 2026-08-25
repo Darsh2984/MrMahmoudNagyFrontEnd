@@ -944,6 +944,63 @@ export const styles =
       marginTop: spacing.sm,
     },
 
+    unassignedBulkBar: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+      marginTop: spacing.md,
+      marginBottom: spacing.sm,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: `${colors.primary}25`,
+      borderRadius: radius.md,
+      backgroundColor: `${colors.primary}08`,
+    },
+
+    bulkSelectionInfo: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 220,
+      minWidth: 0,
+    },
+
+    bulkSelectionTitle: {
+      ...typography.bodyBold,
+      color: colors.textPrimary,
+      marginBottom: 2,
+    },
+
+    bulkSelectionText: {
+      ...typography.caption,
+      color: colors.textMuted,
+      lineHeight: 18,
+    },
+
+    bulkActionRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: spacing.xs,
+    },
+
+    bulkTextButton: {
+      minHeight: 38,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor: colors.white,
+    },
+
+    bulkTextButtonLabel: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.primary,
+    },
+
     unassignedRow: {
       minHeight: 62,
       flexDirection: "row",
@@ -955,6 +1012,26 @@ export const styles =
       borderRadius: radius.md,
       backgroundColor:
         colors.white,
+    },
+    unassignedRowSelected: {
+      borderColor: colors.primary,
+      backgroundColor: `${colors.primary}0D`,
+    },
+
+    studentCheckbox: {
+      width: 24,
+      height: 24,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 2,
+      borderColor: colors.border,
+      borderRadius: 7,
+      backgroundColor: colors.white,
+    },
+
+    studentCheckboxSelected: {
+      borderColor: colors.primary,
+      backgroundColor: colors.primary,
     },
 
     unassignedInfo: {
@@ -973,6 +1050,24 @@ export const styles =
       marginTop: 2,
     },
 
+    unassignedMetaRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      marginTop: 3,
+    },
+
+    unassignedMetaText: {
+      ...typography.caption,
+      flexShrink: 1,
+      color: colors.textMuted,
+    },
+
+    unassignedDesiredYearText: {
+      color: colors.primary,
+      fontWeight: "700",
+    },
+
     addStudentAction: {
       flexDirection: "row",
       alignItems: "center",
@@ -985,10 +1080,18 @@ export const styles =
         `${colors.primary}0D`,
     },
 
+    addStudentActionSelected: {
+      backgroundColor: colors.primary,
+    },
+
     addStudentLabel: {
       fontSize: 12,
       fontWeight: "700",
       color: colors.primary,
+    },
+
+    addStudentLabelSelected: {
+      color: colors.white,
     },
 
     studentsHeader: {

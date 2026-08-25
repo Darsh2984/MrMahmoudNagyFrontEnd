@@ -40,6 +40,8 @@ const INITIAL_FORM = {
   studentPhone: "",
 };
 
+const OTHER_SCHOOL_ID = "__OTHER_SCHOOL__";
+
 const DEFAULT_COUNTRY = {
   countryCode: "EG",
   callingCode: "20",
@@ -59,6 +61,8 @@ const PARENT_MODES = [
     label: "Both parents",
   },
 ];
+
+
 
 const COUNTRIES = countriesData
   .flatMap((country) => {
@@ -107,6 +111,8 @@ export default function Register() {
 
   const [schools, setSchools] = useState([]);
   const [schoolId, setSchoolId] = useState(null);
+  const [otherSchoolName, setOtherSchoolName] =
+    useState("");
   const [schoolsLoading, setSchoolsLoading] =
     useState(true);
   const [schoolsError, setSchoolsError] =
@@ -230,6 +236,16 @@ export default function Register() {
 
   function selectSchool(selectedSchoolId) {
     setSchoolId(selectedSchoolId);
+
+    if (selectedSchoolId !== OTHER_SCHOOL_ID) {
+      setOtherSchoolName("");
+    }
+
+    clearError();
+  }
+
+  function updateOtherSchoolName(value) {
+    setOtherSchoolName(value);
     clearError();
   }
 
@@ -284,6 +300,15 @@ export default function Register() {
     if (!schoolId) {
       return "Select your school.";
     }
+
+    if (
+      schoolId === OTHER_SCHOOL_ID &&
+      !otherSchoolName.trim()
+    ) {
+      return "Enter your school name.";
+    }
+
+
 
     if (!desiredYearId) {
       return "Select your academic year.";
@@ -393,8 +418,18 @@ export default function Register() {
           form.studentPhone
         ),
 
-        schoolId,
-        desiredYearId,
+        schoolId:
+        schoolId === OTHER_SCHOOL_ID
+          ? undefined
+          : schoolId,
+
+      otherSchoolName:
+        schoolId === OTHER_SCHOOL_ID
+          ? otherSchoolName.trim()
+          : undefined,
+
+      desiredYearId,
+
 
         fatherName: includeFather
           ? fatherName.trim()
@@ -602,9 +637,11 @@ export default function Register() {
             <SchoolSelector
               schools={schools}
               selectedSchoolId={schoolId}
+              otherSchoolName={otherSchoolName}
               loading={schoolsLoading}
               error={schoolsError}
               onSelect={selectSchool}
+              onChangeOtherSchoolName={updateOtherSchoolName}
             />
             <YearSelector
               years={years}
@@ -862,11 +899,12 @@ function SectionHeader({
 function SchoolSelector({
   schools,
   selectedSchoolId,
+  otherSchoolName,
   loading,
   error,
   onSelect,
-}) {
-  return (
+  onChangeOtherSchoolName,
+}) {  return (
     <View style={styles.schoolSection}>
       <View style={styles.fieldLabelRow}>
         <Text style={styles.fieldLabel}>
@@ -916,27 +954,21 @@ function SchoolSelector({
       ) : null}
 
       {!loading &&
-      !error &&
-      schools.length === 0 ? (
-        <View style={styles.schoolError}>
-          <Text
-            style={styles.schoolErrorTitle}
-          >
-            No schools are available
-          </Text>
+        !error &&
+        schools.length === 0 ? (
+          <View style={styles.schoolError}>
+            <Text style={styles.schoolErrorTitle}>
+              No schools are available
+            </Text>
 
-          <Text
-            style={styles.schoolErrorText}
-          >
-            Registration cannot continue until a
-            school has been added.
-          </Text>
-        </View>
-      ) : null}
+            <Text style={styles.schoolErrorText}>
+              Select Other below and enter your school
+              name manually.
+            </Text>
+          </View>
+        ) : null}
 
-      {!loading &&
-      !error &&
-      schools.length > 0 ? (
+      {!loading && !error ? (
         <View
           accessibilityRole="radiogroup"
           style={styles.selectionOptions}
@@ -990,6 +1022,65 @@ function SchoolSelector({
               </Pressable>
             );
           })}
+          <Pressable
+            key={OTHER_SCHOOL_ID}
+            accessibilityRole="radio"
+            accessibilityState={{
+              selected:
+                selectedSchoolId === OTHER_SCHOOL_ID,
+            }}
+            onPress={() =>
+              onSelect(OTHER_SCHOOL_ID)
+            }
+            style={({ pressed }) => [
+              styles.selectionOption,
+              selectedSchoolId === OTHER_SCHOOL_ID &&
+                styles.selectionOptionSelected,
+              pressed &&
+                styles.selectionOptionPressed,
+            ]}
+          >
+            <View
+              style={[
+                styles.radio,
+                selectedSchoolId === OTHER_SCHOOL_ID &&
+                  styles.radioSelected,
+              ]}
+            >
+              {selectedSchoolId === OTHER_SCHOOL_ID ? (
+                <View style={styles.radioDot} />
+              ) : null}
+            </View>
+
+            <Text
+              numberOfLines={2}
+              style={[
+                styles.selectionOptionText,
+                selectedSchoolId === OTHER_SCHOOL_ID &&
+                  styles.selectionOptionTextSelected,
+              ]}
+            >
+              Other school
+            </Text>
+          </Pressable>
+
+          {selectedSchoolId === OTHER_SCHOOL_ID ? (
+            <View style={styles.otherSchoolBox}>
+              <Input
+                label="School name"
+                value={otherSchoolName}
+                onChangeText={onChangeOtherSchoolName}
+                placeholder="Enter your school name"
+                autoCapitalize="words"
+                returnKeyType="next"
+              />
+
+              <Text style={styles.fieldHelpText}>
+                If your school is not listed, write its
+                name here and the team will review it.
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
     </View>
@@ -1531,6 +1622,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xl,
+  },
+
+  otherSchoolBox: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: `${colors.primary}25`,
+    borderRadius: radius.md,
+    backgroundColor: `${colors.primary}08`,
   },
 
   registerContainer: {
