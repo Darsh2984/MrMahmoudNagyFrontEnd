@@ -256,6 +256,10 @@ export default function Register() {
       return "Password must contain at least 6 characters.";
     }
 
+    if (!parentMode) {
+      return "Select at least one parent: Father, Mother, or Both.";
+    }
+
     if (
       parentMode === "FATHER" ||
       parentMode === "BOTH"
@@ -591,8 +595,12 @@ export default function Register() {
             <SectionHeader
               number="2"
               title="Parent information"
-              description="Add a parent contact so a teacher or assistant can confirm the information when necessary."
+              description="At least one parent is required. Select Father, Mother, or Both and provide the required contact information."
             />
+
+            <Text style={styles.parentRequirement}>
+              At least one parent is required
+            </Text>
           </View>
 
           <View
@@ -611,11 +619,7 @@ export default function Register() {
                     selected,
                   }}
                   onPress={() =>
-                    selectParentMode(
-                      selected
-                        ? null
-                        : mode.key
-                    )
+                    selectParentMode(mode.key)
                   }
                   style={({ pressed }) => [
                     styles.selectionOption,
@@ -1660,6 +1664,13 @@ const styles = StyleSheet.create({
     color: colors.danger,
     padding: spacing.sm,
     lineHeight: 20,
+  },
+
+  parentRequirement: {
+    ...typography.caption,
+    color: colors.danger,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
   },
 
   registerButton: {
