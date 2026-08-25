@@ -4,9 +4,9 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -17,33 +17,24 @@ import { colors } from "../../../../src/theme";
 
 import {
   formatGradeValue,
-  getGradingActionConfig,
 } from "./taskDetail.helpers";
 
 import { styles } from "./modal.styles";
 
-function formatDateTime(value) {
-  if (!value) {
-    return "Unknown date";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "Unknown date";
-  }
-
-  return date.toLocaleString();
-}
-
-export function GradingHistoryModal({
+export function ReopenSubmissionModal({
   submission,
-  history,
-  loading,
-  error,
   gradeOutOf,
+  reason,
+  loading,
+  onChangeReason,
+  onConfirm,
   onClose,
 }) {
+  const currentGrade = formatGradeValue(
+    submission?.grade,
+    gradeOutOf
+  );
+
   return (
     <Modal
       visible={Boolean(submission)}
@@ -54,27 +45,28 @@ export function GradingHistoryModal({
       <View style={styles.modalBackdrop}>
         <Pressable
           style={StyleSheet.absoluteFill}
+          disabled={loading}
           onPress={onClose}
         />
 
-        <View style={styles.historyModalCard}>
+        <View style={styles.reopenModalCard}>
           <View style={styles.modalHeader}>
-            <View style={styles.modalIcon}>
+            <View style={styles.reopenModalIcon}>
               <Ionicons
-                name="time-outline"
+                name="refresh-outline"
                 size={24}
-                color={colors.primary}
+                color={colors.warning}
               />
             </View>
 
             <View style={styles.modalHeadingCopy}>
               <Text style={styles.modalTitle}>
-                Grading history
+                Reopen grading
               </Text>
 
               <Text style={styles.mutedText}>
-                {submission?.student?.name ||
-                  "Student"}
+                Clear the visible grade and return this
+                submission to pending grading.
               </Text>
             </View>
 
@@ -99,236 +91,91 @@ export function GradingHistoryModal({
             </Pressable>
           </View>
 
-          {loading ? (
-            <View style={styles.historyLoading}>
-              <ActivityIndicator
-                size="large"
+          <View style={styles.reopenSummary}>
+            <View style={styles.reopenSummaryIcon}>
+              <Ionicons
+                name="document-text-outline"
+                size={21}
                 color={colors.primary}
               />
+            </View>
 
-              <Text style={styles.loadingText}>
-                Loading grading history...
+            <View style={styles.reopenSummaryCopy}>
+              <Text
+                numberOfLines={1}
+                style={styles.reopenStudentName}
+              >
+                {submission?.student?.name || "Student"}
+              </Text>
+
+              <Text style={styles.reopenCurrentGrade}>
+                Current grade: {currentGrade}
               </Text>
             </View>
-          ) : error ? (
-            <View style={styles.modalState}>
-              <Ionicons
-                name="alert-circle-outline"
-                size={34}
-                color={colors.danger}
-              />
+          </View>
 
-              <Text style={styles.modalErrorTitle}>
-                Couldn't load history
-              </Text>
+          <View style={styles.reopenWarning}>
+            <Ionicons
+              name="warning-outline"
+              size={20}
+              color={colors.warning}
+            />
 
-              <Text style={styles.modalEmptyText}>
-                {error}
-              </Text>
-            </View>
-          ) : !history?.length ? (
-            <View style={styles.modalState}>
-              <Ionicons
-                name="time-outline"
-                size={34}
-                color={colors.textMuted}
-              />
+            <Text style={styles.reopenWarningText}>
+              Reopening will remove the visible grade,
+              feedback, grader and grading date from the
+              current submission. The previous grading details
+              will remain available in grading history.
+            </Text>
+          </View>
 
-              <Text style={styles.modalEmptyTitle}>
-                No grading history
-              </Text>
+          <View style={styles.reasonField}>
+            <Text style={styles.formLabel}>
+              Reopen reason
+            </Text>
 
-              <Text style={styles.modalEmptyText}>
-                Grading activity will appear here.
-              </Text>
-            </View>
-          ) : (
-            <ScrollView
-              style={styles.historyList}
-              contentContainerStyle={
-                styles.historyListContent
-              }
-              showsVerticalScrollIndicator={false}
-            >
-              {history.map((entry, index) => {
-                const config =
-                  getGradingActionConfig(
-                    entry.action,
-                  );
+            <TextInput
+              value={reason}
+              onChangeText={onChangeReason}
+              editable={!loading}
+              multiline
+              textAlignVertical="top"
+              placeholder="Explain why this submission is being reopened..."
+              placeholderTextColor={colors.textMuted}
+              style={styles.reopenReasonInput}
+            />
 
-                return (
-                  <View
-                    key={entry.id}
-                    style={styles.historyItem}
-                  >
-                    <View style={styles.historyRail}>
-                      <View
-                        style={[
-                          styles.historyDot,
-                          entry.action ===
-                            "GRADED" &&
-                            styles.historyDotSuccess,
-                          entry.action ===
-                            "REOPENED" &&
-                            styles.historyDotWarning,
-                        ]}
-                      />
-
-                      {index <
-                      history.length - 1 ? (
-                        <View
-                          style={
-                            styles.historyLine
-                          }
-                        />
-                      ) : null}
-                    </View>
-
-                    <View style={styles.historyContent}>
-                      <View
-                        style={
-                          styles.historyEntryHeader
-                        }
-                      >
-                        <View
-                          style={
-                            styles.historyEntryAction
-                          }
-                        >
-                          <Ionicons
-                            name={config.icon}
-                            size={18}
-                            color={colors.primary}
-                          />
-
-                          <Text
-                            style={
-                              styles.historyAction
-                            }
-                          >
-                            {config.label}
-                          </Text>
-                        </View>
-
-                        <Text
-                          style={styles.historyDate}
-                        >
-                          {formatDateTime(
-                            entry.createdAt,
-                          )}
-                        </Text>
-                      </View>
-
-                      <Text style={styles.historyMeta}>
-                        Changed by{" "}
-                        {entry.changedBy?.name ||
-                          "Unknown user"}
-                      </Text>
-
-                      <View style={styles.gradeChangeRow}>
-                        <View style={styles.gradeChangeBox}>
-                          <Text style={styles.changeLabel}>
-                            Previous
-                          </Text>
-
-                          <Text style={styles.changeValue}>
-                            {formatGradeValue(
-                              entry.previousGrade,
-                              gradeOutOf,
-                            )}
-                          </Text>
-                        </View>
-
-                        <Ionicons
-                          name="arrow-forward"
-                          size={18}
-                          color={colors.textMuted}
-                        />
-
-                        <View style={styles.gradeChangeBox}>
-                          <Text style={styles.changeLabel}>
-                            New
-                          </Text>
-
-                          <Text style={styles.changeValue}>
-                            {formatGradeValue(
-                              entry.newGrade,
-                              gradeOutOf,
-                            )}
-                          </Text>
-                        </View>
-                      </View>
-
-                      {entry.previousComments ||
-                      entry.newComments ? (
-                        <View
-                          style={
-                            styles.commentChangeBox
-                          }
-                        >
-                          <Text style={styles.changeLabel}>
-                            Feedback change
-                          </Text>
-
-                          <Text
-                            style={
-                              styles.commentChangeText
-                            }
-                          >
-                            {entry.previousComments ||
-                              "No previous feedback"}
-                          </Text>
-
-                          <Ionicons
-                            name="arrow-down"
-                            size={15}
-                            color={colors.textMuted}
-                          />
-
-                          <Text
-                            style={
-                              styles.commentChangeText
-                            }
-                          >
-                            {entry.newComments ||
-                              "No feedback"}
-                          </Text>
-                        </View>
-                      ) : null}
-
-                      {entry.reason ? (
-                        <View style={styles.historyReason}>
-                          <Text
-                            style={
-                              styles.historyReasonLabel
-                            }
-                          >
-                            Reason
-                          </Text>
-
-                          <Text
-                            style={
-                              styles.historyReasonText
-                            }
-                          >
-                            {entry.reason}
-                          </Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          )}
+            <Text style={styles.mutedText}>
+              A reason is required before reopening the
+              submission.
+            </Text>
+          </View>
 
           <View style={styles.modalActions}>
             <Button
-              title="Close"
+              title="Cancel"
               variant="outline"
               disabled={loading}
               onPress={onClose}
             />
+
+            <Button
+              title={
+                loading
+                  ? "Reopening..."
+                  : "Reopen submission"
+              }
+              variant="warning"
+              disabled={loading}
+              onPress={onConfirm}
+            />
+
+            {loading ? (
+              <ActivityIndicator
+                size="small"
+                color={colors.primary}
+              />
+            ) : null}
           </View>
         </View>
       </View>
@@ -336,4 +183,4 @@ export function GradingHistoryModal({
   );
 }
 
-export default GradingHistoryModal;
+export default ReopenSubmissionModal;

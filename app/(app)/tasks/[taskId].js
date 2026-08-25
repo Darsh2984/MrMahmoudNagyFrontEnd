@@ -34,25 +34,11 @@ import {
   useTaskDetail,
 } from "./task-detail/useTaskDetail";
 
-import {
-  SubmissionCard,
-} from "./task-detail/SubmissionCard";
-
-import {
-  DelegationModal,
-} from "./task-detail/DelegationModal";
-
-import {
-  DelegationHistoryModal,
-} from "./task-detail/DelegationHistoryModal";
-
-import {
-  GradingHistoryModal,
-} from "./task-detail/GradingHistoryModal";
-
-import {
-  ReopenSubmissionModal,
-} from "./task-detail/ReopenSubmissionModal";
+import SubmissionCard from "./task-detail/SubmissionCard";
+import DelegationModal from "./task-detail/DelegationModal";
+import DelegationHistoryModal from "./task-detail/DelegationHistoryModal";
+import GradingHistoryModal from "./task-detail/GradingHistoryModal";
+import ReopenSubmissionModal from "./task-detail/ReopenSubmissionModal";
 
 import {
   styles,

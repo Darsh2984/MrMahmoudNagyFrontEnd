@@ -7,7 +7,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 
@@ -17,82 +16,65 @@ import { Button } from "../../../../src/components/ui/Button";
 import { colors } from "../../../../src/theme";
 
 import {
-  getInitials,
+  getDelegationActionConfig,
 } from "./taskDetail.helpers";
 
 import { styles } from "./modal.styles";
 
-export function DelegationModal({
-  visible,
-  mode,
-  selectedSubmission,
-  selectedSubmissions,
-  selectedDelegation,
-  assistants,
-  assistantSearch,
-  reason,
+function formatDateTime(value) {
+  if (!value) {
+    return "Unknown date";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown date";
+  }
+
+  return date.toLocaleString();
+}
+
+function DelegationHistoryModal({
+  submission,
+  history,
+  loading,
   error,
-  busyId,
-  getAssistantGroupNames,
-  onChangeSearch,
-  onChangeReason,
-  onSelectAssistant,
   onClose,
 }) {
-  const isBulk =
-    mode === "BULK_ASSIGN";
+  const isVisible = Boolean(submission);
 
-  const isReassign =
-    mode === "REASSIGN";
+  const safeHistory = Array.isArray(history)
+    ? history
+    : [];
 
-  const modalTitle = isBulk
-    ? "Delegate selected submissions"
-    : isReassign
-      ? "Reassign submission"
-      : "Delegate submission";
-
-  const modalDescription = isBulk
-    ? `Assign ${selectedSubmissions?.length || 0} selected submissions to one eligible assistant.`
-    : isReassign
-      ? `Move ${
-          selectedSubmission?.student?.name ||
-          "this student's"
-        } submission to another eligible assistant.`
-      : `Assign ${
-          selectedSubmission?.student?.name ||
-          "this student"
-        } to an eligible assistant for grading.`;
-
-  function selectAssistant(assistantId) {
-    if (busyId) {
+  function handleClose() {
+    if (loading) {
       return;
     }
 
-    onSelectAssistant(assistantId);
+    onClose?.();
   }
 
   return (
     <Modal
-      visible={Boolean(visible)}
+      visible={isVisible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.modalBackdrop}>
         <Pressable
           style={StyleSheet.absoluteFill}
-          onPress={onClose}
+          disabled={loading}
+          onPress={handleClose}
         />
 
-        <View style={styles.modalCard}>
+        <View style={styles.historyModalCard}>
           <View style={styles.modalHeader}>
             <View style={styles.modalIcon}>
               <Ionicons
-                name={
-                  isReassign
-                    ? "swap-horizontal-outline"
-                    : "person-add-outline"
-                }
+                name="git-network-outline"
                 size={24}
                 color={colors.primary}
               />
@@ -100,24 +82,24 @@ export function DelegationModal({
 
             <View style={styles.modalHeadingCopy}>
               <Text style={styles.modalTitle}>
-                {modalTitle}
+                Delegation history
               </Text>
 
               <Text style={styles.mutedText}>
-                {modalDescription}
+                {submission?.student?.name || "Student"}
               </Text>
             </View>
 
             <Pressable
-              accessibilityLabel="Close"
-              disabled={Boolean(busyId)}
-              onPress={onClose}
+              accessibilityLabel="Close delegation history"
+              disabled={loading}
+              onPress={handleClose}
               style={({ pressed }) => [
                 styles.modalClose,
                 pressed &&
-                  !busyId &&
+                  !loading &&
                   styles.pressed,
-                busyId &&
+                loading &&
                   styles.disabled,
               ]}
             >
@@ -129,236 +111,166 @@ export function DelegationModal({
             </Pressable>
           </View>
 
-          {isReassign &&
-          selectedDelegation?.assistant ? (
-            <View style={styles.currentAssignmentBox}>
-              <View style={styles.currentAssignmentIcon}>
-                <Ionicons
-                  name="person-circle-outline"
-                  size={21}
-                  color={colors.primary}
-                />
-              </View>
+          {loading ? (
+            <View style={styles.historyLoading}>
+              <ActivityIndicator
+                size="large"
+                color={colors.primary}
+              />
 
-              <View style={styles.currentAssignmentCopy}>
-                <Text style={styles.currentAssignmentLabel}>
-                  Currently assigned to
-                </Text>
-
-                <Text style={styles.currentAssignmentValue}>
-                  {selectedDelegation.assistant.name}
-                </Text>
-              </View>
+              <Text style={styles.loadingText}>
+                Loading delegation history...
+              </Text>
             </View>
-          ) : null}
-
-          {error ? (
-            <View style={styles.modalErrorBox}>
+          ) : error ? (
+            <View style={styles.modalState}>
               <Ionicons
                 name="alert-circle-outline"
-                size={19}
+                size={34}
                 color={colors.danger}
               />
 
-              <Text style={styles.modalErrorText}>
+              <Text style={styles.modalErrorTitle}>
+                Couldn't load history
+              </Text>
+
+              <Text style={styles.modalEmptyText}>
                 {error}
               </Text>
             </View>
-          ) : null}
-
-          <View style={styles.searchBox}>
-            <Ionicons
-              name="search-outline"
-              size={18}
-              color={colors.textMuted}
-            />
-
-            <TextInput
-              value={assistantSearch}
-              onChangeText={onChangeSearch}
-              editable={!busyId}
-              placeholder="Search assistants"
-              placeholderTextColor={colors.textMuted}
-              style={styles.searchInput}
-            />
-
-            {assistantSearch ? (
-              <Pressable
-                disabled={Boolean(busyId)}
-                onPress={() => onChangeSearch("")}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={18}
-                  color={colors.textMuted}
-                />
-              </Pressable>
-            ) : null}
-          </View>
-
-          <View style={styles.reasonField}>
-            <Text style={styles.formLabel}>
-              Reason or note
-            </Text>
-
-            <TextInput
-              value={reason}
-              onChangeText={onChangeReason}
-              editable={!busyId}
-              multiline
-              textAlignVertical="top"
-              placeholder={
-                isReassign
-                  ? "Optional reason for reassignment..."
-                  : "Optional instructions for the assistant..."
-              }
-              placeholderTextColor={colors.textMuted}
-              style={styles.reasonInput}
-            />
-          </View>
-
-          <Text style={styles.listTitle}>
-            Eligible assistants
-          </Text>
-
-          {!assistants?.length ? (
+          ) : !safeHistory.length ? (
             <View style={styles.modalState}>
               <Ionicons
-                name="people-outline"
+                name="time-outline"
                 size={34}
                 color={colors.textMuted}
               />
 
               <Text style={styles.modalEmptyTitle}>
-                No eligible assistants
+                No delegation history
               </Text>
 
               <Text style={styles.modalEmptyText}>
-                No assistant with homework-grading permission
-                is assigned to this task's groups.
+                Delegation activity will appear here.
               </Text>
             </View>
           ) : (
             <ScrollView
-              style={styles.assistantList}
+              style={styles.historyList}
               contentContainerStyle={
-                styles.assistantListContent
+                styles.historyListContent
               }
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
             >
-              {assistants.map((assistant) => {
-                const groupNames =
-                  getAssistantGroupNames?.(
-                    assistant.id,
-                  ) || [];
+              {safeHistory.map((entry, index) => {
+                const config =
+                  getDelegationActionConfig(
+                    entry?.action,
+                  );
 
-                const currentAssistantId =
-                  selectedDelegation?.assistantId ||
-                  selectedDelegation?.assistant?.id;
-
-                const isCurrentAssistant =
-                  isReassign &&
-                  String(currentAssistantId) ===
-                    String(assistant.id);
-
-                const isBusy =
-                  Boolean(busyId);
+                const isLast =
+                  index === safeHistory.length - 1;
 
                 return (
-                  <Pressable
-                    key={assistant.id}
-                    disabled={
-                      isBusy ||
-                      isCurrentAssistant
+                  <View
+                    key={
+                      entry?.id ||
+                      `${entry?.action || "history"}-${index}`
                     }
-                    onPress={() =>
-                      selectAssistant(
-                        assistant.id,
-                      )
-                    }
-                    style={({ pressed }) => [
-                      styles.assistantRow,
-                      isCurrentAssistant &&
-                        styles.assistantRowCurrent,
-                      pressed &&
-                        !isBusy &&
-                        !isCurrentAssistant &&
-                        styles.pressed,
-                      (isBusy ||
-                        isCurrentAssistant) &&
-                        styles.disabled,
-                    ]}
+                    style={styles.historyItem}
                   >
-                    <View style={styles.assistantAvatar}>
-                      <Text style={styles.assistantAvatarText}>
-                        {getInitials(
-                          assistant.name,
-                        )}
-                      </Text>
+                    <View style={styles.historyRail}>
+                      <View
+                        style={[
+                          styles.historyDot,
+                          entry?.action ===
+                            "COMPLETED" &&
+                            styles.historyDotSuccess,
+                          entry?.action ===
+                            "REMOVED" &&
+                            styles.historyDotDanger,
+                          entry?.action ===
+                            "REOPENED" &&
+                            styles.historyDotWarning,
+                        ]}
+                      />
+
+                      {!isLast ? (
+                        <View style={styles.historyLine} />
+                      ) : null}
                     </View>
 
-                    <View style={styles.assistantInfo}>
-                      <View style={styles.assistantNameRow}>
-                        <Text
-                          numberOfLines={1}
-                          style={styles.assistantName}
-                        >
-                          {assistant.name ||
-                            "Unnamed assistant"}
-                        </Text>
+                    <View style={styles.historyContent}>
+                      <View style={styles.historyEntryHeader}>
+                        <View style={styles.historyEntryAction}>
+                          <Ionicons
+                            name={config.icon}
+                            size={18}
+                            color={colors.primary}
+                          />
 
-                        {assistant.isHeadAssistant ? (
-                          <View style={styles.headBadge}>
-                            <Text style={styles.headBadgeText}>
-                              HEAD
+                          <Text style={styles.historyAction}>
+                            {config.label}
+                          </Text>
+                        </View>
+
+                        <Text style={styles.historyDate}>
+                          {formatDateTime(entry?.createdAt)}
+                        </Text>
+                      </View>
+
+                      <Text style={styles.historyMeta}>
+                        Changed by{" "}
+                        {entry?.changedBy?.name ||
+                          "Unknown user"}
+                      </Text>
+
+                      {entry?.fromAssistant ||
+                      entry?.toAssistant ? (
+                        <View style={styles.assignmentChangeRow}>
+                          <View style={styles.assignmentChangeBox}>
+                            <Text style={styles.changeLabel}>
+                              From
+                            </Text>
+
+                            <Text style={styles.changeValue}>
+                              {entry?.fromAssistant?.name ||
+                                "Unassigned"}
                             </Text>
                           </View>
-                        ) : null}
-                      </View>
 
-                      <Text
-                        numberOfLines={1}
-                        style={styles.assistantEmail}
-                      >
-                        {assistant.email || ""}
-                      </Text>
+                          <Ionicons
+                            name="arrow-forward"
+                            size={18}
+                            color={colors.textMuted}
+                          />
 
-                      <Text
-                        numberOfLines={2}
-                        style={styles.assistantGroups}
-                      >
-                        {groupNames.length
-                          ? groupNames.join(", ")
-                          : "No matching group names"}
-                      </Text>
+                          <View style={styles.assignmentChangeBox}>
+                            <Text style={styles.changeLabel}>
+                              To
+                            </Text>
+
+                            <Text style={styles.changeValue}>
+                              {entry?.toAssistant?.name ||
+                                "Unassigned"}
+                            </Text>
+                          </View>
+                        </View>
+                      ) : null}
+
+                      {entry?.reason ? (
+                        <View style={styles.historyReason}>
+                          <Text style={styles.historyReasonLabel}>
+                            Reason
+                          </Text>
+
+                          <Text style={styles.historyReasonText}>
+                            {entry.reason}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
-
-                    {isCurrentAssistant ? (
-                      <Text style={styles.currentText}>
-                        Current
-                      </Text>
-                    ) : isBusy ? (
-                      <ActivityIndicator
-                        size="small"
-                        color={colors.primary}
-                      />
-                    ) : (
-                      <View style={styles.assistantSelectButton}>
-                        <Text style={styles.assistantSelectText}>
-                          {isReassign
-                            ? "Reassign"
-                            : "Assign"}
-                        </Text>
-
-                        <Ionicons
-                          name="chevron-forward"
-                          size={16}
-                          color={colors.primary}
-                        />
-                      </View>
-                    )}
-                  </Pressable>
+                  </View>
                 );
               })}
             </ScrollView>
@@ -366,10 +278,10 @@ export function DelegationModal({
 
           <View style={styles.modalActions}>
             <Button
-              title="Cancel"
+              title="Close"
               variant="outline"
-              disabled={Boolean(busyId)}
-              onPress={onClose}
+              disabled={loading}
+              onPress={handleClose}
             />
           </View>
         </View>
@@ -378,4 +290,8 @@ export function DelegationModal({
   );
 }
 
-export default DelegationModal;
+export {
+  DelegationHistoryModal,
+};
+
+export default DelegationHistoryModal;

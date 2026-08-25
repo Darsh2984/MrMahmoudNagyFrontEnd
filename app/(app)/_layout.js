@@ -311,12 +311,12 @@ function WaitingForGroupScreen({
             prepared
           </Text>
 
-          <Text
-            style={styles.pendingDescription}
-          >
-            Your request has been sent to
-            Mr Mahmoud Nagy and he will add you
-            to a group shortly.
+          <Text style={styles.pendingDescription}>
+            Your request has been sent to Mr Mahmoud
+            Nagy and he will add you to a group
+            shortly. Contact the Team to let them
+            add you to the dedicated group for your
+            selected academic year.
           </Text>
 
           <View style={styles.accessBox}>
@@ -334,14 +334,12 @@ function WaitingForGroupScreen({
                 you are added
               </Text>
 
-              <Text
-                style={styles.accessDescription}
-              >
-                Once you are assigned to a
-                group, you will get access to
-                the system, including your
-                resources, sessions, tasks,
-                quizzes, performance and group
+              <Text style={styles.accessDescription}>
+                Once you are assigned to the dedicated
+                group for your selected academic year,
+                you will get access to the system,
+                including your resources, sessions,
+                tasks, quizzes, performance and group
                 chat.
               </Text>
             </View>

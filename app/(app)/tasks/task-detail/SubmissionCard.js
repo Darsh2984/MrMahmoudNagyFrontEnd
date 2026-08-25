@@ -80,7 +80,7 @@ export function SubmissionCard({
   const delegatedToCurrentUser =
     isSubmissionDelegatedToUser(
       submission,
-      user?.id,
+      user,
     );
 
   const isEditingGrade =

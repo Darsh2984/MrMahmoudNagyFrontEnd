@@ -112,6 +112,14 @@ export default function Register() {
   const [schoolsError, setSchoolsError] =
     useState("");
 
+  const [years, setYears] = useState([]);
+  const [desiredYearId, setDesiredYearId] =
+    useState(null);
+  const [yearsLoading, setYearsLoading] =
+    useState(true);
+  const [yearsError, setYearsError] =
+    useState("");
+
   const [studentCountry, setStudentCountry] =
     useState(DEFAULT_COUNTRY);
 
@@ -139,47 +147,71 @@ export default function Register() {
     useState(false);
 
   useEffect(() => {
-    let active = true;
+  let active = true;
 
-    async function loadSchools() {
-      setSchoolsLoading(true);
-      setSchoolsError("");
+  async function loadInitialData() {
+    setSchoolsLoading(true);
+    setYearsLoading(true);
+    setSchoolsError("");
+    setYearsError("");
 
-      try {
-        const response = await api.get(
-          "/schools"
-        );
+    try {
+      const [
+        schoolsResponse,
+        yearsResponse,
+      ] = await Promise.all([
+        api.get("/schools"),
+        api.get("/auth/registration-years"),
+      ]);
 
-        if (!active) {
-          return;
-        }
+      if (!active) {
+        return;
+      }
 
-        setSchools(
-          Array.isArray(response.data)
-            ? response.data
-            : []
-        );
-      } catch {
-        if (!active) {
-          return;
-        }
+      setSchools(
+        Array.isArray(schoolsResponse.data)
+          ? schoolsResponse.data
+          : []
+      );
 
-        setSchoolsError(
-          "Schools could not be loaded."
-        );
-      } finally {
-        if (active) {
-          setSchoolsLoading(false);
-        }
+      setYears(
+        Array.isArray(yearsResponse.data)
+          ? yearsResponse.data
+          : []
+      );
+    } catch (requestError) {
+      if (!active) {
+        return;
+      }
+
+      const message =
+        requestError.response?.data?.msg ||
+        requestError.response?.data?.message ||
+        "";
+
+      setSchoolsError(
+        message ||
+          "Registration data could not be loaded."
+      );
+
+      setYearsError(
+        message ||
+          "Academic years could not be loaded."
+      );
+    } finally {
+      if (active) {
+        setSchoolsLoading(false);
+        setYearsLoading(false);
       }
     }
+  }
 
-    loadSchools();
+  loadInitialData();
 
-    return () => {
-      active = false;
-    };
-  }, []);
+  return () => {
+    active = false;
+  };
+}, []);
 
   function clearError() {
     if (error) {
@@ -198,6 +230,11 @@ export default function Register() {
 
   function selectSchool(selectedSchoolId) {
     setSchoolId(selectedSchoolId);
+    clearError();
+  }
+
+  function selectDesiredYear(selectedYearId) {
+    setDesiredYearId(selectedYearId);
     clearError();
   }
 
@@ -246,6 +283,10 @@ export default function Register() {
 
     if (!schoolId) {
       return "Select your school.";
+    }
+
+    if (!desiredYearId) {
+      return "Select your academic year.";
     }
 
     if (!password) {
@@ -353,6 +394,7 @@ export default function Register() {
         ),
 
         schoolId,
+        desiredYearId,
 
         fatherName: includeFather
           ? fatherName.trim()
@@ -457,11 +499,12 @@ export default function Register() {
                 What happens next?
               </Text>
 
-              <Text
-                style={styles.informationText}
-              >
-                A teacher or assistant will add you
-                to the correct group. Group
+              <Text style={styles.informationText}>
+                A teacher or assistant will add you to
+                the correct dedicated group based on
+                the academic year you selected.
+                Contact the Team to let them add you
+                to the dedicated group. Group
                 resources and activities will become
                 available after that.
               </Text>
@@ -562,6 +605,13 @@ export default function Register() {
               loading={schoolsLoading}
               error={schoolsError}
               onSelect={selectSchool}
+            />
+            <YearSelector
+              years={years}
+              selectedYearId={desiredYearId}
+              loading={yearsLoading}
+              error={yearsError}
+              onSelect={selectDesiredYear}
             />
 
             <View>
@@ -749,8 +799,11 @@ export default function Register() {
             disabled={
               loading ||
               schoolsLoading ||
+              yearsLoading ||
               Boolean(schoolsError) ||
-              schools.length === 0
+              Boolean(yearsError) ||
+              schools.length === 0 ||
+              years.length === 0
             }
             style={styles.registerButton}
           />
@@ -933,6 +986,134 @@ function SchoolSelector({
                   ]}
                 >
                   {school.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function YearSelector({
+  years,
+  selectedYearId,
+  loading,
+  error,
+  onSelect,
+}) {
+  return (
+    <View style={styles.schoolSection}>
+      <View style={styles.fieldLabelRow}>
+        <Text style={styles.fieldLabel}>
+          Academic year
+        </Text>
+
+        <Text style={styles.requiredLabel}>
+          Required
+        </Text>
+      </View>
+
+      <Text style={styles.fieldHelpText}>
+        Select the academic year you want to join.
+        The team will use this to add you to the
+        correct dedicated group.
+      </Text>
+
+      {loading ? (
+        <View style={styles.schoolLoading}>
+          <ActivityIndicator
+            size="small"
+            color={colors.primary}
+          />
+
+          <Text style={styles.schoolLoadingText}>
+            Loading academic years...
+          </Text>
+        </View>
+      ) : null}
+
+      {!loading && error ? (
+        <View style={styles.schoolError}>
+          <Text style={styles.schoolErrorTitle}>
+            Academic years could not be loaded
+          </Text>
+
+          <Text style={styles.schoolErrorText}>
+            Refresh the page and try again. An
+            academic year must be selected before
+            registration can be completed.
+          </Text>
+        </View>
+      ) : null}
+
+      {!loading &&
+      !error &&
+      years.length === 0 ? (
+        <View style={styles.schoolError}>
+          <Text style={styles.schoolErrorTitle}>
+            No academic years are available
+          </Text>
+
+          <Text style={styles.schoolErrorText}>
+            Registration cannot continue until an
+            academic year has been created by the
+            teacher.
+          </Text>
+        </View>
+      ) : null}
+
+      {!loading &&
+      !error &&
+      years.length > 0 ? (
+        <View
+          accessibilityRole="radiogroup"
+          style={styles.selectionOptions}
+        >
+          {years.map((year) => {
+            const selected =
+              selectedYearId === year.id;
+
+            return (
+              <Pressable
+                key={year.id}
+                accessibilityRole="radio"
+                accessibilityState={{
+                  selected,
+                }}
+                onPress={() =>
+                  onSelect(year.id)
+                }
+                style={({ pressed }) => [
+                  styles.selectionOption,
+                  selected &&
+                    styles.selectionOptionSelected,
+                  pressed &&
+                    styles.selectionOptionPressed,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.radio,
+                    selected &&
+                      styles.radioSelected,
+                  ]}
+                >
+                  {selected ? (
+                    <View style={styles.radioDot} />
+                  ) : null}
+                </View>
+
+                <Text
+                  numberOfLines={2}
+                  style={[
+                    styles.selectionOptionText,
+                    selected &&
+                      styles.selectionOptionTextSelected,
+                  ]}
+                >
+                  {year.name}
                 </Text>
               </Pressable>
             );
