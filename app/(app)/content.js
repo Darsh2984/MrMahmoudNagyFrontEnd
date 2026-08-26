@@ -36,12 +36,20 @@ const EDIT_SOURCE_UPLOAD = "UPLOAD";
 const EDIT_SOURCE_R2 = "R2_EXISTING";
 
 const LEVELS = {
+  years: {
+    singular: "Academic Year",
+    plural: "Academic Years",
+    icon: "calendar-outline",
+    description:
+      "Choose an academic year before managing its units, chapters and resources.",
+  },
+
   units: {
     singular: "Unit",
     plural: "Units",
     icon: "albums-outline",
     description:
-      "Global teaching units shared across all academic years.",
+      "Units created inside the selected academic year.",
   },
 
   chapters: {
@@ -49,15 +57,7 @@ const LEVELS = {
     plural: "Chapters",
     icon: "book-outline",
     description:
-      "Chapters contained within the selected unit.",
-  },
-
-  topics: {
-    singular: "Topic",
-    plural: "Topics",
-    icon: "bookmark-outline",
-    description:
-      "Topics contained within the selected chapter.",
+      "Chapters contained within the selected unit. Upload materials and videos directly inside chapters.",
   },
 
   resources: {
@@ -65,7 +65,7 @@ const LEVELS = {
     plural: "Resources",
     icon: "folder-open-outline",
     description:
-      "Materials and videos uploaded or linked from R2 for the selected topic.",
+      "Materials and videos uploaded or linked from R2 for the selected chapter.",
   },
 };
 
@@ -165,13 +165,10 @@ function ResourceSourceSelector({
         disabled={disabled}
         accessibilityRole="button"
         accessibilityState={{
-          selected:
-            value === SOURCE_R2_EXISTING,
+          selected: value === SOURCE_R2_EXISTING,
           disabled,
         }}
-        onPress={() =>
-          onChange(SOURCE_R2_EXISTING)
-        }
+        onPress={() => onChange(SOURCE_R2_EXISTING)}
         style={({ pressed }) => [
           styles.sourceOption,
           value === SOURCE_R2_EXISTING &&
@@ -282,7 +279,7 @@ export default function ContentPage() {
   const isCompact = width < 650;
 
   const [level, setLevel] =
-    useState("units");
+    useState("years");
 
   const [breadcrumbs, setBreadcrumbs] =
     useState([]);
@@ -335,9 +332,6 @@ export default function ContentPage() {
     setDeletingHierarchyItemId,
   ] = useState(null);
 
-  /*
-   * Material create form
-   */
   const [
     materialTitle,
     setMaterialTitle,
@@ -353,9 +347,11 @@ export default function ContentPage() {
     setMaterialObjectKey,
   ] = useState("");
 
-  /*
-   * Video create form
-   */
+  const [
+    materialFile,
+    setMaterialFile,
+  ] = useState(null);
+
   const [
     videoTitle,
     setVideoTitle,
@@ -372,13 +368,20 @@ export default function ContentPage() {
   ] = useState("");
 
   const [
+    videoFile,
+    setVideoFile,
+  ] = useState(null);
+
+  const [
     uploadingType,
     setUploadingType,
   ] = useState(null);
 
-  /*
-   * Resource editor
-   */
+  const [
+    uploadProgress,
+    setUploadProgress,
+  ] = useState(null);
+
   const [
     editModalVisible,
     setEditModalVisible,
@@ -415,13 +418,10 @@ export default function ContentPage() {
     setDeletingResourceId,
   ] = useState(null);
 
-  const currentLevel =
-    LEVELS[level];
+  const currentLevel = LEVELS[level];
 
   const currentParent =
-    breadcrumbs[
-      breadcrumbs.length - 1
-    ] || null;
+    breadcrumbs[breadcrumbs.length - 1] || null;
 
   const clearMessages =
     useCallback(() => {
@@ -429,14 +429,14 @@ export default function ContentPage() {
       setSuccess("");
     }, []);
 
-  const loadUnits =
+  const loadYears =
     useCallback(async () => {
       setLoading(true);
       setError("");
 
       try {
         const response =
-          await api.get("/units");
+          await api.get("/years/mine");
 
         setItems(
           Array.isArray(response.data)
@@ -444,7 +444,7 @@ export default function ContentPage() {
             : []
         );
 
-        setLevel("units");
+        setLevel("years");
         setBreadcrumbs([]);
       } catch (requestError) {
         setItems([]);
@@ -452,13 +452,65 @@ export default function ContentPage() {
         setError(
           getApiError(
             requestError,
-            "Couldn't load units."
+            "Couldn't load academic years."
           )
         );
       } finally {
         setLoading(false);
       }
     }, []);
+
+  const loadUnits =
+    useCallback(
+      async (
+        year,
+        nextBreadcrumbs = null
+      ) => {
+        if (!year?.id) {
+          return;
+        }
+
+        setLoading(true);
+        setError("");
+
+        try {
+          const response =
+            await api.get(
+              `/units/year/${year.id}`
+            );
+
+          setItems(
+            Array.isArray(response.data)
+              ? response.data
+              : []
+          );
+
+          setLevel("units");
+
+          setBreadcrumbs(
+            nextBreadcrumbs || [
+              {
+                id: year.id,
+                name: year.name,
+                type: "year",
+              },
+            ]
+          );
+        } catch (requestError) {
+          setItems([]);
+
+          setError(
+            getApiError(
+              requestError,
+              "Couldn't load units for this academic year."
+            )
+          );
+        } finally {
+          setLoading(false);
+        }
+      },
+      []
+    );
 
   const loadChapters =
     useCallback(
@@ -480,9 +532,7 @@ export default function ContentPage() {
             );
 
           setItems(
-            Array.isArray(
-              response.data?.chapters
-            )
+            Array.isArray(response.data?.chapters)
               ? response.data.chapters
               : []
           );
@@ -491,12 +541,13 @@ export default function ContentPage() {
 
           setBreadcrumbs(
             nextBreadcrumbs || [
+              breadcrumbs[0],
               {
                 id: unit.id,
                 name: unit.name,
                 type: "unit",
               },
-            ]
+            ].filter(Boolean)
           );
         } catch (requestError) {
           setItems([]);
@@ -511,10 +562,10 @@ export default function ContentPage() {
           setLoading(false);
         }
       },
-      []
+      [breadcrumbs]
     );
 
-  const loadTopics =
+  const loadResources =
     useCallback(
       async (
         chapter,
@@ -533,58 +584,8 @@ export default function ContentPage() {
               `/chapters/${chapter.id}`
             );
 
-          setItems(
-            Array.isArray(
-              response.data?.topics
-            )
-              ? response.data.topics
-              : []
-          );
-
-          setLevel("topics");
-
-          setBreadcrumbs(
-            nextBreadcrumbs
-          );
-        } catch (requestError) {
-          setItems([]);
-
-          setError(
-            getApiError(
-              requestError,
-              "Couldn't load topics."
-            )
-          );
-        } finally {
-          setLoading(false);
-        }
-      },
-      []
-    );
-
-  const loadResources =
-    useCallback(
-      async (
-        topic,
-        nextBreadcrumbs
-      ) => {
-        if (!topic?.id) {
-          return;
-        }
-
-        setLoading(true);
-        setError("");
-
-        try {
-          const response =
-            await api.get(
-              `/topics/${topic.id}`
-            );
-
           const materials =
-            Array.isArray(
-              response.data?.materials
-            )
+            Array.isArray(response.data?.materials)
               ? response.data.materials.map(
                   (item) => ({
                     ...item,
@@ -594,9 +595,7 @@ export default function ContentPage() {
               : [];
 
           const videos =
-            Array.isArray(
-              response.data?.videos
-            )
+            Array.isArray(response.data?.videos)
               ? response.data.videos.map(
                   (item) => ({
                     ...item,
@@ -612,16 +611,14 @@ export default function ContentPage() {
 
           setLevel("resources");
 
-          setBreadcrumbs(
-            nextBreadcrumbs
-          );
+          setBreadcrumbs(nextBreadcrumbs);
         } catch (requestError) {
           setItems([]);
 
           setError(
             getApiError(
               requestError,
-              "Couldn't load topic resources."
+              "Couldn't load chapter resources."
             )
           );
         } finally {
@@ -632,8 +629,8 @@ export default function ContentPage() {
     );
 
   useEffect(() => {
-    loadUnits();
-  }, [loadUnits]);
+    loadYears();
+  }, [loadYears]);
 
   function getHierarchyEndpoint() {
     if (level === "units") {
@@ -644,21 +641,17 @@ export default function ContentPage() {
       return "chapters";
     }
 
-    if (level === "topics") {
-      return "topics";
-    }
-
     return null;
   }
 
   async function refreshCurrentLevel() {
-    if (level === "units") {
-      await loadUnits();
+    if (level === "years") {
+      await loadYears();
       return;
     }
 
-    if (level === "chapters") {
-      await loadChapters(
+    if (level === "units") {
+      await loadUnits(
         breadcrumbs[0],
         breadcrumbs.slice(0, 1)
       );
@@ -666,8 +659,8 @@ export default function ContentPage() {
       return;
     }
 
-    if (level === "topics") {
-      await loadTopics(
+    if (level === "chapters") {
+      await loadChapters(
         breadcrumbs[1],
         breadcrumbs.slice(0, 2)
       );
@@ -686,31 +679,31 @@ export default function ContentPage() {
   function openItem(item) {
     clearMessages();
 
-    if (level === "units") {
-      loadChapters(item);
+    if (level === "years") {
+      loadUnits(item);
       return;
     }
 
-    if (level === "chapters") {
-      loadTopics(item, [
+    if (level === "units") {
+      loadChapters(item, [
         breadcrumbs[0],
         {
           id: item.id,
           name: item.name,
-          type: "chapter",
+          type: "unit",
         },
       ]);
 
       return;
     }
 
-    if (level === "topics") {
+    if (level === "chapters") {
       loadResources(item, [
         ...breadcrumbs.slice(0, 2),
         {
           id: item.id,
           name: item.name,
-          type: "topic",
+          type: "chapter",
         },
       ]);
     }
@@ -718,7 +711,7 @@ export default function ContentPage() {
 
   function openRoot() {
     clearMessages();
-    loadUnits();
+    loadYears();
   }
 
   function openBreadcrumb(
@@ -733,6 +726,15 @@ export default function ContentPage() {
         index + 1
       );
 
+    if (breadcrumb.type === "year") {
+      loadUnits(
+        breadcrumb,
+        nextBreadcrumbs
+      );
+
+      return;
+    }
+
     if (breadcrumb.type === "unit") {
       loadChapters(
         breadcrumb,
@@ -742,20 +744,7 @@ export default function ContentPage() {
       return;
     }
 
-    if (
-      breadcrumb.type === "chapter"
-    ) {
-      loadTopics(
-        breadcrumb,
-        nextBreadcrumbs
-      );
-
-      return;
-    }
-
-    if (
-      breadcrumb.type === "topic"
-    ) {
+    if (breadcrumb.type === "chapter") {
       loadResources(
         breadcrumb,
         nextBreadcrumbs
@@ -795,37 +784,45 @@ export default function ContentPage() {
 
     try {
       if (level === "units") {
+        const year =
+          breadcrumbs[0];
+
+        if (!year?.id) {
+          setError(
+            "Select an academic year before creating a unit."
+          );
+
+          setCreating(false);
+          return;
+        }
+
         await api.post(
           "/units",
           {
             name,
+            yearId: year.id,
           }
         );
       }
 
       if (level === "chapters") {
         const unit =
-          breadcrumbs[0];
+          breadcrumbs[1];
+
+        if (!unit?.id) {
+          setError(
+            "Select a unit before creating a chapter."
+          );
+
+          setCreating(false);
+          return;
+        }
 
         await api.post(
           "/chapters",
           {
             name,
             unitId: unit.id,
-          }
-        );
-      }
-
-      if (level === "topics") {
-        const chapter =
-          breadcrumbs[1];
-
-        await api.post(
-          "/topics",
-          {
-            name,
-            chapterId:
-              chapter.id,
           }
         );
       }
@@ -853,17 +850,9 @@ export default function ContentPage() {
   function openHierarchyEdit(item) {
     clearMessages();
 
-    setEditingHierarchyItem(
-      item
-    );
-
-    setHierarchyEditName(
-      item?.name || ""
-    );
-
-    setHierarchyEditVisible(
-      true
-    );
+    setEditingHierarchyItem(item);
+    setHierarchyEditName(item?.name || "");
+    setHierarchyEditVisible(true);
   }
 
   function closeHierarchyEdit() {
@@ -877,9 +866,7 @@ export default function ContentPage() {
   }
 
   async function saveHierarchyEdit() {
-    if (
-      !editingHierarchyItem?.id
-    ) {
+    if (!editingHierarchyItem?.id) {
       return;
     }
 
@@ -933,9 +920,7 @@ export default function ContentPage() {
     }
   }
 
-  async function deleteHierarchyItem(
-    item
-  ) {
+  async function deleteHierarchyItem(item) {
     if (!item?.id) {
       return;
     }
@@ -947,10 +932,7 @@ export default function ContentPage() {
       return;
     }
 
-    setDeletingHierarchyItemId(
-      item.id
-    );
-
+    setDeletingHierarchyItemId(item.id);
     setError("");
 
     try {
@@ -971,15 +953,11 @@ export default function ContentPage() {
         )
       );
     } finally {
-      setDeletingHierarchyItemId(
-        null
-      );
+      setDeletingHierarchyItemId(null);
     }
   }
 
-  function confirmDeleteHierarchyItem(
-    item
-  ) {
+  function confirmDeleteHierarchyItem(item) {
     const type =
       currentLevel.singular.toLowerCase();
 
@@ -992,17 +970,12 @@ export default function ContentPage() {
 
     if (level === "units") {
       message +=
-        " All chapters, topics and connected resources inside this unit may also be deleted.";
+        " All chapters and connected resources inside this unit may also be deleted.";
     }
 
     if (level === "chapters") {
       message +=
-        " All topics and connected resources inside this chapter may also be deleted.";
-    }
-
-    if (level === "topics") {
-      message +=
-        " Resources and question links connected to this topic may be affected.";
+        " All materials and videos connected to this chapter may be affected.";
     }
 
     if (Platform.OS === "web") {
@@ -1028,9 +1001,7 @@ export default function ContentPage() {
           text: "Delete",
           style: "destructive",
           onPress: () =>
-            deleteHierarchyItem(
-              item
-            ),
+            deleteHierarchyItem(item),
         },
       ]
     );
@@ -1090,28 +1061,264 @@ export default function ContentPage() {
     );
   }
 
-  async function chooseResourceFile(
-    type
-  ) {
-    return DocumentPicker.getDocumentAsync(
-      {
-        type:
-          type === "video"
-            ? ["video/*"]
-            : [
-                "application/pdf",
-                "image/*",
-              ],
+  async function chooseResourceFile(type) {
+    const pickerType =
+      type === "video"
+        ? "video/*"
+        : Platform.OS === "web"
+          ? "application/pdf,image/*"
+          : [
+              "application/pdf",
+              "image/*",
+            ];
 
-        copyToCacheDirectory: true,
-        multiple: false,
+    return DocumentPicker.getDocumentAsync({
+      type: pickerType,
+      copyToCacheDirectory:
+        Platform.OS !== "web",
+      multiple: false,
+    });
+  }
+
+  async function selectCreateResourceFile(type) {
+    const isMaterial =
+      type === "material";
+
+    if (uploadingType) {
+      return;
+    }
+
+    clearMessages();
+
+    try {
+      const result =
+        await chooseResourceFile(type);
+
+      if (
+        result.canceled ||
+        !result.assets?.length
+      ) {
+        return;
       }
+
+      const selectedFile =
+        result.assets[0];
+
+      if (isMaterial) {
+        setMaterialFile(selectedFile);
+        setMaterialSourceType(SOURCE_UPLOAD);
+        setMaterialObjectKey("");
+      } else {
+        setVideoFile(selectedFile);
+        setVideoSourceType(SOURCE_UPLOAD);
+        setVideoObjectKey("");
+      }
+    } catch (pickerError) {
+      setError(
+        pickerError?.message ||
+          `Couldn't open the ${type} file picker.`
+      );
+    }
+  }
+
+  function clearCreateResourceFile(type) {
+    if (type === "material") {
+      setMaterialFile(null);
+    } else {
+      setVideoFile(null);
+    }
+  }
+
+  function getSelectedUploadFile(file) {
+    if (!file) {
+      return null;
+    }
+
+    if (Platform.OS === "web" && file.file) {
+      return file.file;
+    }
+
+    return file;
+  }
+
+  function getSelectedUploadFileName(file) {
+    return (
+      file?.name ||
+      file?.file?.name ||
+      `upload-${Date.now()}`
     );
   }
 
-  async function uploadResource(
-    type
-  ) {
+  function getSelectedUploadContentType(file, type) {
+    return (
+      file?.mimeType ||
+      file?.file?.type ||
+      (type === "video"
+        ? "video/mp4"
+        : "application/octet-stream")
+    );
+  }
+
+  function getSelectedUploadSize(file) {
+    return (
+      file?.size ||
+      file?.file?.size ||
+      null
+    );
+  }
+
+  function uploadFileToSignedUrl({
+    uploadUrl,
+    file,
+    contentType,
+    onProgress,
+  }) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      xhr.open("PUT", uploadUrl);
+
+      xhr.setRequestHeader(
+        "Content-Type",
+        contentType ||
+          "application/octet-stream"
+      );
+
+      xhr.upload.onprogress = (event) => {
+        if (
+          event.lengthComputable &&
+          typeof onProgress === "function"
+        ) {
+          const percent =
+            Math.round(
+              (event.loaded / event.total) * 100
+            );
+
+          onProgress(percent);
+        }
+      };
+
+      xhr.onload = () => {
+        if (
+          xhr.status >= 200 &&
+          xhr.status < 300
+        ) {
+          resolve();
+          return;
+        }
+
+        reject(
+          new Error(
+            `Direct upload failed with status ${xhr.status}.`
+          )
+        );
+      };
+
+      xhr.onerror = () => {
+        reject(
+          new Error(
+            "Direct upload failed. Check the network connection and R2 CORS settings."
+          )
+        );
+      };
+
+      xhr.ontimeout = () => {
+        reject(
+          new Error(
+            "Direct upload timed out. Try again with a stable connection."
+          )
+        );
+      };
+
+      /*
+      * 0 means no browser-side timeout.
+      * This is important for 2GB / 3GB videos.
+      */
+      xhr.timeout = 0;
+
+      xhr.send(file);
+    });
+  }
+
+  async function directUploadResource({
+    type,
+    title,
+    chapterId,
+    selectedFile,
+  }) {
+    const uploadFile =
+      getSelectedUploadFile(selectedFile);
+
+    if (!uploadFile) {
+      throw new Error(
+        "Selected file could not be prepared for upload."
+      );
+    }
+
+    const originalFilename =
+      getSelectedUploadFileName(selectedFile);
+
+    const contentType =
+      getSelectedUploadContentType(
+        selectedFile,
+        type
+      );
+
+    const size =
+      getSelectedUploadSize(selectedFile);
+
+    setUploadProgress(0);
+
+    const startResponse =
+      await api.post(
+        "/resources/direct-upload/start",
+        {
+          kind: type,
+          title,
+          chapterId,
+          originalFilename,
+          contentType,
+          size,
+        }
+      );
+
+    const upload =
+      startResponse.data?.upload;
+
+    if (
+      !upload?.uploadUrl ||
+      !upload?.objectKey
+    ) {
+      throw new Error(
+        "The backend did not return a valid direct upload URL."
+      );
+    }
+
+    await uploadFileToSignedUrl({
+      uploadUrl: upload.uploadUrl,
+      file: uploadFile,
+      contentType:
+        upload.contentType || contentType,
+      onProgress: setUploadProgress,
+    });
+
+    setUploadProgress(100);
+
+    const completeResponse =
+      await api.post(
+        "/resources/direct-upload/complete",
+        {
+          kind: type,
+          title,
+          chapterId,
+          objectKey: upload.objectKey,
+        }
+      );
+
+    return completeResponse.data?.resource;
+  }
+
+  async function uploadResource(type) {
     const isMaterial =
       type === "material";
 
@@ -1130,6 +1337,11 @@ export default function ContentPage() {
         ? materialObjectKey
         : videoObjectKey;
 
+    const selectedFile =
+      isMaterial
+        ? materialFile
+        : videoFile;
+
     const title =
       rawTitle.trim();
 
@@ -1145,15 +1357,14 @@ export default function ContentPage() {
 
     if (!currentParent?.id) {
       setError(
-        "Select a topic before adding a resource."
+        "Select a chapter before adding a resource."
       );
 
       return;
     }
 
     if (
-      sourceType ===
-        SOURCE_R2_EXISTING &&
+      sourceType === SOURCE_R2_EXISTING &&
       !objectKey.trim()
     ) {
       setError(
@@ -1163,18 +1374,28 @@ export default function ContentPage() {
       return;
     }
 
+    if (
+      sourceType === SOURCE_UPLOAD &&
+      !selectedFile
+    ) {
+      setError(
+        `Choose a ${type} file from your device first.`
+      );
+
+      return;
+    }
+
     setUploadingType(type);
 
     try {
       if (
-        sourceType ===
-        SOURCE_R2_EXISTING
+        sourceType === SOURCE_R2_EXISTING
       ) {
         await api.post(
           `/resources/${type}`,
           {
             title,
-            topicId:
+            chapterId:
               currentParent.id,
             sourceType:
               SOURCE_R2_EXISTING,
@@ -1183,59 +1404,54 @@ export default function ContentPage() {
           }
         );
       } else {
-        const picker =
-          await chooseResourceFile(
-            type
-          );
+          if (Platform.OS === "web") {
+            await directUploadResource({
+              type,
+              title,
+              chapterId: currentParent.id,
+              selectedFile,
+            });
+          } else {
+            const formData =
+              new FormData();
 
-        if (
-          picker.canceled ||
-          !picker.assets?.length
-        ) {
-          return;
+            formData.append(
+              "title",
+              title
+            );
+
+            formData.append(
+              "chapterId",
+              currentParent.id
+            );
+
+            formData.append(
+              "sourceType",
+              SOURCE_UPLOAD
+            );
+
+            await addFileToFormData(
+              formData,
+              selectedFile
+            );
+
+            await api.post(
+              `/resources/${type}`,
+              formData
+            );
+          }
         }
-
-        const formData =
-          new FormData();
-
-        formData.append(
-          "title",
-          title
-        );
-
-        formData.append(
-          "topicId",
-          currentParent.id
-        );
-
-        formData.append(
-          "sourceType",
-          SOURCE_UPLOAD
-        );
-
-        await addFileToFormData(
-          formData,
-          picker.assets[0]
-        );
-
-        await api.post(
-          `/resources/${type}`,
-          formData
-        );
-      }
 
       if (isMaterial) {
         setMaterialTitle("");
         setMaterialObjectKey("");
-        setMaterialSourceType(
-          SOURCE_UPLOAD
-        );
+        setMaterialFile(null);
+        setMaterialSourceType(SOURCE_UPLOAD);
       } else {
         setVideoTitle("");
         setVideoObjectKey("");
-        setVideoSourceType(
-          SOURCE_UPLOAD
-        );
+        setVideoFile(null);
+        setVideoSourceType(SOURCE_UPLOAD);
       }
 
       await loadResources(
@@ -1244,8 +1460,7 @@ export default function ContentPage() {
       );
 
       setSuccess(
-        sourceType ===
-          SOURCE_R2_EXISTING
+        sourceType === SOURCE_R2_EXISTING
           ? `${
               type === "video"
                 ? "Video"
@@ -1261,14 +1476,14 @@ export default function ContentPage() {
       setError(
         getApiError(
           requestError,
-          sourceType ===
-            SOURCE_R2_EXISTING
+          sourceType === SOURCE_R2_EXISTING
             ? `Couldn't add the ${type} from R2. Check that the object key exists in the configured bucket.`
             : `Couldn't upload the ${type}. Confirm that Cloudflare R2 is configured correctly.`
         )
       );
     } finally {
       setUploadingType(null);
+      setUploadProgress(null);
     }
   }
 
@@ -1285,18 +1500,10 @@ export default function ContentPage() {
     clearMessages();
 
     setEditingResource(item);
-
-    setEditTitle(
-      item?.title || ""
-    );
-
-    setEditSourceMode(
-      EDIT_SOURCE_KEEP
-    );
-
+    setEditTitle(item?.title || "");
+    setEditSourceMode(EDIT_SOURCE_KEEP);
     setReplacementFile(null);
     setEditObjectKey("");
-
     setEditModalVisible(true);
   }
 
@@ -1308,33 +1515,23 @@ export default function ContentPage() {
     setEditModalVisible(false);
     setEditingResource(null);
     setEditTitle("");
-    setEditSourceMode(
-      EDIT_SOURCE_KEEP
-    );
+    setEditSourceMode(EDIT_SOURCE_KEEP);
     setReplacementFile(null);
     setEditObjectKey("");
   }
 
-  function selectEditSourceMode(
-    mode
-  ) {
+  function selectEditSourceMode(mode) {
     if (savingEdit) {
       return;
     }
 
     setEditSourceMode(mode);
 
-    if (
-      mode !==
-      EDIT_SOURCE_UPLOAD
-    ) {
+    if (mode !== EDIT_SOURCE_UPLOAD) {
       setReplacementFile(null);
     }
 
-    if (
-      mode !==
-      EDIT_SOURCE_R2
-    ) {
+    if (mode !== EDIT_SOURCE_R2) {
       setEditObjectKey("");
     }
   }
@@ -1347,9 +1544,7 @@ export default function ContentPage() {
     try {
       const result =
         await chooseResourceFile(
-          getResourceType(
-            editingResource
-          )
+          getResourceType(editingResource)
         );
 
       if (
@@ -1359,14 +1554,8 @@ export default function ContentPage() {
         return;
       }
 
-      setReplacementFile(
-        result.assets[0]
-      );
-
-      setEditSourceMode(
-        EDIT_SOURCE_UPLOAD
-      );
-
+      setReplacementFile(result.assets[0]);
+      setEditSourceMode(EDIT_SOURCE_UPLOAD);
       setEditObjectKey("");
     } catch (pickerError) {
       setError(
@@ -1393,8 +1582,7 @@ export default function ContentPage() {
     }
 
     if (
-      editSourceMode ===
-        EDIT_SOURCE_UPLOAD &&
+      editSourceMode === EDIT_SOURCE_UPLOAD &&
       !replacementFile
     ) {
       setError(
@@ -1405,8 +1593,7 @@ export default function ContentPage() {
     }
 
     if (
-      editSourceMode ===
-        EDIT_SOURCE_R2 &&
+      editSourceMode === EDIT_SOURCE_R2 &&
       !editObjectKey.trim()
     ) {
       setError(
@@ -1421,14 +1608,9 @@ export default function ContentPage() {
 
     try {
       const resourceType =
-        getResourceType(
-          editingResource
-        );
+        getResourceType(editingResource);
 
-      if (
-        editSourceMode ===
-        EDIT_SOURCE_KEEP
-      ) {
+      if (editSourceMode === EDIT_SOURCE_KEEP) {
         await api.patch(
           `/resources/${resourceType}/${editingResource.id}`,
           {
@@ -1437,10 +1619,7 @@ export default function ContentPage() {
         );
       }
 
-      if (
-        editSourceMode ===
-        EDIT_SOURCE_R2
-      ) {
+      if (editSourceMode === EDIT_SOURCE_R2) {
         await api.patch(
           `/resources/${resourceType}/${editingResource.id}`,
           {
@@ -1453,10 +1632,7 @@ export default function ContentPage() {
         );
       }
 
-      if (
-        editSourceMode ===
-        EDIT_SOURCE_UPLOAD
-      ) {
+      if (editSourceMode === EDIT_SOURCE_UPLOAD) {
         const formData =
           new FormData();
 
@@ -1489,9 +1665,7 @@ export default function ContentPage() {
       setEditModalVisible(false);
       setEditingResource(null);
       setEditTitle("");
-      setEditSourceMode(
-        EDIT_SOURCE_KEEP
-      );
+      setEditSourceMode(EDIT_SOURCE_KEEP);
       setReplacementFile(null);
       setEditObjectKey("");
 
@@ -1518,10 +1692,7 @@ export default function ContentPage() {
     const resourceType =
       getResourceType(item);
 
-    setDeletingResourceId(
-      item.id
-    );
-
+    setDeletingResourceId(item.id);
     setError("");
 
     try {
@@ -1540,8 +1711,7 @@ export default function ContentPage() {
             ? "Video"
             : "Material"
         } deleted successfully.${
-          getSourceType(item) ===
-          SOURCE_R2_EXISTING
+          getSourceType(item) === SOURCE_R2_EXISTING
             ? " The manually managed R2 object was kept."
             : ""
         }`
@@ -1558,16 +1728,13 @@ export default function ContentPage() {
     }
   }
 
-  function confirmDeleteResource(
-    item
-  ) {
+  function confirmDeleteResource(item) {
     const title =
       item?.title ||
       "this resource";
 
     const manuallyManaged =
-      getSourceType(item) ===
-      SOURCE_R2_EXISTING;
+      getSourceType(item) === SOURCE_R2_EXISTING;
 
     const message =
       manuallyManaged
@@ -1607,19 +1774,14 @@ export default function ContentPage() {
     return (
       <ScrollView
         horizontal
-        showsHorizontalScrollIndicator={
-          false
-        }
-        contentContainerStyle={
-          styles.breadcrumbs
-        }
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.breadcrumbs}
       >
         <Pressable
           onPress={openRoot}
           style={({ pressed }) => [
             styles.breadcrumbButton,
-            pressed &&
-              styles.pressed,
+            pressed && styles.pressed,
           ]}
         >
           <Ionicons
@@ -1628,12 +1790,8 @@ export default function ContentPage() {
             color={colors.primary}
           />
 
-          <Text
-            style={
-              styles.breadcrumbLink
-            }
-          >
-            Units
+          <Text style={styles.breadcrumbLink}>
+            Academic Years
           </Text>
         </Pressable>
 
@@ -1645,9 +1803,7 @@ export default function ContentPage() {
               <Ionicons
                 name="chevron-forward"
                 size={15}
-                color={
-                  colors.textMuted
-                }
+                color={colors.textMuted}
               />
 
               <Pressable
@@ -1657,22 +1813,17 @@ export default function ContentPage() {
                     index
                   )
                 }
-                style={({
-                  pressed,
-                }) => [
+                style={({ pressed }) => [
                   styles.breadcrumbButton,
-                  pressed &&
-                    styles.pressed,
+                  pressed && styles.pressed,
                 ]}
               >
                 <Text
                   numberOfLines={1}
                   style={[
                     styles.breadcrumbLink,
-
                     index ===
-                      breadcrumbs.length -
-                        1 &&
+                      breadcrumbs.length - 1 &&
                       styles.breadcrumbCurrent,
                   ]}
                 >
@@ -1689,9 +1840,7 @@ export default function ContentPage() {
   function renderEmptyState() {
     return (
       <Card style={styles.emptyCard}>
-        <View
-          style={styles.emptyIcon}
-        >
+        <View style={styles.emptyIcon}>
           <Ionicons
             name={currentLevel.icon}
             size={32}
@@ -1699,41 +1848,35 @@ export default function ContentPage() {
           />
         </View>
 
-        <Text
-          style={styles.emptyTitle}
-        >
+        <Text style={styles.emptyTitle}>
           No{" "}
           {currentLevel.plural.toLowerCase()}{" "}
           yet
         </Text>
 
-        <Text
-          style={styles.emptyText}
-        >
+        <Text style={styles.emptyText}>
           {level === "resources"
-            ? "Add the first material or video for this topic using a device upload or an existing R2 object."
-            : `Create the first ${currentLevel.singular.toLowerCase()} here.`}
+            ? "Add the first material or video for this chapter using a device upload or an existing R2 object."
+            : level === "years"
+              ? "Create academic years first from the Years / Groups area, then manage content here."
+              : `Create the first ${currentLevel.singular.toLowerCase()} here.`}
         </Text>
 
-        {level !== "resources" ? (
+        {level !== "resources" &&
+        level !== "years" ? (
           <Button
             title={`Add ${currentLevel.singular}`}
             variant="warning"
-            onPress={
-              openCreateModal
-            }
+            onPress={openCreateModal}
           />
         ) : null}
       </Card>
     );
   }
 
-  function renderHierarchyItem(
-    item
-  ) {
+  function renderHierarchyItem(item) {
     const deleting =
-      deletingHierarchyItemId ===
-      item.id;
+      deletingHierarchyItemId === item.id;
 
     return (
       <View
@@ -1741,18 +1884,13 @@ export default function ContentPage() {
         style={styles.itemCard}
       >
         <Pressable
-          onPress={() =>
-            openItem(item)
-          }
+          onPress={() => openItem(item)}
           style={({ pressed }) => [
             styles.itemOpenArea,
-            pressed &&
-              styles.pressed,
+            pressed && styles.pressed,
           ]}
         >
-          <View
-            style={styles.itemIcon}
-          >
+          <View style={styles.itemIcon}>
             <Ionicons
               name={currentLevel.icon}
               size={25}
@@ -1760,9 +1898,7 @@ export default function ContentPage() {
             />
           </View>
 
-          <View
-            style={styles.itemCopy}
-          >
+          <View style={styles.itemCopy}>
             <Text
               numberOfLines={2}
               style={styles.itemTitle}
@@ -1770,11 +1906,7 @@ export default function ContentPage() {
               {item.name}
             </Text>
 
-            <Text
-              style={
-                styles.itemSubtitle
-              }
-            >
+            <Text style={styles.itemSubtitle}>
               Open{" "}
               {currentLevel.singular.toLowerCase()}
             </Text>
@@ -1787,86 +1919,76 @@ export default function ContentPage() {
           />
         </Pressable>
 
-        <View
-          style={styles.itemActions}
-        >
-          <Pressable
-            onPress={() =>
-              openHierarchyEdit(item)
-            }
-            style={({ pressed }) => [
-              styles.itemActionButton,
-              pressed &&
-                styles.pressed,
-            ]}
-          >
-            <Ionicons
-              name="create-outline"
-              size={18}
-              color={colors.primary}
+        {level !== "years" ? (
+          <View style={styles.itemActions}>
+            <Pressable
+              onPress={() =>
+                openHierarchyEdit(item)
+              }
+              style={({ pressed }) => [
+                styles.itemActionButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons
+                name="create-outline"
+                size={18}
+                color={colors.primary}
+              />
+
+              <Text
+                style={styles.itemEditActionText}
+              >
+                Edit
+              </Text>
+            </Pressable>
+
+            <View
+              style={styles.itemActionDivider}
             />
 
-            <Text
-              style={
-                styles.itemEditActionText
+            <Pressable
+              disabled={deleting}
+              onPress={() =>
+                confirmDeleteHierarchyItem(item)
               }
+              style={({ pressed }) => [
+                styles.itemActionButton,
+                pressed && styles.pressed,
+                deleting &&
+                  styles.disabledAction,
+              ]}
             >
-              Edit
-            </Text>
-          </Pressable>
+              {deleting ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.danger}
+                />
+              ) : (
+                <Ionicons
+                  name="trash-outline"
+                  size={18}
+                  color={colors.danger}
+                />
+              )}
 
-          <View
-            style={
-              styles.itemActionDivider
-            }
-          />
-
-          <Pressable
-            disabled={deleting}
-            onPress={() =>
-              confirmDeleteHierarchyItem(
-                item
-              )
-            }
-            style={({ pressed }) => [
-              styles.itemActionButton,
-              pressed &&
-                styles.pressed,
-              deleting &&
-                styles.disabledAction,
-            ]}
-          >
-            {deleting ? (
-              <ActivityIndicator
-                size="small"
-                color={colors.danger}
-              />
-            ) : (
-              <Ionicons
-                name="trash-outline"
-                size={18}
-                color={colors.danger}
-              />
-            )}
-
-            <Text
-              style={
-                styles.itemDeleteActionText
-              }
-            >
-              {deleting
-                ? "Deleting..."
-                : "Delete"}
-            </Text>
-          </Pressable>
-        </View>
+              <Text
+                style={
+                  styles.itemDeleteActionText
+                }
+              >
+                {deleting
+                  ? "Deleting..."
+                  : "Delete"}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </View>
     );
   }
 
-  function renderResourceItem(
-    item
-  ) {
+  function renderResourceItem(item) {
     const resourceType =
       getResourceType(item);
 
@@ -1874,78 +1996,50 @@ export default function ContentPage() {
       getSourceType(item);
 
     const deleting =
-      deletingResourceId ===
-      item.id;
+      deletingResourceId === item.id;
 
     return (
       <Card
         key={`${resourceType}-${item.id}`}
         style={styles.resourceCard}
       >
-        <View
-          style={
-            styles.resourceMain
-          }
-        >
+        <View style={styles.resourceMain}>
           <View
             style={[
               styles.resourceIcon,
-
-              resourceType ===
-                "video" &&
+              resourceType === "video" &&
                 styles.videoIcon,
             ]}
           >
             <Ionicons
               name={
-                resourceType ===
-                "video"
+                resourceType === "video"
                   ? "play-circle-outline"
                   : "document-text-outline"
               }
               size={27}
               color={
-                resourceType ===
-                "video"
+                resourceType === "video"
                   ? colors.warning
                   : colors.primary
               }
             />
           </View>
 
-          <View
-            style={
-              styles.resourceCopy
-            }
-          >
+          <View style={styles.resourceCopy}>
             <Text
               numberOfLines={2}
-              style={
-                styles.resourceTitle
-              }
+              style={styles.resourceTitle}
             >
               {item.title ||
                 item.name ||
                 "Untitled resource"}
             </Text>
 
-            <View
-              style={
-                styles.resourceMetaRow
-              }
-            >
-              <View
-                style={
-                  styles.resourceTypeRow
-                }
-              >
-                <Text
-                  style={
-                    styles.resourceTypeText
-                  }
-                >
-                  {resourceType ===
-                  "video"
+            <View style={styles.resourceMetaRow}>
+              <View style={styles.resourceTypeRow}>
+                <Text style={styles.resourceTypeText}>
+                  {resourceType === "video"
                     ? "Video"
                     : "Material"}
                 </Text>
@@ -1954,7 +2048,6 @@ export default function ContentPage() {
               <View
                 style={[
                   styles.resourceSourceBadge,
-
                   sourceType ===
                     SOURCE_R2_EXISTING &&
                     styles.resourceSourceBadgeR2,
@@ -1979,14 +2072,12 @@ export default function ContentPage() {
                 <Text
                   style={[
                     styles.resourceSourceText,
-
                     sourceType ===
                       SOURCE_R2_EXISTING &&
                       styles.resourceSourceTextR2,
                   ]}
                 >
-                  {sourceType ===
-                  SOURCE_R2_EXISTING
+                  {sourceType === SOURCE_R2_EXISTING
                     ? "Existing R2"
                     : "Platform upload"}
                 </Text>
@@ -1995,25 +2086,17 @@ export default function ContentPage() {
           </View>
         </View>
 
-        <View
-          style={
-            styles.resourceActions
-          }
-        >
+        <View style={styles.resourceActions}>
           <Button
             title="View"
             variant="primary"
-            onPress={() =>
-              viewResource(item)
-            }
+            onPress={() => viewResource(item)}
           />
 
           <Button
             title="Edit"
             variant="outline"
-            onPress={() =>
-              openEditResource(item)
-            }
+            onPress={() => openEditResource(item)}
           />
 
           <Button
@@ -2025,9 +2108,7 @@ export default function ContentPage() {
             variant="danger"
             disabled={deleting}
             onPress={() =>
-              confirmDeleteResource(
-                item
-              )
+              confirmDeleteResource(item)
             }
           />
         </View>
@@ -2038,21 +2119,13 @@ export default function ContentPage() {
   function renderItems() {
     if (loading) {
       return (
-        <Card
-          style={
-            styles.loadingCard
-          }
-        >
+        <Card style={styles.loadingCard}>
           <ActivityIndicator
             size="large"
             color={colors.primary}
           />
 
-          <Text
-            style={
-              styles.loadingText
-            }
-          >
+          <Text style={styles.loadingText}>
             Loading{" "}
             {currentLevel.plural.toLowerCase()}
             …
@@ -2068,19 +2141,13 @@ export default function ContentPage() {
     return (
       <View style={styles.itemList}>
         {level === "resources"
-          ? items.map(
-              renderResourceItem
-            )
-          : items.map(
-              renderHierarchyItem
-            )}
+          ? items.map(renderResourceItem)
+          : items.map(renderHierarchyItem)}
       </View>
     );
   }
 
-  function renderResourceCreateCard(
-    type
-  ) {
+  function renderResourceCreateCard(type) {
     const isMaterial =
       type === "material";
 
@@ -2114,6 +2181,16 @@ export default function ContentPage() {
         ? setMaterialObjectKey
         : setVideoObjectKey;
 
+    const selectedFile =
+      isMaterial
+        ? materialFile
+        : videoFile;
+
+    const setSelectedFile =
+      isMaterial
+        ? setMaterialFile
+        : setVideoFile;
+
     const busy =
       uploadingType === type;
 
@@ -2121,18 +2198,11 @@ export default function ContentPage() {
       Boolean(uploadingType);
 
     return (
-      <Card
-        style={styles.actionCard}
-      >
-        <View
-          style={
-            styles.actionHeader
-          }
-        >
+      <Card style={styles.actionCard}>
+        <View style={styles.actionHeader}>
           <View
             style={[
               styles.actionIcon,
-
               !isMaterial &&
                 styles.videoActionIcon,
             ]}
@@ -2152,26 +2222,14 @@ export default function ContentPage() {
             />
           </View>
 
-          <View
-            style={
-              styles.actionCopy
-            }
-          >
-            <Text
-              style={
-                styles.actionTitle
-              }
-            >
+          <View style={styles.actionCopy}>
+            <Text style={styles.actionTitle}>
               {isMaterial
                 ? "Add material"
                 : "Add video"}
             </Text>
 
-            <Text
-              style={
-                styles.actionDescription
-              }
-            >
+            <Text style={styles.actionDescription}>
               {isMaterial
                 ? "Upload a PDF/image or reference an existing R2 object."
                 : "Upload a lesson video or reference an existing R2 object."}
@@ -2179,9 +2237,7 @@ export default function ContentPage() {
           </View>
         </View>
 
-        <Text
-          style={styles.inputLabel}
-        >
+        <Text style={styles.inputLabel}>
           {isMaterial
             ? "Material title"
             : "Video title"}
@@ -2196,86 +2252,135 @@ export default function ContentPage() {
               ? "Material title"
               : "Video title"
           }
-          placeholderTextColor={
-            colors.textMuted
-          }
+          placeholderTextColor={colors.textMuted}
           style={styles.input}
         />
 
-        <View
-          style={
-            styles.sourceSection
-          }
-        >
-          <Text
-            style={
-              styles.sourceSectionLabel
-            }
-          >
+        <View style={styles.sourceSection}>
+          <Text style={styles.sourceSectionLabel}>
             FILE SOURCE
           </Text>
 
           <ResourceSourceSelector
             value={sourceType}
             onChange={(nextType) => {
-              setSourceType(
-                nextType
-              );
+              setSourceType(nextType);
 
-              if (
-                nextType ===
-                SOURCE_UPLOAD
-              ) {
+              if (nextType === SOURCE_UPLOAD) {
                 setObjectKey("");
+              }
+
+              if (nextType === SOURCE_R2_EXISTING) {
+                setSelectedFile(null);
               }
             }}
             disabled={anyBusy}
           />
         </View>
 
-        {sourceType ===
-        SOURCE_R2_EXISTING ? (
+        {sourceType === SOURCE_R2_EXISTING ? (
           <ExistingR2Field
             value={objectKey}
-            onChangeText={
-              setObjectKey
-            }
+            onChangeText={setObjectKey}
             disabled={anyBusy}
           />
         ) : (
-          <View
-            style={
-              styles.deviceUploadInfo
-            }
-          >
-            <Ionicons
-              name="cloud-upload-outline"
-              size={18}
-              color={colors.primary}
+          <View style={styles.replacementBox}>
+            <View style={styles.replacementInfo}>
+              <Ionicons
+                name={
+                  selectedFile
+                    ? "checkmark-circle-outline"
+                    : "cloud-upload-outline"
+                }
+                size={22}
+                color={colors.primary}
+              />
+
+              <View style={styles.replacementCopy}>
+                <Text style={styles.replacementTitle}>
+                  {selectedFile
+                    ? selectedFile.name
+                    : isMaterial
+                      ? "No material file selected"
+                      : "No video file selected"}
+                </Text>
+
+                <Text style={styles.replacementDescription}>
+                  {selectedFile
+                    ? "This file is ready to upload."
+                    : isMaterial
+                      ? "Choose a PDF or image file from your laptop."
+                      : "Choose a video file from your laptop."}
+                </Text>
+              </View>
+            </View>
+
+            <Button
+              title={
+                selectedFile
+                  ? "Choose another file"
+                  : isMaterial
+                    ? "Choose material from device"
+                    : "Choose video from device"
+              }
+              variant="outline"
+              onPress={() =>
+                selectCreateResourceFile(type)
+              }
+              disabled={anyBusy}
             />
 
-            <Text
-              style={
-                styles.deviceUploadInfoText
-              }
-            >
-              {isMaterial
-                ? "The file picker will accept PDF and image files."
-                : "The file picker will accept video files."}
-            </Text>
+            {selectedFile ? (
+              <Pressable
+                onPress={() =>
+                  clearCreateResourceFile(type)
+                }
+                disabled={anyBusy}
+                style={({ pressed }) => [
+                  styles.keepCurrentButton,
+                  pressed &&
+                    !anyBusy &&
+                    styles.pressed,
+                  anyBusy &&
+                    styles.disabledAction,
+                ]}
+              >
+                <Text style={styles.keepCurrentText}>
+                  Clear selected file
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         )}
+        {busy &&
+          sourceType === SOURCE_UPLOAD &&
+          typeof uploadProgress === "number" ? (
+            <View style={styles.deviceUploadInfo}>
+              <Ionicons
+                name="cloud-upload-outline"
+                size={18}
+                color={colors.primary}
+              />
 
+              <Text style={styles.deviceUploadInfoText}>
+                Uploading directly to R2: {uploadProgress}%
+              </Text>
+            </View>
+          ) : null}
         <Button
           title={
-            sourceType ===
-            SOURCE_R2_EXISTING
+            sourceType === SOURCE_R2_EXISTING
               ? busy
                 ? "Checking R2..."
                 : "Add existing R2 file"
               : busy
-                ? "Uploading..."
-                : "Choose and upload"
+                ? typeof uploadProgress === "number"
+                  ? `Uploading ${uploadProgress}%`
+                  : "Preparing upload..."
+                : isMaterial
+                  ? "Upload material"
+                  : "Upload video"
           }
           variant="warning"
           loading={busy}
@@ -2284,7 +2389,9 @@ export default function ContentPage() {
             !title.trim() ||
             (sourceType ===
               SOURCE_R2_EXISTING &&
-              !objectKey.trim())
+              !objectKey.trim()) ||
+            (sourceType === SOURCE_UPLOAD &&
+              !selectedFile)
           }
           onPress={() =>
             uploadResource(type)
@@ -2301,13 +2408,8 @@ export default function ContentPage() {
 
     return (
       <>
-        {renderResourceCreateCard(
-          "material"
-        )}
-
-        {renderResourceCreateCard(
-          "video"
-        )}
+        {renderResourceCreateCard("material")}
+        {renderResourceCreateCard("video")}
       </>
     );
   }
@@ -2322,19 +2424,9 @@ export default function ContentPage() {
               styles.headerCompact,
           ]}
         >
-          <View
-            style={styles.headerCopy}
-          >
-            <View
-              style={
-                styles.eyebrowRow
-              }
-            >
-              <View
-                style={
-                  styles.eyebrowIcon
-                }
-              >
+          <View style={styles.headerCopy}>
+            <View style={styles.eyebrowRow}>
+              <View style={styles.eyebrowIcon}>
                 <Ionicons
                   name="library-outline"
                   size={16}
@@ -2342,37 +2434,24 @@ export default function ContentPage() {
                 />
               </View>
 
-              <Text
-                style={styles.eyebrow}
-              >
+              <Text style={styles.eyebrow}>
                 CONTENT MANAGEMENT
               </Text>
             </View>
 
-            <Text
-              style={styles.pageTitle}
-            >
+            <Text style={styles.pageTitle}>
               Learning content
             </Text>
 
-            <Text
-              style={
-                styles.pageDescription
-              }
-            >
-              Manage the global Unit,
-              Chapter and Topic hierarchy,
-              then upload or reference
-              resources inside individual
-              topics.
+            <Text style={styles.pageDescription}>
+              Choose an academic year, create
+              units and chapters for that year,
+              then upload or reference materials
+              and videos directly inside chapters.
             </Text>
           </View>
 
-          <View
-            style={
-              styles.globalBadge
-            }
-          >
+          <View style={styles.globalBadge}>
             <Ionicons
               name="globe-outline"
               size={19}
@@ -2380,20 +2459,12 @@ export default function ContentPage() {
             />
 
             <View>
-              <Text
-                style={
-                  styles.globalBadgeLabel
-                }
-              >
+              <Text style={styles.globalBadgeLabel}>
                 STRUCTURE
               </Text>
 
-              <Text
-                style={
-                  styles.globalBadgeValue
-                }
-              >
-                Global
+              <Text style={styles.globalBadgeValue}>
+                Year-based
               </Text>
             </View>
           </View>
@@ -2422,12 +2493,8 @@ export default function ContentPage() {
             </Text>
 
             <Pressable
-              onPress={() =>
-                setError("")
-              }
-              style={
-                styles.closeMessage
-              }
+              onPress={() => setError("")}
+              style={styles.closeMessage}
             >
               <Ionicons
                 name="close"
@@ -2451,21 +2518,13 @@ export default function ContentPage() {
               color={colors.primary}
             />
 
-            <Text
-              style={
-                styles.messageText
-              }
-            >
+            <Text style={styles.messageText}>
               {success}
             </Text>
 
             <Pressable
-              onPress={() =>
-                setSuccess("")
-              }
-              style={
-                styles.closeMessage
-              }
+              onPress={() => setSuccess("")}
+              style={styles.closeMessage}
             >
               <Ionicons
                 name="close"
@@ -2476,9 +2535,7 @@ export default function ContentPage() {
           </View>
         ) : null}
 
-        <Card
-          style={styles.browserCard}
-        >
+        <Card style={styles.browserCard}>
           {renderBreadcrumbs()}
 
           <View
@@ -2488,47 +2545,27 @@ export default function ContentPage() {
                 styles.browserHeaderCompact,
             ]}
           >
-            <View
-              style={
-                styles.browserHeaderCopy
-              }
-            >
-              <Text
-                style={
-                  styles.sectionLabel
-                }
-              >
-                GLOBAL CONTENT STRUCTURE
+            <View style={styles.browserHeaderCopy}>
+              <Text style={styles.sectionLabel}>
+                YEAR CONTENT STRUCTURE
               </Text>
 
-              <Text
-                style={
-                  styles.browserTitle
-                }
-              >
+              <Text style={styles.browserTitle}>
                 {currentParent?.name ||
-                  "Units"}
+                  "Academic Years"}
               </Text>
 
-              <Text
-                style={
-                  styles.browserDescription
-                }
-              >
-                {
-                  currentLevel.description
-                }
+              <Text style={styles.browserDescription}>
+                {currentLevel.description}
               </Text>
             </View>
 
-            {level !==
-            "resources" ? (
+            {level !== "resources" &&
+            level !== "years" ? (
               <Button
                 title={`Add ${currentLevel.singular}`}
                 variant="warning"
-                onPress={
-                  openCreateModal
-                }
+                onPress={openCreateModal}
               />
             ) : null}
           </View>
@@ -2541,32 +2578,14 @@ export default function ContentPage() {
               styles.mainLayoutDesktop,
           ]}
         >
-          <View
-            style={
-              styles.contentColumn
-            }
-          >
-            <View
-              style={
-                styles.listHeader
-              }
-            >
+          <View style={styles.contentColumn}>
+            <View style={styles.listHeader}>
               <View>
-                <Text
-                  style={
-                    styles.listTitle
-                  }
-                >
-                  {
-                    currentLevel.plural
-                  }
+                <Text style={styles.listTitle}>
+                  {currentLevel.plural}
                 </Text>
 
-                <Text
-                  style={
-                    styles.listCount
-                  }
-                >
+                <Text style={styles.listCount}>
                   {items.length}{" "}
                   {items.length === 1
                     ? "item"
@@ -2576,23 +2595,16 @@ export default function ContentPage() {
 
               {!loading ? (
                 <Pressable
-                  onPress={
-                    refreshCurrentLevel
-                  }
-                  style={({
-                    pressed,
-                  }) => [
+                  onPress={refreshCurrentLevel}
+                  style={({ pressed }) => [
                     styles.refreshButton,
-                    pressed &&
-                      styles.pressed,
+                    pressed && styles.pressed,
                   ]}
                 >
                   <Ionicons
                     name="refresh-outline"
                     size={19}
-                    color={
-                      colors.primary
-                    }
+                    color={colors.primary}
                   />
                 </Pressable>
               ) : null}
@@ -2608,53 +2620,28 @@ export default function ContentPage() {
                 styles.sideColumnDesktop,
             ]}
           >
-            {level !==
-            "resources" ? (
-              <Card
-                style={
-                  styles.actionCard
-                }
-              >
-                <View
-                  style={
-                    styles.actionHeader
-                  }
-                >
-                  <View
-                    style={
-                      styles.actionIcon
-                    }
-                  >
+            {level !== "resources" &&
+            level !== "years" ? (
+              <Card style={styles.actionCard}>
+                <View style={styles.actionHeader}>
+                  <View style={styles.actionIcon}>
                     <Ionicons
                       name="add-circle-outline"
                       size={22}
-                      color={
-                        colors.primary
-                      }
+                      color={colors.primary}
                     />
                   </View>
 
-                  <View
-                    style={
-                      styles.actionCopy
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.actionTitle
-                      }
-                    >
+                  <View style={styles.actionCopy}>
+                    <Text style={styles.actionTitle}>
                       Add{" "}
                       {currentLevel.singular.toLowerCase()}
                     </Text>
 
-                    <Text
-                      style={
-                        styles.actionDescription
-                      }
-                    >
+                    <Text style={styles.actionDescription}>
                       Extend the current
-                      curriculum hierarchy.
+                      year-based curriculum
+                      hierarchy.
                     </Text>
                   </View>
                 </View>
@@ -2662,21 +2649,15 @@ export default function ContentPage() {
                 <Button
                   title={`Add ${currentLevel.singular}`}
                   variant="warning"
-                  onPress={
-                    openCreateModal
-                  }
+                  onPress={openCreateModal}
                 />
               </Card>
             ) : null}
 
             {renderUploadPanel()}
 
-            <Card
-              style={styles.helpCard}
-            >
-              <View
-                style={styles.helpIcon}
-              >
+            <Card style={styles.helpCard}>
+              <View style={styles.helpIcon}>
                 <Ionicons
                   name="information-circle-outline"
                   size={22}
@@ -2684,81 +2665,48 @@ export default function ContentPage() {
                 />
               </View>
 
-              <Text
-                style={styles.helpTitle}
-              >
-                Global hierarchy
+              <Text style={styles.helpTitle}>
+                Year-based hierarchy
               </Text>
 
-              <Text
-                style={styles.helpText}
-              >
-                Units, Chapters and Topics
-                are global. They are not
-                connected to academic
-                years. Years are used for
-                students, groups and
-                assignments only.
+              <Text style={styles.helpText}>
+                Units and Chapters belong to the
+                selected academic year. All groups
+                inside that year can see the same
+                resources. Topics are no longer used
+                for teacher content uploads.
               </Text>
             </Card>
 
             {level === "resources" ? (
-              <Card
-                style={
-                  styles.r2HelpCard
-                }
-              >
-                <View
-                  style={
-                    styles.r2HelpHeader
-                  }
-                >
-                  <View
-                    style={
-                      styles.r2HelpIcon
-                    }
-                  >
+              <Card style={styles.r2HelpCard}>
+                <View style={styles.r2HelpHeader}>
+                  <View style={styles.r2HelpIcon}>
                     <Ionicons
                       name="server-outline"
                       size={21}
-                      color={
-                        colors.primary
-                      }
+                      color={colors.primary}
                     />
                   </View>
 
-                  <Text
-                    style={
-                      styles.r2HelpTitle
-                    }
-                  >
+                  <Text style={styles.r2HelpTitle}>
                     Existing R2 files
                   </Text>
                 </View>
 
-                <Text
-                  style={
-                    styles.r2HelpText
-                  }
-                >
-                  Upload very large files
-                  directly through the
-                  Cloudflare R2 dashboard,
-                  then copy the object's key
-                  here. The platform verifies
-                  the object exists and
-                  generates temporary signed
-                  URLs when students open it.
+                <Text style={styles.r2HelpText}>
+                  Upload very large files directly
+                  through Cloudflare R2 or direct
+                  multipart upload, then copy the
+                  object's key here. The platform
+                  verifies the object exists and
+                  generates temporary signed URLs
+                  when students open it.
                 </Text>
 
-                <Text
-                  style={
-                    styles.r2HelpImportant
-                  }
-                >
-                  Do not paste an expiring
-                  signed URL. Paste only the
-                  R2 object key.
+                <Text style={styles.r2HelpImportant}>
+                  Do not paste an expiring signed
+                  URL. Paste only the R2 object key.
                 </Text>
               </Card>
             ) : null}
@@ -2766,43 +2714,21 @@ export default function ContentPage() {
         </View>
       </View>
 
-      {/* CREATE HIERARCHY */}
-
       <Modal
         visible={createModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={
-          closeCreateModal
-        }
+        onRequestClose={closeCreateModal}
       >
-        <View
-          style={
-            styles.modalBackdrop
-          }
-        >
+        <View style={styles.modalBackdrop}>
           <Pressable
-            style={
-              styles.modalFill
-            }
-            onPress={
-              closeCreateModal
-            }
+            style={styles.modalFill}
+            onPress={closeCreateModal}
           />
 
-          <View
-            style={styles.modalCard}
-          >
-            <View
-              style={
-                styles.modalHeader
-              }
-            >
-              <View
-                style={
-                  styles.modalIcon
-                }
-              >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIcon}>
                 <Ionicons
                   name="add-outline"
                   size={24}
@@ -2810,87 +2736,50 @@ export default function ContentPage() {
                 />
               </View>
 
-              <View
-                style={
-                  styles.modalHeadingCopy
-                }
-              >
-                <Text
-                  style={
-                    styles.modalTitle
-                  }
-                >
+              <View style={styles.modalHeadingCopy}>
+                <Text style={styles.modalTitle}>
                   Add{" "}
                   {currentLevel.singular.toLowerCase()}
                 </Text>
 
-                <Text
-                  style={
-                    styles.modalDescription
-                  }
-                >
-                  Enter a clear name for
-                  the new{" "}
-                  {currentLevel.singular.toLowerCase()}
-                  .
+                <Text style={styles.modalDescription}>
+                  Enter a clear name for the new{" "}
+                  {currentLevel.singular.toLowerCase()}.
                 </Text>
               </View>
 
               <Pressable
-                onPress={
-                  closeCreateModal
-                }
-                style={
-                  styles.modalClose
-                }
+                onPress={closeCreateModal}
+                style={styles.modalClose}
               >
                 <Ionicons
                   name="close"
                   size={22}
-                  color={
-                    colors.textPrimary
-                  }
+                  color={colors.textPrimary}
                 />
               </Pressable>
             </View>
 
-            <Text
-              style={styles.inputLabel}
-            >
-              {
-                currentLevel.singular
-              }{" "}
-              name
+            <Text style={styles.inputLabel}>
+              {currentLevel.singular} name
             </Text>
 
             <TextInput
               autoFocus
               value={newItemName}
-              onChangeText={
-                setNewItemName
-              }
+              onChangeText={setNewItemName}
               placeholder={`Enter ${currentLevel.singular.toLowerCase()} name`}
-              placeholderTextColor={
-                colors.textMuted
-              }
+              placeholderTextColor={colors.textMuted}
               returnKeyType="done"
-              onSubmitEditing={
-                createItem
-              }
+              onSubmitEditing={createItem}
               style={styles.input}
             />
 
-            <View
-              style={
-                styles.modalActions
-              }
-            >
+            <View style={styles.modalActions}>
               <Button
                 title="Cancel"
                 variant="outline"
-                onPress={
-                  closeCreateModal
-                }
+                onPress={closeCreateModal}
                 disabled={creating}
               />
 
@@ -2905,45 +2794,21 @@ export default function ContentPage() {
         </View>
       </Modal>
 
-      {/* EDIT HIERARCHY */}
-
       <Modal
-        visible={
-          hierarchyEditVisible
-        }
+        visible={hierarchyEditVisible}
         transparent
         animationType="fade"
-        onRequestClose={
-          closeHierarchyEdit
-        }
+        onRequestClose={closeHierarchyEdit}
       >
-        <View
-          style={
-            styles.modalBackdrop
-          }
-        >
+        <View style={styles.modalBackdrop}>
           <Pressable
-            style={
-              styles.modalFill
-            }
-            onPress={
-              closeHierarchyEdit
-            }
+            style={styles.modalFill}
+            onPress={closeHierarchyEdit}
           />
 
-          <View
-            style={styles.modalCard}
-          >
-            <View
-              style={
-                styles.modalHeader
-              }
-            >
-              <View
-                style={
-                  styles.modalIcon
-                }
-              >
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIcon}>
                 <Ionicons
                   name="create-outline"
                   size={23}
@@ -2951,130 +2816,74 @@ export default function ContentPage() {
                 />
               </View>
 
-              <View
-                style={
-                  styles.modalHeadingCopy
-                }
-              >
-                <Text
-                  style={
-                    styles.modalTitle
-                  }
-                >
+              <View style={styles.modalHeadingCopy}>
+                <Text style={styles.modalTitle}>
                   Edit{" "}
                   {currentLevel.singular.toLowerCase()}
                 </Text>
 
-                <Text
-                  style={
-                    styles.modalDescription
-                  }
-                >
+                <Text style={styles.modalDescription}>
                   Change the name of this{" "}
-                  {currentLevel.singular.toLowerCase()}
-                  .
+                  {currentLevel.singular.toLowerCase()}.
                 </Text>
               </View>
 
               <Pressable
-                onPress={
-                  closeHierarchyEdit
-                }
-                style={
-                  styles.modalClose
-                }
+                onPress={closeHierarchyEdit}
+                style={styles.modalClose}
               >
                 <Ionicons
                   name="close"
                   size={22}
-                  color={
-                    colors.textPrimary
-                  }
+                  color={colors.textPrimary}
                 />
               </Pressable>
             </View>
 
-            <Text
-              style={styles.inputLabel}
-            >
-              {
-                currentLevel.singular
-              }{" "}
-              name
+            <Text style={styles.inputLabel}>
+              {currentLevel.singular} name
             </Text>
 
             <TextInput
               autoFocus
-              value={
-                hierarchyEditName
-              }
-              onChangeText={
-                setHierarchyEditName
-              }
+              value={hierarchyEditName}
+              onChangeText={setHierarchyEditName}
               placeholder={`Enter ${currentLevel.singular.toLowerCase()} name`}
-              placeholderTextColor={
-                colors.textMuted
-              }
+              placeholderTextColor={colors.textMuted}
               returnKeyType="done"
-              onSubmitEditing={
-                saveHierarchyEdit
-              }
+              onSubmitEditing={saveHierarchyEdit}
               style={styles.input}
             />
 
-            <View
-              style={
-                styles.modalActions
-              }
-            >
+            <View style={styles.modalActions}>
               <Button
                 title="Cancel"
                 variant="outline"
-                onPress={
-                  closeHierarchyEdit
-                }
-                disabled={
-                  savingHierarchyEdit
-                }
+                onPress={closeHierarchyEdit}
+                disabled={savingHierarchyEdit}
               />
 
               <Button
                 title="Save changes"
                 variant="warning"
-                onPress={
-                  saveHierarchyEdit
-                }
-                loading={
-                  savingHierarchyEdit
-                }
+                onPress={saveHierarchyEdit}
+                loading={savingHierarchyEdit}
               />
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* EDIT RESOURCE */}
-
       <Modal
         visible={editModalVisible}
         transparent
         animationType="fade"
-        onRequestClose={
-          closeEditResource
-        }
+        onRequestClose={closeEditResource}
       >
-        <View
-          style={
-            styles.modalBackdrop
-          }
-        >
+        <View style={styles.modalBackdrop}>
           <Pressable
-            style={
-              styles.modalFill
-            }
-            onPress={
-              closeEditResource
-            }
+            style={styles.modalFill}
+            onPress={closeEditResource}
           />
 
           <View
@@ -3084,23 +2893,13 @@ export default function ContentPage() {
             ]}
           >
             <ScrollView
-              showsVerticalScrollIndicator={
-                false
-              }
+              showsVerticalScrollIndicator={false}
               contentContainerStyle={
                 styles.resourceEditScroll
               }
             >
-              <View
-                style={
-                  styles.modalHeader
-                }
-              >
-                <View
-                  style={
-                    styles.modalIcon
-                  }
-                >
+              <View style={styles.modalHeader}>
+                <View style={styles.modalIcon}>
                   <Ionicons
                     name="create-outline"
                     size={22}
@@ -3108,54 +2907,33 @@ export default function ContentPage() {
                   />
                 </View>
 
-                <View
-                  style={
-                    styles.modalHeadingCopy
-                  }
-                >
-                  <Text
-                    style={
-                      styles.modalTitle
-                    }
-                  >
+                <View style={styles.modalHeadingCopy}>
+                  <Text style={styles.modalTitle}>
                     Edit resource
                   </Text>
 
-                  <Text
-                    style={
-                      styles.modalDescription
-                    }
-                  >
-                    Change the title, keep
-                    the current file, upload
-                    a replacement, or switch
-                    to an existing R2 object.
+                  <Text style={styles.modalDescription}>
+                    Change the title, keep the current
+                    file, upload a replacement, or
+                    switch to an existing R2 object.
                   </Text>
                 </View>
 
                 <Pressable
-                  onPress={
-                    closeEditResource
-                  }
-                  style={
-                    styles.modalClose
-                  }
+                  onPress={closeEditResource}
+                  style={styles.modalClose}
                 >
                   <Ionicons
                     name="close"
                     size={22}
-                    color={
-                      colors.textPrimary
-                    }
+                    color={colors.textPrimary}
                   />
                 </Pressable>
               </View>
 
               {editingResource ? (
                 <View
-                  style={
-                    styles.currentResourceSummary
-                  }
+                  style={styles.currentResourceSummary}
                 >
                   <View
                     style={
@@ -3164,17 +2942,13 @@ export default function ContentPage() {
                   >
                     <Ionicons
                       name={
-                        getResourceType(
-                          editingResource
-                        ) ===
+                        getResourceType(editingResource) ===
                         "video"
                           ? "videocam-outline"
                           : "document-text-outline"
                       }
                       size={20}
-                      color={
-                        colors.primary
-                      }
+                      color={colors.primary}
                     />
                   </View>
 
@@ -3196,9 +2970,7 @@ export default function ContentPage() {
                         styles.currentResourceSummaryValue
                       }
                     >
-                      {getSourceType(
-                        editingResource
-                      ) ===
+                      {getSourceType(editingResource) ===
                       SOURCE_R2_EXISTING
                         ? "Existing R2 file"
                         : "Platform upload"}
@@ -3207,37 +2979,21 @@ export default function ContentPage() {
                 </View>
               ) : null}
 
-              <Text
-                style={
-                  styles.inputLabel
-                }
-              >
+              <Text style={styles.inputLabel}>
                 Resource title
               </Text>
 
               <TextInput
                 value={editTitle}
-                onChangeText={
-                  setEditTitle
-                }
+                onChangeText={setEditTitle}
                 editable={!savingEdit}
                 placeholder="Resource title"
-                placeholderTextColor={
-                  colors.textMuted
-                }
+                placeholderTextColor={colors.textMuted}
                 style={styles.input}
               />
 
-              <View
-                style={
-                  styles.editSourceSection
-                }
-              >
-                <Text
-                  style={
-                    styles.sourceSectionLabel
-                  }
-                >
+              <View style={styles.editSourceSection}>
+                <Text style={styles.sourceSectionLabel}>
                   FILE ACTION
                 </Text>
 
@@ -3250,21 +3006,15 @@ export default function ContentPage() {
                   }
                   style={({ pressed }) => [
                     styles.editSourceOption,
-
                     editSourceMode ===
                       EDIT_SOURCE_KEEP &&
                       styles.editSourceOptionActive,
-
                     pressed &&
                       !savingEdit &&
                       styles.pressed,
                   ]}
                 >
-                  <View
-                    style={
-                      styles.editSourceRadio
-                    }
-                  >
+                  <View style={styles.editSourceRadio}>
                     {editSourceMode ===
                     EDIT_SOURCE_KEEP ? (
                       <View
@@ -3275,16 +3025,8 @@ export default function ContentPage() {
                     ) : null}
                   </View>
 
-                  <View
-                    style={
-                      styles.editSourceCopy
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.editSourceTitle
-                      }
-                    >
+                  <View style={styles.editSourceCopy}>
+                    <Text style={styles.editSourceTitle}>
                       Keep current file
                     </Text>
 
@@ -3307,21 +3049,15 @@ export default function ContentPage() {
                   }
                   style={({ pressed }) => [
                     styles.editSourceOption,
-
                     editSourceMode ===
                       EDIT_SOURCE_UPLOAD &&
                       styles.editSourceOptionActive,
-
                     pressed &&
                       !savingEdit &&
                       styles.pressed,
                   ]}
                 >
-                  <View
-                    style={
-                      styles.editSourceRadio
-                    }
-                  >
+                  <View style={styles.editSourceRadio}>
                     {editSourceMode ===
                     EDIT_SOURCE_UPLOAD ? (
                       <View
@@ -3332,16 +3068,8 @@ export default function ContentPage() {
                     ) : null}
                   </View>
 
-                  <View
-                    style={
-                      styles.editSourceCopy
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.editSourceTitle
-                      }
-                    >
+                  <View style={styles.editSourceCopy}>
+                    <Text style={styles.editSourceTitle}>
                       Replace from device
                     </Text>
 
@@ -3364,21 +3092,15 @@ export default function ContentPage() {
                   }
                   style={({ pressed }) => [
                     styles.editSourceOption,
-
                     editSourceMode ===
                       EDIT_SOURCE_R2 &&
                       styles.editSourceOptionActive,
-
                     pressed &&
                       !savingEdit &&
                       styles.pressed,
                   ]}
                 >
-                  <View
-                    style={
-                      styles.editSourceRadio
-                    }
-                  >
+                  <View style={styles.editSourceRadio}>
                     {editSourceMode ===
                     EDIT_SOURCE_R2 ? (
                       <View
@@ -3389,16 +3111,8 @@ export default function ContentPage() {
                     ) : null}
                   </View>
 
-                  <View
-                    style={
-                      styles.editSourceCopy
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.editSourceTitle
-                      }
-                    >
+                  <View style={styles.editSourceCopy}>
+                    <Text style={styles.editSourceTitle}>
                       Existing R2 file
                     </Text>
 
@@ -3414,18 +3128,9 @@ export default function ContentPage() {
                 </Pressable>
               </View>
 
-              {editSourceMode ===
-              EDIT_SOURCE_UPLOAD ? (
-                <View
-                  style={
-                    styles.replacementBox
-                  }
-                >
-                  <View
-                    style={
-                      styles.replacementInfo
-                    }
-                  >
+              {editSourceMode === EDIT_SOURCE_UPLOAD ? (
+                <View style={styles.replacementBox}>
+                  <View style={styles.replacementInfo}>
                     <Ionicons
                       name={
                         replacementFile
@@ -3433,20 +3138,12 @@ export default function ContentPage() {
                           : "attach-outline"
                       }
                       size={22}
-                      color={
-                        colors.primary
-                      }
+                      color={colors.primary}
                     />
 
-                    <View
-                      style={
-                        styles.replacementCopy
-                      }
-                    >
+                    <View style={styles.replacementCopy}>
                       <Text
-                        style={
-                          styles.replacementTitle
-                        }
+                        style={styles.replacementTitle}
                       >
                         {replacementFile
                           ? replacementFile.name
@@ -3472,28 +3169,18 @@ export default function ContentPage() {
                         : "Choose file"
                     }
                     variant="outline"
-                    onPress={
-                      selectReplacementFile
-                    }
+                    onPress={selectReplacementFile}
                     disabled={savingEdit}
                   />
 
                   {replacementFile ? (
                     <Pressable
                       onPress={() =>
-                        setReplacementFile(
-                          null
-                        )
+                        setReplacementFile(null)
                       }
-                      style={
-                        styles.keepCurrentButton
-                      }
+                      style={styles.keepCurrentButton}
                     >
-                      <Text
-                        style={
-                          styles.keepCurrentText
-                        }
-                      >
+                      <Text style={styles.keepCurrentText}>
                         Clear selected file
                       </Text>
                     </Pressable>
@@ -3501,28 +3188,19 @@ export default function ContentPage() {
                 </View>
               ) : null}
 
-              {editSourceMode ===
-              EDIT_SOURCE_R2 ? (
+              {editSourceMode === EDIT_SOURCE_R2 ? (
                 <ExistingR2Field
                   value={editObjectKey}
-                  onChangeText={
-                    setEditObjectKey
-                  }
+                  onChangeText={setEditObjectKey}
                   disabled={savingEdit}
                 />
               ) : null}
 
-              <View
-                style={
-                  styles.modalActions
-                }
-              >
+              <View style={styles.modalActions}>
                 <Button
                   title="Cancel"
                   variant="outline"
-                  onPress={
-                    closeEditResource
-                  }
+                  onPress={closeEditResource}
                   disabled={savingEdit}
                 />
 
@@ -3537,8 +3215,7 @@ export default function ContentPage() {
                     (editSourceMode ===
                       EDIT_SOURCE_UPLOAD &&
                       !replacementFile) ||
-                    (editSourceMode ===
-                      EDIT_SOURCE_R2 &&
+                    (editSourceMode === EDIT_SOURCE_R2 &&
                       !editObjectKey.trim())
                   }
                 />
