@@ -1034,6 +1034,73 @@ export const styles =
       color: colors.danger,
     },
 
+    uploadProgressBox: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.secondary + "70",
+    borderRadius: radius.lg,
+    backgroundColor: colors.secondary + "12",
+  },
+
+  uploadProgressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+
+  uploadProgressTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+
+  uploadProgressPercent: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: colors.primary,
+  },
+
+  uploadProgressTrack: {
+    height: 10,
+    overflow: "hidden",
+    borderRadius: radius.pill,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+
+  uploadProgressFill: {
+    height: "100%",
+    borderRadius: radius.pill,
+    backgroundColor: colors.primary,
+  },
+
+  uploadProgressStatus: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+  },
+
+  cancelUploadButton: {
+    alignSelf: "flex-start",
+    minHeight: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: colors.danger + "12",
+  },
+
+  cancelUploadText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.danger,
+  },
+
     pressed: {
       opacity: 0.72,
     },

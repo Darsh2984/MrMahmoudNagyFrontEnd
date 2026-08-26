@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -381,6 +382,14 @@ export default function ContentPage() {
     uploadProgress,
     setUploadProgress,
   ] = useState(null);
+
+  const [
+    uploadStatusText,
+    setUploadStatusText,
+  ] = useState("");
+
+  const directUploadRequestRef =
+    useRef(null);
 
   const [
     editModalVisible,
@@ -1129,6 +1138,51 @@ export default function ContentPage() {
     }
   }
 
+  function formatFileSize(size) {
+    const numericSize =
+      Number(size);
+
+    if (
+      !Number.isFinite(numericSize) ||
+      numericSize <= 0
+    ) {
+      return "Unknown size";
+    }
+
+    const units = [
+      "B",
+      "KB",
+      "MB",
+      "GB",
+      "TB",
+    ];
+
+    let value = numericSize;
+    let unitIndex = 0;
+
+    while (
+      value >= 1024 &&
+      unitIndex < units.length - 1
+    ) {
+      value = value / 1024;
+      unitIndex += 1;
+    }
+
+    return `${value.toFixed(
+      value >= 10 || unitIndex === 0
+        ? 0
+        : 1
+    )} ${units[unitIndex]}`;
+  }
+
+  function isAbortError(error) {
+    return (
+      error?.name === "AbortError" ||
+      error?.message === "UPLOAD_CANCELLED"
+    );
+  }
+
+  
   function getSelectedUploadFile(file) {
     if (!file) {
       return null;
@@ -1172,9 +1226,15 @@ export default function ContentPage() {
     file,
     contentType,
     onProgress,
+    onStatus,
+    requestRef,
   }) {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
+
+      if (requestRef) {
+        requestRef.current = xhr;
+      }
 
       xhr.open("PUT", uploadUrl);
 
@@ -1183,6 +1243,14 @@ export default function ContentPage() {
         contentType ||
           "application/octet-stream"
       );
+
+      xhr.upload.onloadstart = () => {
+        if (typeof onStatus === "function") {
+          onStatus(
+            "Upload started. Keep this tab open until it finishes."
+          );
+        }
+      };
 
       xhr.upload.onprogress = (event) => {
         if (
@@ -1195,14 +1263,36 @@ export default function ContentPage() {
             );
 
           onProgress(percent);
+
+          if (
+            typeof onStatus === "function"
+          ) {
+            onStatus(
+              `Uploading ${formatFileSize(
+                event.loaded
+              )} of ${formatFileSize(
+                event.total
+              )}`
+            );
+          }
         }
       };
 
       xhr.onload = () => {
+        if (requestRef) {
+          requestRef.current = null;
+        }
+
         if (
           xhr.status >= 200 &&
           xhr.status < 300
         ) {
+          if (typeof onStatus === "function") {
+            onStatus(
+              "Upload finished. Saving resource..."
+            );
+          }
+
           resolve();
           return;
         }
@@ -1215,6 +1305,10 @@ export default function ContentPage() {
       };
 
       xhr.onerror = () => {
+        if (requestRef) {
+          requestRef.current = null;
+        }
+
         reject(
           new Error(
             "Direct upload failed. Check the network connection and R2 CORS settings."
@@ -1222,7 +1316,21 @@ export default function ContentPage() {
         );
       };
 
+      xhr.onabort = () => {
+        if (requestRef) {
+          requestRef.current = null;
+        }
+
+        reject(
+          new Error("UPLOAD_CANCELLED")
+        );
+      };
+
       xhr.ontimeout = () => {
+        if (requestRef) {
+          requestRef.current = null;
+        }
+
         reject(
           new Error(
             "Direct upload timed out. Try again with a stable connection."
@@ -1230,12 +1338,7 @@ export default function ContentPage() {
         );
       };
 
-      /*
-      * 0 means no browser-side timeout.
-      * This is important for 2GB / 3GB videos.
-      */
       xhr.timeout = 0;
-
       xhr.send(file);
     });
   }
@@ -1268,6 +1371,9 @@ export default function ContentPage() {
       getSelectedUploadSize(selectedFile);
 
     setUploadProgress(0);
+    setUploadStatusText(
+      "Preparing secure upload..."
+    );
 
     const startResponse =
       await api.post(
@@ -1300,9 +1406,14 @@ export default function ContentPage() {
       contentType:
         upload.contentType || contentType,
       onProgress: setUploadProgress,
+      onStatus: setUploadStatusText,
+      requestRef: directUploadRequestRef,
     });
 
     setUploadProgress(100);
+    setUploadStatusText(
+      "Upload finished. Saving resource..."
+    );
 
     const completeResponse =
       await api.post(
@@ -1314,7 +1425,9 @@ export default function ContentPage() {
           objectKey: upload.objectKey,
         }
       );
-
+    setUploadStatusText(
+      "Resource saved successfully."
+    );
     return completeResponse.data?.resource;
   }
 
@@ -1473,18 +1586,27 @@ export default function ContentPage() {
             } uploaded successfully.`
       );
     } catch (requestError) {
-      setError(
-        getApiError(
-          requestError,
-          sourceType === SOURCE_R2_EXISTING
-            ? `Couldn't add the ${type} from R2. Check that the object key exists in the configured bucket.`
-            : `Couldn't upload the ${type}. Confirm that Cloudflare R2 is configured correctly.`
-        )
-      );
-    } finally {
-      setUploadingType(null);
-      setUploadProgress(null);
-    }
+        if (isAbortError(requestError)) {
+          setError(
+            "Upload cancelled. The resource was not saved."
+          );
+          return;
+        }
+
+        setError(
+          getApiError(
+            requestError,
+            sourceType === SOURCE_R2_EXISTING
+              ? `Couldn't add the ${type} from R2. Check that the object key exists in the configured bucket.`
+              : `Couldn't upload the ${type}. Keep the tab open while uploading and confirm that Cloudflare R2 CORS allows PUT requests.`
+          )
+        );
+      } finally {
+        setUploadingType(null);
+        setUploadProgress(null);
+        setUploadStatusText("");
+        directUploadRequestRef.current = null;
+      }
   }
 
   function viewResource(item) {
@@ -2147,6 +2269,12 @@ export default function ContentPage() {
     );
   }
 
+  function cancelDirectUpload() {
+    if (directUploadRequestRef.current) {
+      directUploadRequestRef.current.abort();
+    }
+  }
+  
   function renderResourceCreateCard(type) {
     const isMaterial =
       type === "material";
@@ -2308,7 +2436,9 @@ export default function ContentPage() {
 
                 <Text style={styles.replacementDescription}>
                   {selectedFile
-                    ? "This file is ready to upload."
+                    ? `Ready to upload • ${formatFileSize(
+                        getSelectedUploadSize(selectedFile)
+                      )}`
                     : isMaterial
                       ? "Choose a PDF or image file from your laptop."
                       : "Choose a video file from your laptop."}
@@ -2356,16 +2486,59 @@ export default function ContentPage() {
         {busy &&
           sourceType === SOURCE_UPLOAD &&
           typeof uploadProgress === "number" ? (
-            <View style={styles.deviceUploadInfo}>
-              <Ionicons
-                name="cloud-upload-outline"
-                size={18}
-                color={colors.primary}
-              />
+            <View style={styles.uploadProgressBox}>
+              <View style={styles.uploadProgressHeader}>
+                <Ionicons
+                  name="cloud-upload-outline"
+                  size={18}
+                  color={colors.primary}
+                />
 
-              <Text style={styles.deviceUploadInfoText}>
-                Uploading directly to R2: {uploadProgress}%
+                <Text style={styles.uploadProgressTitle}>
+                  Uploading directly to R2
+                </Text>
+
+                <Text style={styles.uploadProgressPercent}>
+                  {uploadProgress}%
+                </Text>
+              </View>
+
+              <View style={styles.uploadProgressTrack}>
+                <View
+                  style={[
+                    styles.uploadProgressFill,
+                    {
+                      width: `${Math.max(
+                        0,
+                        Math.min(uploadProgress, 100)
+                      )}%`,
+                    },
+                  ]}
+                />
+              </View>
+
+              <Text style={styles.uploadProgressStatus}>
+                {uploadStatusText ||
+                  "Keep this tab open until upload completes."}
               </Text>
+
+              <Pressable
+                onPress={cancelDirectUpload}
+                style={({ pressed }) => [
+                  styles.cancelUploadButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons
+                  name="close-circle-outline"
+                  size={17}
+                  color={colors.danger}
+                />
+
+                <Text style={styles.cancelUploadText}>
+                  Cancel upload
+                </Text>
+              </Pressable>
             </View>
           ) : null}
         <Button
