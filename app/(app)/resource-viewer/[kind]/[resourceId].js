@@ -92,9 +92,13 @@ function getViewerType(
 }
 
 function getProtectedPdfUrl(url) {
-  if (!url) return "";
+  if (!url) {
+    return "";
+  }
 
-  const separator = url.includes("#") ? "&" : "#";
+  const separator = url.includes("#")
+    ? "&"
+    : "#";
 
   return (
     `${url}${separator}` +
@@ -102,34 +106,8 @@ function getProtectedPdfUrl(url) {
   );
 }
 
-function getGoogleDriveOpenUrl(url) {
-  if (!url) {
-    return "";
-  }
-
-  const fileMatch =
-    url.match(
-      /drive\.google\.com\/file\/d\/([^/]+)/
-    );
-
-  if (fileMatch?.[1]) {
-    return `https://drive.google.com/file/d/${fileMatch[1]}/view`;
-  }
-
-  return url;
-}
-
 export default function ResourceViewer() {
   const router = useRouter();
-
-  function handleBack() {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-
-    router.replace("/(app)/resources");
-  }
 
   const {
     kind,
@@ -153,6 +131,27 @@ export default function ResourceViewer() {
 
   const [error, setError] =
     useState("");
+
+  /*
+   * Important for production web:
+   * iframe/video HTML elements should render only after client mount.
+   * This avoids React hydration mismatch errors in Expo web production.
+   */
+  const [mounted, setMounted] =
+    useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  function handleBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace("/(app)/resources");
+  }
 
   const loadResource = useCallback(async () => {
     if (
@@ -203,7 +202,8 @@ export default function ResourceViewer() {
     }
 
     function preventProtectedActions(event) {
-      const key = event.key?.toLowerCase();
+      const key =
+        event.key?.toLowerCase();
 
       const isSave =
         (event.ctrlKey || event.metaKey) &&
@@ -227,14 +227,13 @@ export default function ResourceViewer() {
     }
 
     function preventContextMenu(event) {
-      /*
-       * Do not block right-click inside Google Drive iframe.
-       * The iframe is controlled by Google and blocking the
-       * parent page context menu is enough for platform files.
-       */
       const targetTag =
         event?.target?.tagName?.toLowerCase();
 
+      /*
+       * Do not block iframe context menu directly.
+       * Google controls iframe internals.
+       */
       if (targetTag === "iframe") {
         return;
       }
@@ -311,9 +310,7 @@ export default function ResourceViewer() {
                 color={colors.primary}
               />
 
-              <Text
-                style={styles.backButtonText}
-              >
+              <Text style={styles.backButtonText}>
                 Back
               </Text>
             </Pressable>
@@ -353,9 +350,7 @@ export default function ResourceViewer() {
                     styles.driveTypeBadge,
                 ]}
               >
-                <Text
-                  style={styles.typeBadgeText}
-                >
+                <Text style={styles.typeBadgeText}>
                   {badgeText}
                 </Text>
               </View>
@@ -409,6 +404,7 @@ export default function ResourceViewer() {
               <ResourceContent
                 type={viewerType}
                 resource={resource}
+                mounted={mounted}
               />
             </View>
           )}
@@ -421,6 +417,7 @@ export default function ResourceViewer() {
 function ResourceContent({
   type,
   resource,
+  mounted,
 }) {
   if (!resource?.url) {
     return (
@@ -430,10 +427,25 @@ function ResourceContent({
     );
   }
 
+  if (
+    Platform.OS === "web" &&
+    !mounted &&
+    [
+      "google-drive-video",
+      "video",
+      "pdf",
+    ].includes(type)
+  ) {
+    return (
+      <ClientOnlyLoadingState />
+    );
+  }
+
   if (type === "google-drive-video") {
     return (
       <GoogleDriveViewer
         resource={resource}
+        mounted={mounted}
       />
     );
   }
@@ -564,10 +576,17 @@ function ResourceContent({
 
 function GoogleDriveViewer({
   resource,
+  mounted,
 }) {
   const previewUrl = resource.url;
 
   if (Platform.OS === "web") {
+    if (!mounted) {
+      return (
+        <ClientOnlyLoadingState />
+      );
+    }
+
     return (
       <View style={styles.driveViewer}>
         <iframe
@@ -659,6 +678,21 @@ function UnsupportedViewer({
   );
 }
 
+function ClientOnlyLoadingState() {
+  return (
+    <View style={styles.clientOnlyLoading}>
+      <ActivityIndicator
+        size="large"
+        color={colors.primary}
+      />
+
+      <Text style={styles.stateText}>
+        Preparing viewer…
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   page: {
     flex: 1,
@@ -674,16 +708,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.md,
     paddingHorizontal: spacing.sm,
-  },
-
-  driveTopRightCover: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 76,
-    height: 58,
-    backgroundColor: "#000000",
-    zIndex: 20,
   },
 
   backButton: {
@@ -767,6 +791,11 @@ const styles = StyleSheet.create({
     minHeight: 500,
   },
 
+  imageProtectionLayer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "transparent",
+  },
+
   videoViewer: {
     flex: 1,
     width: "100%",
@@ -788,46 +817,19 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     minHeight: 520,
+    position: "relative",
     overflow: "hidden",
     backgroundColor: "#000000",
   },
 
-  driveFooter: {
-    minHeight: 58,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.white,
-  },
-
-  driveFooterText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.textMuted,
-  },
-
-  driveOpenButton: {
-    minHeight: 36,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-  },
-
-  driveOpenButtonText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: colors.primary,
+  driveTopRightCover: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 76,
+    height: 58,
+    backgroundColor: "#000000",
+    zIndex: 20,
   },
 
   webFrameContainer: {
@@ -842,6 +844,15 @@ const styles = StyleSheet.create({
 
   webViewLoading: {
     ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.white,
+  },
+
+  clientOnlyLoading: {
+    flex: 1,
+    minHeight: 420,
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
@@ -889,10 +900,5 @@ const styles = StyleSheet.create({
 
   pressed: {
     opacity: 0.7,
-  },
-
-  imageProtectionLayer: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "transparent",
   },
 });
