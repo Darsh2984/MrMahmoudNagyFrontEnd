@@ -37,6 +37,10 @@ import { styles } from "./index.styles";
 
 const DESKTOP_BREAKPOINT = 900;
 
+const CHAT_TYPE_GROUP = "GROUP_CHAT";
+const CHAT_TYPE_SUPPORT =
+  "STUDENT_SUPPORT_CHAT";
+
 function getErrorMessage(
   error,
   fallback = "Something went wrong.",
@@ -68,26 +72,46 @@ function formatMessageTime(value) {
     date.getDate() === now.getDate();
 
   if (sameDay) {
-    return date.toLocaleTimeString([], {
+    return date.toLocaleTimeString("en-GB", {
       hour: "2-digit",
       minute: "2-digit",
     });
   }
 
-  return date.toLocaleDateString([], {
+  return date.toLocaleDateString("en-GB", {
     day: "2-digit",
     month: "short",
   });
 }
 
-function getMessagePreview(message) {
+function getSenderName(message) {
+  if (!message) {
+    return "Unknown user";
+  }
+
+  if (message.senderType === "PARENT") {
+    return (
+      message.parentDisplayName ||
+      "Parent"
+    );
+  }
+
+  return (
+    message.sender?.name ||
+    message.senderUser?.name ||
+    "Unknown user"
+  );
+}
+
+function getMessagePreview(chat) {
+  const message = chat.lastMessage;
+
   if (!message) {
     return "No messages yet";
   }
 
   const senderName =
-    message.sender?.name ||
-    "Unknown user";
+    getSenderName(message);
 
   if (message.content) {
     return `${senderName}: ${message.content}`;
@@ -125,6 +149,70 @@ function getGroupInitials(name) {
 
   return `${words[0][0]}${words[1][0]}`
     .toUpperCase();
+}
+
+function normalizeGroupChat(chat) {
+  return {
+    ...chat,
+    type: CHAT_TYPE_GROUP,
+    displayName:
+      chat.name || "Unnamed group",
+    displayYear: chat.year?.name || "",
+    displayMeta: [
+      chat.year?.name,
+      `${Number(chat.memberCount || 0)} students`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    searchText: [
+      chat.name,
+      chat.year?.name,
+      chat.lastMessage?.sender?.name,
+      chat.lastMessage?.content,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  };
+}
+
+function normalizeSupportChat(chat) {
+  return {
+    ...chat,
+    type: CHAT_TYPE_SUPPORT,
+    displayName:
+      chat.name ||
+      `Student Support - ${
+        chat.student?.name || "Student"
+      }`,
+    displayYear:
+      chat.group?.year?.name || "",
+    displayMeta: [
+      chat.group?.year?.name,
+      chat.group?.name,
+      chat.student?.name,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    searchText: [
+      chat.name,
+      chat.student?.name,
+      chat.group?.name,
+      chat.group?.year?.name,
+      chat.lastMessage?.senderUser?.name,
+      chat.lastMessage?.parentDisplayName,
+      chat.lastMessage?.content,
+    ]
+      .filter(Boolean)
+      .join(" "),
+  };
+}
+
+function getLastMessageDate(chat) {
+  return new Date(
+    chat.lastMessage?.createdAt ||
+      chat.updatedAt ||
+      0,
+  ).getTime();
 }
 
 export default function GroupChatList() {
@@ -167,24 +255,47 @@ export default function GroupChatList() {
       setError("");
 
       try {
-        const response =
-          await api.get(
-            "/group-chat",
-          );
+        const [
+          groupResponse,
+          supportResponse,
+        ] = await Promise.all([
+          api.get("/group-chat"),
+          api.get("/student-support-chat"),
+        ]);
 
-        const loadedChats =
+        const groupChats =
           Array.isArray(
-            response.data?.chats,
+            groupResponse.data?.chats,
           )
-            ? response.data.chats
+            ? groupResponse.data.chats.map(
+                normalizeGroupChat,
+              )
             : [];
 
-        setChats(loadedChats);
+        const supportChats =
+          Array.isArray(
+            supportResponse.data?.chats,
+          )
+            ? supportResponse.data.chats.map(
+                normalizeSupportChat,
+              )
+            : [];
+
+        const combinedChats = [
+          ...supportChats,
+          ...groupChats,
+        ].sort(
+          (left, right) =>
+            getLastMessageDate(right) -
+            getLastMessageDate(left),
+        );
+
+        setChats(combinedChats);
       } catch (requestError) {
         setError(
           getErrorMessage(
             requestError,
-            "Couldn't load group chats.",
+            "Couldn't load chats.",
           ),
         );
       } finally {
@@ -218,7 +329,7 @@ export default function GroupChatList() {
       setSocketConnected(false);
     }
 
-    function handleNewMessage(payload) {
+    function handleNewGroupMessage(payload) {
       const groupId =
         payload?.groupId;
 
@@ -233,8 +344,9 @@ export default function GroupChatList() {
         const exists =
           current.some(
             (chat) =>
+              chat.type === CHAT_TYPE_GROUP &&
               String(chat.id) ===
-              String(groupId),
+                String(groupId),
           );
 
         if (!exists) {
@@ -248,8 +360,9 @@ export default function GroupChatList() {
         const updated =
           current.map((chat) => {
             if (
+              chat.type !== CHAT_TYPE_GROUP ||
               String(chat.id) !==
-              String(groupId)
+                String(groupId)
             ) {
               return chat;
             }
@@ -265,21 +378,9 @@ export default function GroupChatList() {
           });
 
         return updated.sort(
-          (left, right) => {
-            const leftDate =
-              new Date(
-                left.lastMessage
-                  ?.createdAt || 0,
-              ).getTime();
-
-            const rightDate =
-              new Date(
-                right.lastMessage
-                  ?.createdAt || 0,
-              ).getTime();
-
-            return rightDate - leftDate;
-          },
+          (left, right) =>
+            getLastMessageDate(right) -
+            getLastMessageDate(left),
         );
       });
     }
@@ -296,7 +397,7 @@ export default function GroupChatList() {
 
     socket.on(
       "new-group-chat-message",
-      handleNewMessage,
+      handleNewGroupMessage,
     );
 
     connectSocket().then(
@@ -326,7 +427,7 @@ export default function GroupChatList() {
 
       socket.off(
         "new-group-chat-message",
-        handleNewMessage,
+        handleNewGroupMessage,
       );
     };
   }, [loadChats]);
@@ -342,23 +443,11 @@ export default function GroupChatList() {
         return chats;
       }
 
-      return chats.filter((chat) => {
-        const searchableText = [
-          chat.name,
-          chat.year?.name,
-          chat.lastMessage
-            ?.sender?.name,
-          chat.lastMessage
-            ?.content,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        return searchableText.includes(
-          search,
-        );
-      });
+      return chats.filter((chat) =>
+        String(chat.searchText || "")
+          .toLowerCase()
+          .includes(search),
+      );
     }, [chats, searchText]);
 
   const totalUnread =
@@ -375,7 +464,32 @@ export default function GroupChatList() {
       [chats],
     );
 
+  const groupChatCount =
+    chats.filter(
+      (chat) =>
+        chat.type === CHAT_TYPE_GROUP,
+    ).length;
+
+  const supportChatCount =
+    chats.filter(
+      (chat) =>
+        chat.type === CHAT_TYPE_SUPPORT,
+    ).length;
+
   function openChat(chat) {
+    if (chat.type === CHAT_TYPE_SUPPORT) {
+      router.push({
+        pathname:
+          "/(app)/student-support-chat/[chatId]",
+
+        params: {
+          chatId: chat.id,
+        },
+      });
+
+      return;
+    }
+
     router.push({
       pathname:
         "/(app)/group-chat/[groupId]",
@@ -408,7 +522,7 @@ export default function GroupChatList() {
               }
             >
               <Text style={styles.eyebrow}>
-                GROUP COMMUNICATION
+                COMMUNICATION CENTER
               </Text>
 
               <View
@@ -433,13 +547,14 @@ export default function GroupChatList() {
             </View>
 
             <Text style={styles.title}>
-              Group Chat
+              Chats
             </Text>
 
             <Text style={styles.subtitle}>
-              Chat with students, teachers,
-              and assistants inside each
-              assigned group.
+              Open group chats or private
+              student support chats between
+              the student, parent, teacher,
+              and assigned assistants.
             </Text>
           </View>
 
@@ -450,7 +565,7 @@ export default function GroupChatList() {
                   styles.headerStatValue
                 }
               >
-                {chats.length}
+                {groupChatCount}
               </Text>
 
               <Text
@@ -459,6 +574,24 @@ export default function GroupChatList() {
                 }
               >
                 Groups
+              </Text>
+            </View>
+
+            <View style={styles.headerStat}>
+              <Text
+                style={
+                  styles.headerStatValue
+                }
+              >
+                {supportChatCount}
+              </Text>
+
+              <Text
+                style={
+                  styles.headerStatLabel
+                }
+              >
+                Support
               </Text>
             </View>
 
@@ -526,7 +659,7 @@ export default function GroupChatList() {
             <TextInput
               value={searchText}
               onChangeText={setSearchText}
-              placeholder="Search groups or messages"
+              placeholder="Search chats, students, groups, or messages"
               placeholderTextColor={
                 colors.textMuted
               }
@@ -580,7 +713,7 @@ export default function GroupChatList() {
             <Text
               style={styles.loadingText}
             >
-              Loading group chats...
+              Loading chats...
             </Text>
           </Card>
         ) : (
@@ -613,7 +746,7 @@ export default function GroupChatList() {
                   }
                 >
                   <Ionicons
-                    name="people-circle-outline"
+                    name="chatbubbles-outline"
                     size={40}
                     color={colors.primary}
                   />
@@ -625,8 +758,8 @@ export default function GroupChatList() {
                   }
                 >
                   {searchText
-                    ? "No matching groups"
-                    : "No group chats available"}
+                    ? "No matching chats"
+                    : "No chats available"}
                 </Text>
 
                 <Text
@@ -635,15 +768,15 @@ export default function GroupChatList() {
                   }
                 >
                   {searchText
-                    ? "Try searching with a different group or year name."
-                    : "You will see a chat here when you have access to a group."}
+                    ? "Try searching with another student, group, year, or message."
+                    : "Group chats and student support chats will appear here when you have access."}
                 </Text>
               </Card>
             ) : (
               filteredChats.map(
                 (chat) => (
                   <ChatCard
-                    key={chat.id}
+                    key={`${chat.type}-${chat.id}`}
                     chat={chat}
                     onPress={() =>
                       openChat(chat)
@@ -668,6 +801,9 @@ function ChatCard({
 
   const hasUnread =
     unreadCount > 0;
+
+  const isSupport =
+    chat.type === CHAT_TYPE_SUPPORT;
 
   return (
     <Pressable
@@ -695,9 +831,11 @@ function ChatCard({
               styles.groupAvatarTextUnread,
           ]}
         >
-          {getGroupInitials(
-            chat.name,
-          )}
+          {isSupport
+            ? "S"
+            : getGroupInitials(
+                chat.displayName,
+              )}
         </Text>
       </View>
 
@@ -716,13 +854,25 @@ function ChatCard({
                   styles.chatNameUnread,
               ]}
             >
-              {chat.name ||
-                "Unnamed group"}
+              {chat.displayName}
             </Text>
 
-            {chat.year?.name ? (
+            <Badge
+              label={
+                isSupport
+                  ? "Support"
+                  : "Group"
+              }
+              tone={
+                isSupport
+                  ? "primary"
+                  : "neutral"
+              }
+            />
+
+            {chat.displayYear ? (
               <Badge
-                label={chat.year.name}
+                label={chat.displayYear}
                 tone="neutral"
               />
             ) : null}
@@ -755,9 +905,7 @@ function ChatCard({
                 styles.messagePreviewUnread,
             ]}
           >
-            {getMessagePreview(
-              chat.lastMessage,
-            )}
+            {getMessagePreview(chat)}
           </Text>
 
           {hasUnread ? (
@@ -787,18 +935,25 @@ function ChatCard({
 
         <View style={styles.memberRow}>
           <Ionicons
-            name="people-outline"
+            name={
+              isSupport
+                ? "person-circle-outline"
+                : "people-outline"
+            }
             size={15}
             color={colors.textMuted}
           />
 
           <Text
+            numberOfLines={1}
             style={styles.memberText}
           >
-            {Number(
-              chat.memberCount || 0,
-            )}{" "}
-            students
+            {isSupport
+              ? chat.displayMeta ||
+                "Student support chat"
+              : `${Number(
+                  chat.memberCount || 0,
+                )} students`}
           </Text>
         </View>
       </View>

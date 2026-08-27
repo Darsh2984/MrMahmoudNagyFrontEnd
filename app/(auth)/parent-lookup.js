@@ -1,21 +1,32 @@
-import React, { useMemo, useState } from "react";
+import React, {
+  useMemo,
+  useState,
+} from "react";
+
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { Link } from "expo-router";
+import {
+  Link,
+  useRouter,
+} from "expo-router";
 
 import { Screen } from "../../src/components/layout/Screen";
 import { Card } from "../../src/components/ui/Card";
 import { Input } from "../../src/components/ui/Input";
 import { Button } from "../../src/components/ui/Button";
 import api from "../../src/lib/api";
+
 import {
   colors,
   radius,
@@ -23,60 +34,171 @@ import {
   typography,
 } from "../../src/theme";
 
-export default function ParentLookup() {
-  const [accessCode, setAccessCode] = useState("");
-  const [student, setStudent] = useState(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+const PARENT_ACCESS_CODE_KEY =
+  "parent_access_code";
 
-  const normalizedCode = accessCode.trim();
+function getApiError(error, fallback) {
+  return (
+    error?.response?.data?.msg ||
+    error?.response?.data?.message ||
+    error?.message ||
+    fallback
+  );
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getInitials(name) {
+  const words = String(name || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!words.length) {
+    return "?";
+  }
+
+  if (words.length === 1) {
+    return words[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return `${words[0][0]}${words[1][0]}`
+    .toUpperCase();
+}
+
+function getLastMessagePreview(message) {
+  if (!message) {
+    return "No messages yet";
+  }
+
+  const senderName =
+    message.senderType === "PARENT"
+      ? message.parentDisplayName ||
+        "Parent"
+      : message.senderUser?.name ||
+        "School";
+
+  if (message.content) {
+    return `${senderName}: ${message.content}`;
+  }
+
+  return `${senderName}: sent a message`;
+}
+
+export default function ParentLookup() {
+  const router = useRouter();
+
+  const [accessCode, setAccessCode] =
+    useState("");
+
+  const [result, setResult] =
+    useState(null);
+
+  const [error, setError] =
+    useState("");
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const normalizedCode =
+    accessCode.trim().toUpperCase();
+
+  const student = result?.student || null;
+  const performance =
+    result?.performance || null;
+
+  const chats = Array.isArray(result?.chats)
+    ? result.chats
+    : [];
 
   const performanceSummary = useMemo(() => {
-    const attendance = Array.isArray(student?.performance?.attendance)
-      ? student.performance.attendance
+    const attendance = Array.isArray(
+      performance?.attendance
+    )
+      ? performance.attendance
       : [];
 
-    const tasks = Array.isArray(student?.performance?.tasks)
-      ? student.performance.tasks
+    const tasks = Array.isArray(
+      performance?.tasks
+    )
+      ? performance.tasks
       : [];
 
-    const attendedCount = attendance.filter(
-      (record) => record.present
-    ).length;
+    const attendedCount =
+      attendance.filter(
+        (record) => record.present
+      ).length;
 
-    const submittedTasksCount = tasks.filter(
-      (task) => task.submitted
-    ).length;
+    const submittedTasksCount =
+      tasks.filter(
+        (task) => task.submitted
+      ).length;
 
     return {
       attendanceCount: attendedCount,
       attendanceTotal: attendance.length,
-      attendancePercentage: attendance.length
-        ? Math.round((attendedCount / attendance.length) * 100)
-        : null,
+      attendancePercentage:
+        attendance.length > 0
+          ? Math.round(
+              (attendedCount /
+                attendance.length) *
+                100
+            )
+          : null,
       submittedTasksCount,
       tasksTotal: tasks.length,
     };
-  }, [student]);
+  }, [performance]);
 
   async function handleLookup() {
-    if (!normalizedCode || loading) return;
+    if (!normalizedCode || loading) {
+      return;
+    }
 
     setLoading(true);
     setError("");
-    setStudent(null);
+    setResult(null);
 
     try {
-      const response = await api.get(
-        `/auth/lookup/${encodeURIComponent(normalizedCode)}`
+      const response = await api.post(
+        "/parent-access/lookup",
+        {
+          accessCode: normalizedCode,
+        }
       );
 
-      setStudent(response.data);
-    } catch (err) {
+      await AsyncStorage.setItem(
+        PARENT_ACCESS_CODE_KEY,
+        normalizedCode
+      );
+
+      setResult(response.data);
+    } catch (requestError) {
       setError(
-        err.response?.data?.msg ||
-          err.response?.data?.message ||
+        getApiError(
+          requestError,
           "Couldn't find a student using this access code."
+        )
       );
     } finally {
       setLoading(false);
@@ -90,32 +212,56 @@ export default function ParentLookup() {
       setError("");
     }
 
-    if (student) {
-      setStudent(null);
+    if (result) {
+      setResult(null);
     }
   }
 
-  const membership = student?.groupMemberships?.[0];
-  const group = membership?.group;
-  const year = group?.year;
+  function openSupportChat(chat) {
+    router.push({
+      pathname:
+        "/(auth)/parent-support-chat/[chatId]",
+      params: {
+        chatId: chat.id,
+      },
+    });
+  }
 
-  const quizzes = Array.isArray(student?.performance?.quizzes)
-    ? student.performance.quizzes
+  const firstMembership =
+    student?.groupMemberships?.[0];
+
+  const group =
+    firstMembership?.group ||
+    student?.group ||
+    null;
+
+  const year = group?.year || null;
+
+  const quizzes = Array.isArray(
+    performance?.quizzes
+  )
+    ? performance.quizzes
     : [];
 
   const inClassQuizzes = Array.isArray(
-    student?.performance?.inClassQuizzes
+    performance?.inClassQuizzes
   )
-    ? student.performance.inClassQuizzes
+    ? performance.inClassQuizzes
     : [];
 
   return (
     <Screen
       scroll
-      contentContainerStyle={styles.screenContent}
+      contentContainerStyle={
+        styles.screenContent
+      }
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={
+          Platform.OS === "ios"
+            ? "padding"
+            : undefined
+        }
         style={styles.keyboardView}
       >
         <View style={styles.page}>
@@ -133,8 +279,11 @@ export default function ParentLookup() {
                 Mahmoud Nagy Platform
               </Text>
 
-              <Text style={styles.brandDescription}>
-                Secure parent progress access
+              <Text
+                style={styles.brandDescription}
+              >
+                Secure parent progress and
+                support access
               </Text>
             </View>
           </View>
@@ -154,13 +303,20 @@ export default function ParentLookup() {
                   PARENT ACCESS
                 </Text>
 
-                <Text style={[typography.h1, styles.title]}>
+                <Text
+                  style={[
+                    typography.h1,
+                    styles.title,
+                  ]}
+                >
                   View your child's progress
                 </Text>
 
                 <Text style={styles.subtitle}>
-                  Enter the access code provided for your child's
-                  account to view their academic information.
+                  Enter the student access code
+                  provided by the platform to view
+                  progress and open the private
+                  support chat.
                 </Text>
               </View>
             </View>
@@ -175,7 +331,9 @@ export default function ParentLookup() {
                   />
                 </View>
 
-                <Text style={styles.errorText}>{error}</Text>
+                <Text style={styles.errorText}>
+                  {error}
+                </Text>
 
                 <Pressable
                   accessibilityRole="button"
@@ -208,7 +366,7 @@ export default function ParentLookup() {
             />
 
             <Button
-              title="View progress"
+              title="View parent access"
               onPress={handleLookup}
               loading={loading}
               disabled={!normalizedCode || loading}
@@ -222,9 +380,12 @@ export default function ParentLookup() {
                 color={colors.secondary}
               />
 
-              <Text style={styles.securityNoteText}>
-                This page provides read-only access. No information
-                can be edited.
+              <Text
+                style={styles.securityNoteText}
+              >
+                This code gives access only to this
+                student's parent view and private
+                support chat.
               </Text>
             </View>
           </Card>
@@ -241,8 +402,8 @@ export default function ParentLookup() {
               </Text>
 
               <Text style={styles.loadingText}>
-                Please wait while we securely retrieve the academic
-                record.
+                Please wait while we securely
+                retrieve the academic record.
               </Text>
             </Card>
           ) : null}
@@ -260,7 +421,8 @@ export default function ParentLookup() {
                   icon="calendar-outline"
                   label="Attendance"
                   value={
-                    performanceSummary.attendancePercentage !== null
+                    performanceSummary
+                      .attendancePercentage !== null
                       ? `${performanceSummary.attendancePercentage}%`
                       : "—"
                   }
@@ -283,7 +445,24 @@ export default function ParentLookup() {
                   }
                   tone="primary"
                 />
+
+                <SummaryCard
+                  icon="chatbubbles-outline"
+                  label="Support chats"
+                  value={`${chats.length}`}
+                  description={
+                    chats.length
+                      ? "Private chat with the teacher team"
+                      : "No support chat yet"
+                  }
+                  tone="primary"
+                />
               </View>
+
+              <ParentSupportChats
+                chats={chats}
+                onOpenChat={openSupportChat}
+              />
 
               <PerformanceSection
                 title="Quizzes"
@@ -313,14 +492,19 @@ export default function ParentLookup() {
                     key={quiz.quizId}
                     title={quiz.quizName}
                     grade={quiz.grade}
-                    gradeOutOf={quiz.gradeOutOf}
+                    gradeOutOf={
+                      quiz.gradeOutOf
+                    }
                   />
                 ))}
               </PerformanceSection>
             </View>
           ) : null}
 
-          <Link href="/(auth)/login" asChild>
+          <Link
+            href="/(auth)/login"
+            asChild
+          >
             <Pressable
               accessibilityRole="link"
               style={({ pressed }) => [
@@ -373,13 +557,16 @@ function StudentHeader({
             text={
               groupName && yearName
                 ? `${yearName} · ${groupName}`
-                : groupName || yearName || "No group assigned"
+                : groupName ||
+                  yearName ||
+                  "No group assigned"
             }
           />
 
           <DetailPill
             icon={
-              student.attendanceMode === "ONLINE"
+              student.attendanceMode ===
+              "ONLINE"
                 ? "laptop-outline"
                 : "location-outline"
             }
@@ -389,6 +576,146 @@ function StudentHeader({
           />
         </View>
       </View>
+    </Card>
+  );
+}
+
+function ParentSupportChats({
+  chats,
+  onOpenChat,
+}) {
+  return (
+    <Card style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <View style={styles.sectionIcon}>
+          <Ionicons
+            name="chatbubbles-outline"
+            size={22}
+            color={colors.primary}
+          />
+        </View>
+
+        <View style={styles.sectionHeaderContent}>
+          <Text style={styles.sectionTitle}>
+            Support Chat
+          </Text>
+
+          <Text style={styles.sectionSubtitle}>
+            Private communication with the
+            teacher and assigned assistants.
+          </Text>
+        </View>
+
+        <View style={styles.recordCount}>
+          <Text style={styles.recordCountText}>
+            {chats.length}
+          </Text>
+        </View>
+      </View>
+
+      {chats.length ? (
+        <View style={styles.chatList}>
+          {chats.map((chat) => (
+            <Pressable
+              key={chat.id}
+              accessibilityRole="button"
+              onPress={() => onOpenChat(chat)}
+              style={({ pressed }) => [
+                styles.chatRow,
+                pressed && styles.pressed,
+              ]}
+            >
+              <View style={styles.chatIcon}>
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={22}
+                  color={colors.primary}
+                />
+              </View>
+
+              <View style={styles.chatContent}>
+                <View style={styles.chatTitleRow}>
+                  <Text
+                    numberOfLines={1}
+                    style={styles.chatTitle}
+                  >
+                    {chat.name ||
+                      "Student Support"}
+                  </Text>
+
+                  {Number(chat.unreadCount) >
+                  0 ? (
+                    <View
+                      style={
+                        styles.unreadBadge
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.unreadText
+                        }
+                      >
+                        {chat.unreadCount}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                <Text
+                  numberOfLines={1}
+                  style={styles.chatMeta}
+                >
+                  {[
+                    chat.group?.year?.name,
+                    chat.group?.name,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") ||
+                    "Student support"}
+                </Text>
+
+                <Text
+                  numberOfLines={2}
+                  style={styles.chatPreview}
+                >
+                  {getLastMessagePreview(
+                    chat.lastMessage
+                  )}
+                </Text>
+
+                {chat.lastMessage?.createdAt ? (
+                  <Text style={styles.chatTime}>
+                    {formatDateTime(
+                      chat.lastMessage
+                        .createdAt
+                    )}
+                  </Text>
+                ) : null}
+              </View>
+
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={colors.textMuted}
+              />
+            </Pressable>
+          ))}
+        </View>
+      ) : (
+        <View style={styles.emptyState}>
+          <Ionicons
+            name="chatbubble-outline"
+            size={27}
+            color={colors.textMuted}
+          />
+
+          <Text style={styles.emptyText}>
+            No support chat exists yet. It will
+            appear after the student is assigned
+            to a group.
+          </Text>
+        </View>
+      )}
     </Card>
   );
 }
@@ -420,11 +747,13 @@ function SummaryCard({
     tone === "success"
       ? {
           color: colors.secondary,
-          backgroundColor: `${colors.secondary}20`,
+          backgroundColor:
+            `${colors.secondary}20`,
         }
       : {
           color: colors.primary,
-          backgroundColor: `${colors.primary}12`,
+          backgroundColor:
+            `${colors.primary}12`,
         };
 
   return (
@@ -467,7 +796,8 @@ function PerformanceSection({
   emptyText,
   children,
 }) {
-  const childItems = React.Children.toArray(children);
+  const childItems =
+    React.Children.toArray(children);
 
   return (
     <Card style={styles.sectionCard}>
@@ -499,15 +829,23 @@ function PerformanceSection({
 
       {childItems.length ? (
         <View style={styles.records}>
-          {childItems.map((child, index) => (
-            <React.Fragment key={child.key || index}>
-              {index > 0 ? (
-                <View style={styles.recordDivider} />
-              ) : null}
+          {childItems.map(
+            (child, index) => (
+              <React.Fragment
+                key={child.key || index}
+              >
+                {index > 0 ? (
+                  <View
+                    style={
+                      styles.recordDivider
+                    }
+                  />
+                ) : null}
 
-              {child}
-            </React.Fragment>
-          ))}
+                {child}
+              </React.Fragment>
+            )
+          )}
         </View>
       ) : (
         <View style={styles.emptyState}>
@@ -556,16 +894,20 @@ function QuizRow({
       <View
         style={[
           styles.scoreBadge,
-          !attempted && styles.pendingBadge,
+          !attempted &&
+            styles.pendingBadge,
         ]}
       >
         <Text
           style={[
             styles.scoreText,
-            !attempted && styles.pendingText,
+            !attempted &&
+              styles.pendingText,
           ]}
         >
-          {hasScore ? `${score}/${total}` : "Pending"}
+          {hasScore
+            ? `${score}/${total}`
+            : "Pending"}
         </Text>
       </View>
     </View>
@@ -618,27 +960,10 @@ function formatAttendanceMode(mode) {
   return "Attendance mode not set";
 }
 
-function getInitials(name) {
-  const parts = String(name || "Student")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (!parts.length) return "ST";
-
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
-  }
-
-  return `${parts[0][0]}${
-    parts[parts.length - 1][0]
-  }`.toUpperCase();
-}
-
 const styles = StyleSheet.create({
   screenContent: {
     flexGrow: 1,
-    width: "100%",
+    backgroundColor: colors.background,
   },
 
   keyboardView: {
@@ -647,17 +972,16 @@ const styles = StyleSheet.create({
 
   page: {
     width: "100%",
-    maxWidth: 920,
+    maxWidth: 1120,
     alignSelf: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xl,
+    padding: spacing.lg,
+    gap: spacing.lg,
   },
 
   brandHeader: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "center",
-    marginBottom: spacing.lg,
+    gap: spacing.md,
   },
 
   brandIcon: {
@@ -667,47 +991,40 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.primary,
-    marginRight: spacing.sm,
   },
 
   brandContent: {
-    flexShrink: 1,
+    flex: 1,
   },
 
   brandName: {
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: "800",
-    color: colors.primary,
+    ...typography.h3,
+    color: colors.textPrimary,
   },
 
   brandDescription: {
-    ...typography.caption,
+    ...typography.body,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 3,
   },
 
   lookupCard: {
-    width: "100%",
-    maxWidth: 620,
-    alignSelf: "center",
-    padding: spacing.xl,
+    gap: spacing.md,
   },
 
   header: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: spacing.lg,
+    gap: spacing.md,
   },
 
   headerIcon: {
-    width: 50,
-    height: 50,
+    width: 52,
+    height: 52,
     borderRadius: radius.lg,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: `${colors.primary}12`,
-    marginRight: spacing.md,
+    backgroundColor:
+      colors.primary + "12",
   },
 
   headerContent: {
@@ -715,49 +1032,45 @@ const styles = StyleSheet.create({
   },
 
   eyebrow: {
-    ...typography.caption,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1,
     color: colors.primary,
-    fontWeight: "800",
-    letterSpacing: 1.1,
-    marginBottom: spacing.xs,
+    marginBottom: 5,
   },
 
   title: {
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
   },
 
   subtitle: {
     ...typography.body,
     color: colors.textMuted,
     lineHeight: 22,
+    marginTop: spacing.xs,
   },
 
   errorAlert: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    borderWidth: 1,
-    borderColor: `${colors.danger}45`,
-    borderRadius: radius.md,
-    backgroundColor: `${colors.danger}0D`,
+    alignItems: "center",
+    gap: spacing.sm,
     padding: spacing.sm,
-    marginBottom: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    backgroundColor:
+      colors.danger + "10",
   },
 
   errorIcon: {
-    width: 32,
-    height: 32,
+    width: 28,
     alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.xs,
   },
 
   errorText: {
-    ...typography.caption,
-    color: colors.danger,
-    lineHeight: 19,
     flex: 1,
-    paddingTop: 6,
+    color: colors.danger,
+    fontWeight: "700",
   },
 
   dismissButton: {
@@ -765,72 +1078,65 @@ const styles = StyleSheet.create({
   },
 
   lookupButton: {
-    width: "100%",
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
 
   securityNote: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-    marginTop: spacing.md,
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor:
+      colors.secondary + "12",
   },
 
   securityNoteText: {
-    ...typography.caption,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
     color: colors.textMuted,
-    flexShrink: 1,
   },
 
   loadingCard: {
     alignItems: "center",
-    maxWidth: 620,
-    width: "100%",
-    alignSelf: "center",
-    marginTop: spacing.md,
-    paddingVertical: spacing.xl,
+    gap: spacing.sm,
+    padding: spacing.xl,
   },
 
   loadingTitle: {
-    ...typography.bodyBold,
+    ...typography.h3,
     color: colors.textPrimary,
-    marginTop: spacing.md,
   },
 
   loadingText: {
-    ...typography.caption,
+    ...typography.body,
     color: colors.textMuted,
     textAlign: "center",
-    marginTop: spacing.xs,
   },
 
   results: {
-    marginTop: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
 
   studentCard: {
     flexDirection: "row",
     alignItems: "center",
-    padding: spacing.lg,
-    backgroundColor: colors.primary,
+    gap: spacing.md,
   },
 
   studentAvatar: {
     width: 64,
     height: 64,
-    borderRadius: 22,
+    borderRadius: 32,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.background,
-    marginRight: spacing.md,
+    backgroundColor: colors.primary,
   },
 
   studentAvatarText: {
+    color: colors.white,
     fontSize: 20,
-    fontWeight: "800",
-    color: colors.primary,
+    fontWeight: "900",
   },
 
   studentContent: {
@@ -838,25 +1144,22 @@ const styles = StyleSheet.create({
   },
 
   studentLabel: {
-    ...typography.caption,
-    color: colors.background,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "900",
+    color: colors.textMuted,
     letterSpacing: 1,
-    opacity: 0.75,
   },
 
   studentName: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: "800",
-    color: colors.white,
+    ...typography.h2,
+    color: colors.textPrimary,
     marginTop: 3,
   },
 
   studentDetails: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.xs,
+    gap: spacing.sm,
     marginTop: spacing.sm,
   },
 
@@ -864,68 +1167,65 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    borderRadius: 999,
-    backgroundColor: colors.background,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor:
+      colors.primary + "10",
   },
 
   detailPillText: {
-    ...typography.caption,
+    fontSize: 12,
+    fontWeight: "800",
     color: colors.primary,
-    fontWeight: "700",
   },
 
   summaryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    marginHorizontal: -6,
+    gap: spacing.md,
   },
 
   summaryCard: {
-    width: "50%",
-    minHeight: 185,
-    margin: 6,
-    flexGrow: 1,
-    flexBasis: 280,
+    flex: 1,
+    minWidth: 220,
+    gap: spacing.xs,
   },
 
   summaryIcon: {
-    width: 46,
-    height: 46,
+    width: 42,
+    height: 42,
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
   },
 
   summaryValue: {
-    fontSize: 27,
-    lineHeight: 33,
-    fontWeight: "800",
+    fontSize: 28,
+    fontWeight: "900",
     color: colors.textPrimary,
-    marginTop: spacing.md,
   },
 
   summaryLabel: {
-    ...typography.bodyBold,
+    fontSize: 13,
+    fontWeight: "900",
     color: colors.textPrimary,
-    marginTop: 2,
   },
 
   summaryDescription: {
-    ...typography.caption,
-    color: colors.textMuted,
+    fontSize: 12,
     lineHeight: 18,
-    marginTop: spacing.xs,
+    color: colors.textMuted,
   },
 
   sectionCard: {
-    padding: spacing.lg,
+    gap: spacing.md,
   },
 
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.md,
   },
 
   sectionIcon: {
@@ -934,8 +1234,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: `${colors.primary}12`,
-    marginRight: spacing.sm,
+    backgroundColor:
+      colors.primary + "12",
   },
 
   sectionHeaderContent: {
@@ -943,47 +1243,49 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: "800",
+    ...typography.h3,
     color: colors.textPrimary,
   },
 
   sectionSubtitle: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 3,
   },
 
   recordCount: {
-    minWidth: 32,
-    height: 32,
-    borderRadius: 16,
+    minWidth: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 8,
-    backgroundColor: `${colors.primary}12`,
+    backgroundColor:
+      colors.secondary + "16",
   },
 
   recordCountText: {
-    ...typography.caption,
-    color: colors.primary,
-    fontWeight: "800",
+    fontWeight: "900",
+    color: colors.secondary,
   },
 
   records: {
-    marginTop: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    overflow: "hidden",
   },
 
   recordDivider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: spacing.sm,
   },
 
   recordRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.white,
   },
 
   recordMain: {
@@ -991,66 +1293,146 @@ const styles = StyleSheet.create({
   },
 
   recordTitle: {
-    ...typography.bodyBold,
+    fontSize: 14,
+    fontWeight: "900",
     color: colors.textPrimary,
   },
 
   recordStatus: {
-    ...typography.caption,
+    fontSize: 12,
     color: colors.textMuted,
     marginTop: 3,
   },
 
   scoreBadge: {
-    minWidth: 72,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 999,
-    backgroundColor: `${colors.secondary}25`,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 7,
-    paddingHorizontal: 12,
+    borderRadius: radius.pill,
+    backgroundColor:
+      colors.secondary + "16",
   },
 
   scoreText: {
-    ...typography.caption,
+    fontSize: 12,
+    fontWeight: "900",
     color: colors.secondary,
-    fontWeight: "800",
   },
 
   pendingBadge: {
-    backgroundColor: `${colors.warning}20`,
+    backgroundColor:
+      colors.textMuted + "18",
   },
 
   pendingText: {
-    color: colors.warning,
+    color: colors.textMuted,
+  },
+
+  chatList: {
+    gap: spacing.sm,
+  },
+
+  chatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.white,
+  },
+
+  chatIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor:
+      colors.primary + "10",
+  },
+
+  chatContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  chatTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+
+  chatTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "900",
+    color: colors.textPrimary,
+  },
+
+  chatMeta: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: "800",
+    marginTop: 3,
+  },
+
+  chatPreview: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+
+  chatTime: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 4,
+  },
+
+  unreadBadge: {
+    minWidth: 24,
+    height: 24,
+    paddingHorizontal: 7,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.danger,
+  },
+
+  unreadText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: "900",
   },
 
   emptyState: {
     alignItems: "center",
-    paddingVertical: spacing.xl,
-    marginTop: spacing.md,
+    justifyContent: "center",
+    gap: spacing.sm,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
   },
 
   emptyText: {
-    ...typography.caption,
+    ...typography.body,
     color: colors.textMuted,
     textAlign: "center",
-    marginTop: spacing.sm,
   },
 
   backLink: {
+    alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center",
     gap: spacing.xs,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.md,
+    padding: spacing.sm,
   },
 
   backLinkText: {
-    ...typography.bodyBold,
+    fontWeight: "800",
     color: colors.primary,
   },
 
