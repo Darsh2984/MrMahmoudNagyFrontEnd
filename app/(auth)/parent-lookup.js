@@ -16,6 +16,7 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+
 import {
   Link,
   useRouter,
@@ -105,6 +106,18 @@ function getLastMessagePreview(message) {
   return `${senderName}: sent a message`;
 }
 
+function formatAttendanceMode(mode) {
+  if (mode === "ONLINE") {
+    return "Online attendance";
+  }
+
+  if (mode === "ONGROUND") {
+    return "On-ground attendance";
+  }
+
+  return "Attendance mode not set";
+}
+
 export default function ParentLookup() {
   const router = useRouter();
 
@@ -124,6 +137,7 @@ export default function ParentLookup() {
     accessCode.trim().toUpperCase();
 
   const student = result?.student || null;
+
   const performance =
     result?.performance || null;
 
@@ -946,18 +960,6 @@ function GradeRow({
       </View>
     </View>
   );
-}
-
-function formatAttendanceMode(mode) {
-  if (mode === "ONLINE") {
-    return "Online attendance";
-  }
-
-  if (mode === "ONGROUND") {
-    return "On-ground attendance";
-  }
-
-  return "Attendance mode not set";
 }
 
 const styles = StyleSheet.create({

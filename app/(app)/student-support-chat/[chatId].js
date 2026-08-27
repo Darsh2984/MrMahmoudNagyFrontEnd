@@ -18,6 +18,7 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
+
 import {
   Stack,
   useLocalSearchParams,
@@ -27,6 +28,11 @@ import {
 import { Screen } from "../../../src/components/layout/Screen";
 import { Card } from "../../../src/components/ui/Card";
 import api from "../../../src/lib/api";
+
+import {
+  connectSocket,
+  socket,
+} from "../../../src/lib/socket";
 
 import { useAuth } from "../../../src/contexts/AuthContext";
 
@@ -86,7 +92,7 @@ function formatMessageDate(value) {
 
   const yesterday = new Date(today);
   yesterday.setDate(
-    yesterday.getDate() - 1,
+    yesterday.getDate() - 1
   );
 
   const dateKey = [
@@ -167,7 +173,7 @@ function getSenderRole(message) {
 
 function shouldShowDateDivider(
   current,
-  previous,
+  previous
 ) {
   if (!current?.createdAt) {
     return false;
@@ -205,7 +211,7 @@ export default function StudentSupportChat() {
   const params = useLocalSearchParams();
 
   const chatId = getParamValue(
-    params.chatId,
+    params.chatId
   );
 
   const scrollRef = useRef(null);
@@ -228,13 +234,16 @@ export default function StudentSupportChat() {
   const [error, setError] =
     useState("");
 
+  const [typingUsers, setTypingUsers] =
+    useState([]);
+
   const loadMessages = useCallback(
     async ({
       silent = false,
     } = {}) => {
       if (!chatId) {
         setError(
-          "The requested support chat is invalid.",
+          "The requested support chat is invalid."
         );
         setLoading(false);
         return;
@@ -248,23 +257,23 @@ export default function StudentSupportChat() {
 
       try {
         const response = await api.get(
-          `/student-support-chat/${chatId}/messages`,
+          `/student-support-chat/${chatId}/messages`
         );
 
         setChat(
-          response.data?.chat || null,
+          response.data?.chat || null
         );
 
         setMessages(
           Array.isArray(
-            response.data?.messages,
+            response.data?.messages
           )
             ? response.data.messages
-            : [],
+            : []
         );
 
         await api.patch(
-          `/student-support-chat/${chatId}/read`,
+          `/student-support-chat/${chatId}/read`
         );
 
         setTimeout(() => {
@@ -276,19 +285,193 @@ export default function StudentSupportChat() {
         setError(
           getApiError(
             requestError,
-            "Couldn't load this support chat.",
-          ),
+            "Couldn't load this support chat."
+          )
         );
       } finally {
         setLoading(false);
       }
     },
-    [chatId],
+    [chatId]
   );
 
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
+
+  useEffect(() => {
+    if (!chatId) {
+      return undefined;
+    }
+
+    let active = true;
+
+    function handleNewSupportMessage(payload) {
+      if (
+        String(payload?.chatId) !== String(chatId) ||
+        !payload?.message
+      ) {
+        return;
+      }
+
+      setMessages((current) => {
+        const exists = current.some(
+          (message) =>
+            String(message.id) ===
+            String(payload.message.id)
+        );
+
+        if (exists) {
+          return current;
+        }
+
+        return [
+          ...current,
+          payload.message,
+        ];
+      });
+
+      setTimeout(() => {
+        scrollRef.current?.scrollToEnd?.({
+          animated: true,
+        });
+      }, 120);
+    }
+
+    function handleTyping(payload) {
+      if (
+        String(payload?.chatId) !== String(chatId)
+      ) {
+        return;
+      }
+
+      const typingId =
+        payload.parent?.studentId
+          ? `PARENT:${payload.parent.studentId}`
+          : payload.user?.id
+            ? `USER:${payload.user.id}`
+            : "";
+
+      if (!typingId) {
+        return;
+      }
+
+      if (
+        payload.user?.id &&
+        user?.id &&
+        String(payload.user.id) ===
+          String(user.id)
+      ) {
+        return;
+      }
+
+      const label =
+        payload.parent?.displayName ||
+        payload.user?.name ||
+        "Someone";
+
+      setTypingUsers((current) => {
+        const withoutCurrent =
+          current.filter(
+            (item) => item.id !== typingId
+          );
+
+        if (!payload.isTyping) {
+          return withoutCurrent;
+        }
+
+        return [
+          ...withoutCurrent,
+          {
+            id: typingId,
+            label,
+          },
+        ];
+      });
+    }
+
+    socket.on(
+      "new-student-support-chat-message",
+      handleNewSupportMessage
+    );
+
+    socket.on(
+      "student-support-chat-user-typing",
+      handleTyping
+    );
+
+    connectSocket().then((connected) => {
+      if (
+        !active ||
+        !connected ||
+        !socket.connected
+      ) {
+        return;
+      }
+
+      socket.emit(
+        "join-student-support-chat",
+        {
+          chatId,
+        }
+      );
+    });
+
+    return () => {
+      active = false;
+
+      socket.emit(
+        "student-support-chat-typing-stop",
+        {
+          chatId,
+        }
+      );
+
+      socket.emit(
+        "leave-student-support-chat",
+        {
+          chatId,
+        }
+      );
+
+      socket.off(
+        "new-student-support-chat-message",
+        handleNewSupportMessage
+      );
+
+      socket.off(
+        "student-support-chat-user-typing",
+        handleTyping
+      );
+    };
+  }, [
+    chatId,
+    user?.id,
+  ]);
+
+  function handleDraftChange(value) {
+    setDraft(value);
+
+    if (!chatId || !socket.connected) {
+      return;
+    }
+
+    if (value.trim()) {
+      socket.emit(
+        "student-support-chat-typing-start",
+        {
+          chatId,
+        }
+      );
+    } else {
+      socket.emit(
+        "student-support-chat-typing-stop",
+        {
+          chatId,
+        }
+      );
+    }
+  }
 
   async function handleSend() {
     const content = draft.trim();
@@ -309,7 +492,7 @@ export default function StudentSupportChat() {
         `/student-support-chat/${chatId}/messages`,
         {
           content,
-        },
+        }
       );
 
       const created =
@@ -324,6 +507,13 @@ export default function StudentSupportChat() {
 
       setDraft("");
 
+      socket.emit(
+        "student-support-chat-typing-stop",
+        {
+          chatId,
+        }
+      );
+
       setTimeout(() => {
         scrollRef.current?.scrollToEnd?.({
           animated: true,
@@ -333,8 +523,8 @@ export default function StudentSupportChat() {
       setError(
         getApiError(
           requestError,
-          "Couldn't send the message.",
-        ),
+          "Couldn't send the message."
+        )
       );
     } finally {
       setSending(false);
@@ -512,7 +702,7 @@ export default function StudentSupportChat() {
                           const mine =
                             isMine(
                               message,
-                              user,
+                              user
                             );
 
                           return (
@@ -521,7 +711,7 @@ export default function StudentSupportChat() {
                             >
                               {shouldShowDateDivider(
                                 message,
-                                previous,
+                                previous
                               ) ? (
                                 <View
                                   style={
@@ -534,7 +724,7 @@ export default function StudentSupportChat() {
                                     }
                                   >
                                     {formatMessageDate(
-                                      message.createdAt,
+                                      message.createdAt
                                     )}
                                   </Text>
                                 </View>
@@ -568,7 +758,7 @@ export default function StudentSupportChat() {
                                       ]}
                                     >
                                       {getSenderName(
-                                        message,
+                                        message
                                       )}
                                     </Text>
 
@@ -580,7 +770,7 @@ export default function StudentSupportChat() {
                                       ]}
                                     >
                                       {getSenderRole(
-                                        message,
+                                        message
                                       )}
                                     </Text>
                                   </View>
@@ -603,14 +793,14 @@ export default function StudentSupportChat() {
                                     ]}
                                   >
                                     {formatMessageTime(
-                                      message.createdAt,
+                                      message.createdAt
                                     )}
                                   </Text>
                                 </View>
                               </View>
                             </React.Fragment>
                           );
-                        },
+                        }
                       )
                     ) : (
                       <View style={styles.emptyState}>
@@ -641,10 +831,37 @@ export default function StudentSupportChat() {
                     )}
                   </ScrollView>
 
+                  {typingUsers.length ? (
+                    <View
+                      style={
+                        styles.typingIndicator
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.typingText
+                        }
+                      >
+                        {typingUsers
+                          .map(
+                            (item) =>
+                              item.label
+                          )
+                          .join(", ")}{" "}
+                        {typingUsers.length === 1
+                          ? "is"
+                          : "are"}{" "}
+                        typing...
+                      </Text>
+                    </View>
+                  ) : null}
+
                   <View style={styles.composer}>
                     <TextInput
                       value={draft}
-                      onChangeText={setDraft}
+                      onChangeText={
+                        handleDraftChange
+                      }
                       placeholder="Write a message..."
                       placeholderTextColor={
                         colors.textMuted
@@ -937,6 +1154,20 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textMuted,
     textAlign: "center",
+  },
+
+  typingIndicator: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.white,
+  },
+
+  typingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textMuted,
   },
 
   composer: {

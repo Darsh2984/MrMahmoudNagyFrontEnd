@@ -43,7 +43,7 @@ const CHAT_TYPE_SUPPORT =
 
 function getErrorMessage(
   error,
-  fallback = "Something went wrong.",
+  fallback = "Something went wrong."
 ) {
   return (
     error?.response?.data?.msg ||
@@ -211,7 +211,7 @@ function getLastMessageDate(chat) {
   return new Date(
     chat.lastMessage?.createdAt ||
       chat.updatedAt ||
-      0,
+      0
   ).getTime();
 }
 
@@ -265,19 +265,19 @@ export default function GroupChatList() {
 
         const groupChats =
           Array.isArray(
-            groupResponse.data?.chats,
+            groupResponse.data?.chats
           )
             ? groupResponse.data.chats.map(
-                normalizeGroupChat,
+                normalizeGroupChat
               )
             : [];
 
         const supportChats =
           Array.isArray(
-            supportResponse.data?.chats,
+            supportResponse.data?.chats
           )
             ? supportResponse.data.chats.map(
-                normalizeSupportChat,
+                normalizeSupportChat
               )
             : [];
 
@@ -287,7 +287,7 @@ export default function GroupChatList() {
         ].sort(
           (left, right) =>
             getLastMessageDate(right) -
-            getLastMessageDate(left),
+            getLastMessageDate(left)
         );
 
         setChats(combinedChats);
@@ -295,15 +295,15 @@ export default function GroupChatList() {
         setError(
           getErrorMessage(
             requestError,
-            "Couldn't load chats.",
-          ),
+            "Couldn't load chats."
+          )
         );
       } finally {
         setLoading(false);
         setRefreshing(false);
       }
     },
-    [],
+    []
   );
 
   useEffect(() => {
@@ -346,7 +346,7 @@ export default function GroupChatList() {
             (chat) =>
               chat.type === CHAT_TYPE_GROUP &&
               String(chat.id) ===
-                String(groupId),
+                String(groupId)
           );
 
         if (!exists) {
@@ -372,7 +372,7 @@ export default function GroupChatList() {
               lastMessage: message,
               unreadCount:
                 Number(
-                  chat.unreadCount || 0,
+                  chat.unreadCount || 0
                 ) + 1,
             };
           });
@@ -380,24 +380,85 @@ export default function GroupChatList() {
         return updated.sort(
           (left, right) =>
             getLastMessageDate(right) -
-            getLastMessageDate(left),
+            getLastMessageDate(left)
+        );
+      });
+    }
+
+    function handleNewSupportMessage(payload) {
+      const chatId =
+        payload?.chatId;
+
+      const message =
+        payload?.message;
+
+      if (!chatId || !message) {
+        return;
+      }
+
+      setChats((current) => {
+        const exists =
+          current.some(
+            (chat) =>
+              chat.type === CHAT_TYPE_SUPPORT &&
+              String(chat.id) ===
+                String(chatId)
+          );
+
+        if (!exists) {
+          loadChats({
+            isRefresh: true,
+          });
+
+          return current;
+        }
+
+        const updated =
+          current.map((chat) => {
+            if (
+              chat.type !== CHAT_TYPE_SUPPORT ||
+              String(chat.id) !==
+                String(chatId)
+            ) {
+              return chat;
+            }
+
+            return {
+              ...chat,
+              lastMessage: message,
+              unreadCount:
+                Number(
+                  chat.unreadCount || 0
+                ) + 1,
+            };
+          });
+
+        return updated.sort(
+          (left, right) =>
+            getLastMessageDate(right) -
+            getLastMessageDate(left)
         );
       });
     }
 
     socket.on(
       "connect",
-      handleConnect,
+      handleConnect
     );
 
     socket.on(
       "disconnect",
-      handleDisconnect,
+      handleDisconnect
     );
 
     socket.on(
       "new-group-chat-message",
-      handleNewGroupMessage,
+      handleNewGroupMessage
+    );
+
+    socket.on(
+      "new-student-support-chat-message",
+      handleNewSupportMessage
     );
 
     connectSocket().then(
@@ -409,7 +470,7 @@ export default function GroupChatList() {
         ) {
           handleConnect();
         }
-      },
+      }
     );
 
     return () => {
@@ -417,20 +478,71 @@ export default function GroupChatList() {
 
       socket.off(
         "connect",
-        handleConnect,
+        handleConnect
       );
 
       socket.off(
         "disconnect",
-        handleDisconnect,
+        handleDisconnect
       );
 
       socket.off(
         "new-group-chat-message",
-        handleNewGroupMessage,
+        handleNewGroupMessage
+      );
+
+      socket.off(
+        "new-student-support-chat-message",
+        handleNewSupportMessage
       );
     };
   }, [loadChats]);
+
+  useEffect(() => {
+    const supportChats =
+      chats.filter(
+        (chat) =>
+          chat.type === CHAT_TYPE_SUPPORT
+      );
+
+    if (!supportChats.length) {
+      return undefined;
+    }
+
+    let active = true;
+
+    connectSocket().then((connected) => {
+      if (
+        !active ||
+        !connected ||
+        !socket.connected
+      ) {
+        return;
+      }
+
+      for (const chat of supportChats) {
+        socket.emit(
+          "join-student-support-chat",
+          {
+            chatId: chat.id,
+          }
+        );
+      }
+    });
+
+    return () => {
+      active = false;
+
+      for (const chat of supportChats) {
+        socket.emit(
+          "leave-student-support-chat",
+          {
+            chatId: chat.id,
+          }
+        );
+      }
+    };
+  }, [chats]);
 
   const filteredChats =
     useMemo(() => {
@@ -446,7 +558,7 @@ export default function GroupChatList() {
       return chats.filter((chat) =>
         String(chat.searchText || "")
           .toLowerCase()
-          .includes(search),
+          .includes(search)
       );
     }, [chats, searchText]);
 
@@ -457,23 +569,23 @@ export default function GroupChatList() {
           (total, chat) =>
             total +
             Number(
-              chat.unreadCount || 0,
+              chat.unreadCount || 0
             ),
-          0,
+          0
         ),
-      [chats],
+      [chats]
     );
 
   const groupChatCount =
     chats.filter(
       (chat) =>
-        chat.type === CHAT_TYPE_GROUP,
+        chat.type === CHAT_TYPE_GROUP
     ).length;
 
   const supportChatCount =
     chats.filter(
       (chat) =>
-        chat.type === CHAT_TYPE_SUPPORT,
+        chat.type === CHAT_TYPE_SUPPORT
     ).length;
 
   function openChat(chat) {
@@ -516,11 +628,7 @@ export default function GroupChatList() {
           ]}
         >
           <View style={styles.headerCopy}>
-            <View
-              style={
-                styles.eyebrowRow
-              }
-            >
+            <View style={styles.eyebrowRow}>
               <Text style={styles.eyebrow}>
                 COMMUNICATION CENTER
               </Text>
@@ -536,9 +644,7 @@ export default function GroupChatList() {
               />
 
               <Text
-                style={
-                  styles.connectionText
-                }
+                style={styles.connectionText}
               >
                 {socketConnected
                   ? "Live"
@@ -782,7 +888,7 @@ export default function GroupChatList() {
                       openChat(chat)
                     }
                   />
-                ),
+                )
               )
             )}
           </ScrollView>
@@ -834,7 +940,7 @@ function ChatCard({
           {isSupport
             ? "S"
             : getGroupInitials(
-                chat.displayName,
+                chat.displayName
               )}
         </Text>
       </View>
@@ -887,7 +993,7 @@ function ChatCard({
           >
             {formatMessageTime(
               chat.lastMessage
-                ?.createdAt,
+                ?.createdAt
             )}
           </Text>
         </View>
@@ -952,7 +1058,7 @@ function ChatCard({
               ? chat.displayMeta ||
                 "Student support chat"
               : `${Number(
-                  chat.memberCount || 0,
+                  chat.memberCount || 0
                 )} students`}
           </Text>
         </View>

@@ -19,6 +19,7 @@ import {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
+
 import {
   Stack,
   useLocalSearchParams,
@@ -27,8 +28,12 @@ import {
 
 import { Screen } from "../../../src/components/layout/Screen";
 import { Card } from "../../../src/components/ui/Card";
-import { Button } from "../../../src/components/ui/Button";
 import api from "../../../src/lib/api";
+
+import {
+  connectParentSocket,
+  socket,
+} from "../../../src/lib/socket";
 
 import {
   colors,
@@ -218,6 +223,9 @@ export default function ParentSupportChat() {
   const [error, setError] =
     useState("");
 
+  const [typingUsers, setTypingUsers] =
+    useState([]);
+
   const loadMessages = useCallback(
     async ({
       codeOverride,
@@ -331,6 +339,176 @@ export default function ParentSupportChat() {
     };
   }, [loadMessages]);
 
+  useEffect(() => {
+    if (!chatId || !accessCode) {
+      return undefined;
+    }
+
+    let active = true;
+
+    function handleNewSupportMessage(payload) {
+      if (
+        String(payload?.chatId) !== String(chatId) ||
+        !payload?.message
+      ) {
+        return;
+      }
+
+      setMessages((current) => {
+        const exists = current.some(
+          (message) =>
+            String(message.id) ===
+            String(payload.message.id)
+        );
+
+        if (exists) {
+          return current;
+        }
+
+        return [
+          ...current,
+          payload.message,
+        ];
+      });
+
+      setTimeout(() => {
+        scrollRef.current?.scrollToEnd?.({
+          animated: true,
+        });
+      }, 120);
+    }
+
+    function handleTyping(payload) {
+      if (
+        String(payload?.chatId) !== String(chatId)
+      ) {
+        return;
+      }
+
+      /*
+       * Parent should not see their own typing indicator.
+       */
+      if (payload.parent) {
+        return;
+      }
+
+      const typingId =
+        payload.user?.id
+          ? `USER:${payload.user.id}`
+          : "";
+
+      if (!typingId) {
+        return;
+      }
+
+      const label =
+        payload.user?.name || "School";
+
+      setTypingUsers((current) => {
+        const withoutCurrent =
+          current.filter(
+            (item) => item.id !== typingId
+          );
+
+        if (!payload.isTyping) {
+          return withoutCurrent;
+        }
+
+        return [
+          ...withoutCurrent,
+          {
+            id: typingId,
+            label,
+          },
+        ];
+      });
+    }
+
+    socket.on(
+      "new-student-support-chat-message",
+      handleNewSupportMessage
+    );
+
+    socket.on(
+      "student-support-chat-user-typing",
+      handleTyping
+    );
+
+    connectParentSocket(accessCode).then(
+      (connected) => {
+        if (
+          !active ||
+          !connected ||
+          !socket.connected
+        ) {
+          return;
+        }
+
+        socket.emit(
+          "join-student-support-chat",
+          {
+            chatId,
+          }
+        );
+      }
+    );
+
+    return () => {
+      active = false;
+
+      socket.emit(
+        "student-support-chat-typing-stop",
+        {
+          chatId,
+        }
+      );
+
+      socket.emit(
+        "leave-student-support-chat",
+        {
+          chatId,
+        }
+      );
+
+      socket.off(
+        "new-student-support-chat-message",
+        handleNewSupportMessage
+      );
+
+      socket.off(
+        "student-support-chat-user-typing",
+        handleTyping
+      );
+    };
+  }, [
+    accessCode,
+    chatId,
+  ]);
+
+  function handleDraftChange(value) {
+    setDraft(value);
+
+    if (!chatId || !socket.connected) {
+      return;
+    }
+
+    if (value.trim()) {
+      socket.emit(
+        "student-support-chat-typing-start",
+        {
+          chatId,
+        }
+      );
+    } else {
+      socket.emit(
+        "student-support-chat-typing-stop",
+        {
+          chatId,
+        }
+      );
+    }
+  }
+
   async function handleSend() {
     const content = draft.trim();
 
@@ -367,6 +545,13 @@ export default function ParentSupportChat() {
 
       setDraft("");
 
+      socket.emit(
+        "student-support-chat-typing-stop",
+        {
+          chatId,
+        }
+      );
+
       setTimeout(() => {
         scrollRef.current?.scrollToEnd?.({
           animated: true,
@@ -384,7 +569,7 @@ export default function ParentSupportChat() {
     }
   }
 
-  async function handleBack() {
+  function handleBack() {
     router.replace(
       "/(auth)/parent-lookup"
     );
@@ -678,10 +863,37 @@ export default function ParentSupportChat() {
                     )}
                   </ScrollView>
 
+                  {typingUsers.length ? (
+                    <View
+                      style={
+                        styles.typingIndicator
+                      }
+                    >
+                      <Text
+                        style={
+                          styles.typingText
+                        }
+                      >
+                        {typingUsers
+                          .map(
+                            (item) =>
+                              item.label
+                          )
+                          .join(", ")}{" "}
+                        {typingUsers.length === 1
+                          ? "is"
+                          : "are"}{" "}
+                        typing...
+                      </Text>
+                    </View>
+                  ) : null}
+
                   <View style={styles.composer}>
                     <TextInput
                       value={draft}
-                      onChangeText={setDraft}
+                      onChangeText={
+                        handleDraftChange
+                      }
                       placeholder="Write a message..."
                       placeholderTextColor={
                         colors.textMuted
@@ -974,6 +1186,20 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textMuted,
     textAlign: "center",
+  },
+
+  typingIndicator: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.white,
+  },
+
+  typingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: colors.textMuted,
   },
 
   composer: {

@@ -40,6 +40,29 @@ export async function connectSocket() {
   return true;
 }
 
+export async function connectParentSocket(
+  accessCode,
+) {
+  const normalizedCode =
+    String(accessCode || "")
+      .trim()
+      .toUpperCase();
+
+  if (!normalizedCode) {
+    return false;
+  }
+
+  socket.auth = {
+    parentAccessCode: normalizedCode,
+  };
+
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  return true;
+}
+
 export function disconnectSocket() {
   if (socket.connected) {
     socket.disconnect();
