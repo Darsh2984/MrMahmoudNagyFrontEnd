@@ -31,10 +31,18 @@ import { styles } from "./content.styles";
 
 const SOURCE_UPLOAD = "UPLOAD";
 const SOURCE_R2_EXISTING = "R2_EXISTING";
+const SOURCE_GOOGLE_DRIVE_LINK =
+  "GOOGLE_DRIVE_LINK";
+
 
 const EDIT_SOURCE_KEEP = "KEEP";
 const EDIT_SOURCE_UPLOAD = "UPLOAD";
 const EDIT_SOURCE_R2 = "R2_EXISTING";
+
+const MULTIPART_PART_SIZE = 50 * 1024 * 1024; // 50MB
+const MULTIPART_MAX_CONCURRENT_FILES = 2;
+const MULTIPART_PART_CONCURRENCY = 2;
+const MULTIPART_MAX_PART_RETRIES = 2;
 
 const LEVELS = {
   years: {
@@ -107,6 +115,7 @@ function ResourceSourceSelector({
   value,
   onChange,
   disabled = false,
+  allowGoogleDrive = false,
 }) {
   return (
     <View style={styles.sourceSelector}>
@@ -157,7 +166,7 @@ function ResourceSourceSelector({
                 styles.sourceOptionDescriptionActive,
             ]}
           >
-            Select and upload a file normally.
+            Select and upload files from this device.
           </Text>
         </View>
       </Pressable>
@@ -214,6 +223,62 @@ function ResourceSourceSelector({
           </Text>
         </View>
       </Pressable>
+      {allowGoogleDrive ? (
+        <Pressable
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityState={{
+            selected:
+              value === SOURCE_GOOGLE_DRIVE_LINK,
+            disabled,
+          }}
+          onPress={() =>
+            onChange(SOURCE_GOOGLE_DRIVE_LINK)
+          }
+          style={({ pressed }) => [
+            styles.sourceOption,
+            value === SOURCE_GOOGLE_DRIVE_LINK &&
+              styles.sourceOptionActive,
+            pressed &&
+              !disabled &&
+              styles.pressed,
+            disabled &&
+              styles.disabledAction,
+          ]}
+        >
+          <Ionicons
+            name="logo-google"
+            size={18}
+            color={
+              value === SOURCE_GOOGLE_DRIVE_LINK
+                ? colors.white
+                : colors.primary
+            }
+          />
+
+          <View style={styles.sourceOptionCopy}>
+            <Text
+              style={[
+                styles.sourceOptionTitle,
+                value === SOURCE_GOOGLE_DRIVE_LINK &&
+                  styles.sourceOptionTitleActive,
+              ]}
+            >
+              Google Drive link
+            </Text>
+
+            <Text
+              style={[
+                styles.sourceOptionDescription,
+                value === SOURCE_GOOGLE_DRIVE_LINK &&
+                  styles.sourceOptionDescriptionActive,
+              ]}
+            >
+              Paste a shared Drive video link instead of uploading.
+            </Text>
+          </View>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -272,6 +337,57 @@ function ExistingR2Field({
   );
 }
 
+function GoogleDriveField({
+  value,
+  onChangeText,
+  disabled = false,
+}) {
+  return (
+    <View style={styles.r2FieldSection}>
+      <View style={styles.r2FieldHeader}>
+        <Ionicons
+          name="logo-google"
+          size={18}
+          color={colors.primary}
+        />
+
+        <View style={styles.r2FieldHeaderCopy}>
+          <Text style={styles.r2FieldLabel}>
+            Google Drive video link
+          </Text>
+
+          <Text style={styles.r2FieldHelp}>
+            Paste a shared Google Drive video link. The teacher must set the file permission so students can view it.
+          </Text>
+        </View>
+      </View>
+
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        editable={!disabled}
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="https://drive.google.com/file/d/FILE_ID/view"
+        placeholderTextColor={colors.textMuted}
+        style={styles.input}
+      />
+
+      <View style={styles.r2ExampleBox}>
+        <Ionicons
+          name="information-circle-outline"
+          size={17}
+          color={colors.textMuted}
+        />
+
+        <Text style={styles.r2ExampleText}>
+          In Google Drive: Share → General access → Anyone with the link → Viewer.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function ContentPage() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -279,21 +395,13 @@ export default function ContentPage() {
   const isDesktop = width >= 1000;
   const isCompact = width < 650;
 
-  const [level, setLevel] =
-    useState("years");
-
+  const [level, setLevel] = useState("years");
   const [breadcrumbs, setBreadcrumbs] =
     useState([]);
-
-  const [items, setItems] =
-    useState([]);
-
+  const [items, setItems] = useState([]);
   const [loading, setLoading] =
     useState(true);
-
-  const [error, setError] =
-    useState("");
-
+  const [error, setError] = useState("");
   const [success, setSuccess] =
     useState("");
 
@@ -369,9 +477,12 @@ export default function ContentPage() {
   ] = useState("");
 
   const [
-    videoFile,
-    setVideoFile,
-  ] = useState(null);
+    videoDriveUrl,
+    setVideoDriveUrl,
+  ] = useState("");
+
+  const [videoFile, setVideoFile] =
+    useState(null);
 
   const [
     uploadingType,
@@ -390,6 +501,32 @@ export default function ContentPage() {
 
   const directUploadRequestRef =
     useRef(null);
+
+  const [
+    videoUploadQueue,
+    setVideoUploadQueue,
+  ] = useState([]);
+
+  const videoUploadQueueRef =
+    useRef([]);
+
+  const activeMultipartUploadsRef =
+    useRef(0);
+
+  const multipartPumpRunningRef =
+    useRef(false);
+
+  const multipartAbortXhrsRef =
+    useRef(new Map());
+
+  const cancelledMultipartUploadIdsRef =
+    useRef(new Set());
+
+  const webVideoInputRef =
+    useRef(null);
+
+  const multipartFileStoreRef =
+    useRef(new Map());
 
   const [
     editModalVisible,
@@ -640,6 +777,11 @@ export default function ContentPage() {
   useEffect(() => {
     loadYears();
   }, [loadYears]);
+
+  useEffect(() => {
+    videoUploadQueueRef.current =
+      videoUploadQueue;
+  }, [videoUploadQueue]);
 
   function getHierarchyEndpoint() {
     if (level === "units") {
@@ -1093,6 +1235,11 @@ export default function ContentPage() {
     const isMaterial =
       type === "material";
 
+    if (type === "video") {
+      await selectVideosForMultipartQueue();
+      return;
+    }
+
     if (uploadingType) {
       return;
     }
@@ -1182,7 +1329,6 @@ export default function ContentPage() {
     );
   }
 
-  
   function getSelectedUploadFile(file) {
     if (!file) {
       return null;
@@ -1219,6 +1365,419 @@ export default function ContentPage() {
       file?.file?.size ||
       null
     );
+  }
+
+  function createLocalUploadId() {
+    return (
+      `${Date.now()}-` +
+      `${Math.random()
+        .toString(16)
+        .slice(2)}`
+    );
+  }
+
+  function removeFileExtension(fileName) {
+    if (
+      typeof fileName !== "string" ||
+      !fileName.trim()
+    ) {
+      return "Untitled video";
+    }
+
+    return (
+      fileName
+        .replace(/\.[^/.]+$/, "")
+        .trim() || "Untitled video"
+    );
+  }
+
+  function clampProgress(value) {
+    const numericValue =
+      Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+      return 0;
+    }
+
+    return Math.max(
+      0,
+      Math.min(100, numericValue)
+    );
+  }
+
+  function getQueueItemById(uploadId) {
+    return videoUploadQueueRef.current.find(
+      (item) => item.id === uploadId
+    );
+  }
+
+  function updateVideoQueueItem(
+    uploadId,
+    updater
+  ) {
+    setVideoUploadQueue((currentQueue) => {
+      const nextQueue =
+        currentQueue.map((item) => {
+          if (item.id !== uploadId) {
+            return item;
+          }
+
+          const patch =
+            typeof updater === "function"
+              ? updater(item)
+              : updater;
+
+          return {
+            ...item,
+            ...patch,
+          };
+        });
+
+      videoUploadQueueRef.current =
+        nextQueue;
+
+      return nextQueue;
+    });
+  }
+
+  function createVideoQueueItem(asset) {
+    const fileName =
+      getSelectedUploadFileName(asset);
+
+    const size =
+      getSelectedUploadSize(asset) || 0;
+
+    const contentType =
+      getSelectedUploadContentType(
+        asset,
+        "video"
+      );
+
+    const totalParts =
+      Math.max(
+        1,
+        Math.ceil(
+          size / MULTIPART_PART_SIZE
+        )
+      );
+
+    return {
+      id: createLocalUploadId(),
+
+      kind: "video",
+
+      title:
+        removeFileExtension(fileName),
+
+      file: asset,
+
+      fileName,
+      size,
+      contentType,
+
+      chapterId:
+        currentParent?.id,
+
+      chapterName:
+        currentParent?.name ||
+        "Selected chapter",
+
+      status: "queued",
+
+      progress: 0,
+      uploadedBytes: 0,
+
+      totalParts,
+      currentPart: 0,
+
+      objectKey: null,
+      uploadId: null,
+
+      parts: [],
+      resource: null,
+      error: "",
+    };
+  }
+
+  function isMultipartQueueBusy() {
+    return videoUploadQueue.some((item) =>
+      [
+        "queued",
+        "starting",
+        "uploading",
+        "completing",
+      ].includes(item.status)
+    );
+  }
+
+  function isMultipartUploadCancelled(uploadId) {
+    return cancelledMultipartUploadIdsRef.current.has(
+      uploadId
+    );
+  }
+
+  function assertMultipartNotCancelled(uploadId) {
+    if (isMultipartUploadCancelled(uploadId)) {
+      throw new Error("UPLOAD_CANCELLED");
+    }
+  }
+
+  function getMultipartStatusLabel(status) {
+    if (status === "queued") {
+      return "Waiting";
+    }
+
+    if (status === "starting") {
+      return "Preparing";
+    }
+
+    if (status === "uploading") {
+      return "Uploading";
+    }
+
+    if (status === "completing") {
+      return "Saving";
+    }
+
+    if (status === "completed") {
+      return "Completed";
+    }
+
+    if (status === "cancelled") {
+      return "Cancelled";
+    }
+
+    if (status === "error") {
+      return "Failed";
+    }
+
+    return "Pending";
+  }
+
+  function getMultipartStatusColor(status) {
+    if (status === "completed") {
+      return colors.primary;
+    }
+
+    if (
+      status === "error" ||
+      status === "cancelled"
+    ) {
+      return colors.danger;
+    }
+
+    return colors.textMuted;
+  }
+
+  function openWebVideoFilePicker() {
+    if (Platform.OS !== "web") {
+      return;
+    }
+
+    if (level !== "resources") {
+      setError(
+        "Open a chapter before uploading videos."
+      );
+      return;
+    }
+
+    if (!currentParent?.id) {
+      setError(
+        "Select a chapter before uploading videos."
+      );
+      return;
+    }
+
+    clearMessages();
+
+    if (webVideoInputRef.current) {
+      webVideoInputRef.current.value = "";
+      webVideoInputRef.current.click();
+    }
+  }
+  
+  function handleWebVideoFilesSelected(event) {
+    const files =
+      Array.from(event?.target?.files || []);
+
+    if (!files.length) {
+      return;
+    }
+
+    const nextItems = files.map((file) => {
+      const uploadId =
+        createLocalUploadId();
+
+      multipartFileStoreRef.current.set(
+        uploadId,
+        file
+      );
+
+      const fileName =
+        file.name || `video-${Date.now()}.mp4`;
+
+      const size =
+        file.size || 0;
+
+      const contentType =
+        file.type || "video/mp4";
+
+      const totalParts =
+        Math.max(
+          1,
+          Math.ceil(
+            size / MULTIPART_PART_SIZE
+          )
+        );
+
+      return {
+        id: uploadId,
+
+        kind: "video",
+
+        title:
+          removeFileExtension(fileName),
+
+        /*
+        * IMPORTANT:
+        * Do not store the real browser File object in React state.
+        * The real File is stored in multipartFileStoreRef.
+        */
+        file: null,
+
+        fileName,
+        size,
+        contentType,
+
+        chapterId:
+          currentParent?.id,
+
+        chapterName:
+          currentParent?.name || "Selected chapter",
+
+        status: "queued",
+
+        progress: 0,
+        uploadedBytes: 0,
+
+        totalParts,
+        currentPart: 0,
+
+        objectKey: null,
+        uploadId: null,
+
+        parts: [],
+        resource: null,
+        error: "",
+      };
+    });
+
+    setVideoSourceType(SOURCE_UPLOAD);
+    setVideoObjectKey("");
+    setVideoFile(null);
+
+    setVideoUploadQueue((currentQueue) => {
+      const nextQueue = [
+        ...currentQueue,
+        ...nextItems,
+      ];
+
+      videoUploadQueueRef.current =
+        nextQueue;
+
+      return nextQueue;
+    });
+
+    setSuccess(
+      `${nextItems.length} ${
+        nextItems.length === 1
+          ? "video was"
+          : "videos were"
+      } added to the upload queue.`
+    );
+
+    setTimeout(() => {
+      pumpMultipartVideoQueue();
+    }, 0);
+  }
+
+  async function selectVideosForMultipartQueue() {
+    if (Platform.OS === "web") {
+      openWebVideoFilePicker();
+      return;
+    }
+    if (level !== "resources") {
+      setError(
+        "Open a chapter before uploading videos."
+      );
+
+      return;
+    }
+
+    if (!currentParent?.id) {
+      setError(
+        "Select a chapter before uploading videos."
+      );
+
+      return;
+    }
+
+    clearMessages();
+
+    try {
+      const result =
+        await DocumentPicker.getDocumentAsync({
+          type: "video/*",
+          copyToCacheDirectory:
+            Platform.OS !== "web",
+          multiple: true,
+        });
+
+      if (
+        result.canceled ||
+        !result.assets?.length
+      ) {
+        return;
+      }
+
+      const nextItems =
+        result.assets.map(
+          createVideoQueueItem
+        );
+
+      setVideoSourceType(SOURCE_UPLOAD);
+      setVideoObjectKey("");
+      setVideoFile(null);
+
+      setVideoUploadQueue((currentQueue) => {
+        const nextQueue = [
+          ...currentQueue,
+          ...nextItems,
+        ];
+
+        videoUploadQueueRef.current =
+          nextQueue;
+
+        return nextQueue;
+      });
+
+      setSuccess(
+        `${nextItems.length} ${
+          nextItems.length === 1
+            ? "video was"
+            : "videos were"
+        } added to the upload queue.`
+      );
+
+      setTimeout(() => {
+        pumpMultipartVideoQueue();
+      }, 0);
+    } catch (pickerError) {
+      setError(
+        pickerError?.message ||
+          "Couldn't open the video picker."
+      );
+    }
   }
 
   function uploadFileToSignedUrl({
@@ -1425,10 +1984,747 @@ export default function ContentPage() {
           objectKey: upload.objectKey,
         }
       );
+
     setUploadStatusText(
       "Resource saved successfully."
     );
+
     return completeResponse.data?.resource;
+  }
+
+  function uploadBlobPartToSignedUrl({
+    uploadItemId,
+    partNumber,
+    uploadUrl,
+    blob,
+    onProgress,
+  }) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+
+      const xhrKey =
+        `${uploadItemId}:${partNumber}`;
+
+      multipartAbortXhrsRef.current.set(
+        xhrKey,
+        xhr
+      );
+
+      xhr.open("PUT", uploadUrl);
+
+      xhr.upload.onprogress = (event) => {
+        if (
+          event.lengthComputable &&
+          typeof onProgress === "function"
+        ) {
+          onProgress(event.loaded);
+        }
+      };
+
+      xhr.onload = () => {
+        multipartAbortXhrsRef.current.delete(
+          xhrKey
+        );
+
+        if (
+          xhr.status >= 200 &&
+          xhr.status < 300
+        ) {
+          const eTag =
+            xhr.getResponseHeader("ETag") ||
+            xhr.getResponseHeader("etag");
+
+          if (!eTag) {
+            reject(
+              new Error(
+                "R2 did not return an ETag for the uploaded part. Confirm R2 CORS exposes the ETag header."
+              )
+            );
+
+            return;
+          }
+
+          resolve({
+            partNumber,
+            eTag,
+          });
+
+          return;
+        }
+
+        reject(
+          new Error(
+            `Part ${partNumber} failed with status ${xhr.status}.`
+          )
+        );
+      };
+
+      xhr.onerror = () => {
+        multipartAbortXhrsRef.current.delete(
+          xhrKey
+        );
+
+        reject(
+          new Error(
+            `Network error while uploading part ${partNumber}.`
+          )
+        );
+      };
+
+      xhr.onabort = () => {
+        multipartAbortXhrsRef.current.delete(
+          xhrKey
+        );
+
+        reject(
+          new Error("UPLOAD_CANCELLED")
+        );
+      };
+
+      xhr.ontimeout = () => {
+        multipartAbortXhrsRef.current.delete(
+          xhrKey
+        );
+
+        reject(
+          new Error(
+            `Part ${partNumber} timed out.`
+          )
+        );
+      };
+
+      xhr.timeout = 0;
+      xhr.send(blob);
+    });
+  }
+
+  async function signMultipartPart({
+    objectKey,
+    uploadId,
+    partNumber,
+  }) {
+    const response =
+      await api.post(
+        "/resources/multipart/sign-part",
+        {
+          objectKey,
+          uploadId,
+          partNumber,
+        }
+      );
+
+    const part =
+      response.data?.part;
+
+    if (!part?.uploadUrl) {
+      throw new Error(
+        `The backend did not return a signed URL for part ${partNumber}.`
+      );
+    }
+
+    return part;
+  }
+
+  async function uploadMultipartPartWithRetry({
+    uploadItemId,
+    file,
+    objectKey,
+    uploadId,
+    partNumber,
+    start,
+    end,
+    activePartProgress,
+    getCompletedBytes,
+    setCompletedBytes,
+    totalBytes,
+  }) {
+    let lastError = null;
+
+    for (
+      let attempt = 1;
+      attempt <=
+      MULTIPART_MAX_PART_RETRIES + 1;
+      attempt += 1
+    ) {
+      assertMultipartNotCancelled(uploadItemId);
+
+      try {
+        const signedPart =
+          await signMultipartPart({
+            objectKey,
+            uploadId,
+            partNumber,
+          });
+
+        assertMultipartNotCancelled(uploadItemId);
+
+        const blob =
+          file.slice(start, end);
+
+        const uploadedPart =
+          await uploadBlobPartToSignedUrl({
+            uploadItemId,
+            partNumber,
+            uploadUrl:
+              signedPart.uploadUrl,
+            blob,
+            onProgress: (loadedBytes) => {
+              activePartProgress[partNumber] =
+                loadedBytes;
+
+              const activeBytes =
+                Object.values(
+                  activePartProgress
+                ).reduce(
+                  (total, value) =>
+                    total + Number(value || 0),
+                  0
+                );
+
+              const loaded =
+                getCompletedBytes() +
+                activeBytes;
+
+              const progress =
+                clampProgress(
+                  Math.floor(
+                    (loaded / totalBytes) *
+                      100
+                  )
+                );
+
+              updateVideoQueueItem(
+                uploadItemId,
+                {
+                  currentPart:
+                    partNumber,
+                  uploadedBytes:
+                    loaded,
+                  progress,
+                }
+              );
+            },
+          });
+
+        delete activePartProgress[partNumber];
+
+        const nextCompletedBytes =
+          getCompletedBytes() +
+          (end - start);
+
+        setCompletedBytes(
+          nextCompletedBytes
+        );
+
+        updateVideoQueueItem(
+          uploadItemId,
+          {
+            uploadedBytes:
+              nextCompletedBytes,
+            progress:
+              clampProgress(
+                Math.floor(
+                  (nextCompletedBytes /
+                    totalBytes) *
+                    100
+                )
+              ),
+          }
+        );
+
+        return uploadedPart;
+      } catch (partError) {
+        lastError = partError;
+
+        if (isAbortError(partError)) {
+          throw partError;
+        }
+
+        if (
+          attempt >
+          MULTIPART_MAX_PART_RETRIES
+        ) {
+          break;
+        }
+
+        await new Promise((resolve) =>
+          setTimeout(
+            resolve,
+            800 * attempt
+          )
+        );
+      }
+    }
+
+    throw (
+      lastError ||
+      new Error(
+        `Part ${partNumber} failed.`
+      )
+    );
+  }
+
+  async function uploadMultipartVideoItem(queueItem) {
+    const uploadItemId =
+      queueItem.id;
+
+    cancelledMultipartUploadIdsRef.current.delete(
+      uploadItemId
+    );
+
+    let objectKey = null;
+    let r2UploadId = null;
+
+    try {
+      const file =
+        Platform.OS === "web"
+          ? multipartFileStoreRef.current.get(
+              uploadItemId
+            )
+          : getSelectedUploadFile(
+              queueItem.file
+            );
+
+      if (!file) {
+        throw new Error(
+          "Selected video file could not be prepared."
+        );
+      }
+
+      const totalBytes =
+        queueItem.size ||
+        file.size ||
+        0;
+
+      if (!totalBytes) {
+        throw new Error(
+          "Video file size could not be detected."
+        );
+      }
+
+      const partCount =
+        Math.max(
+          1,
+          Math.ceil(
+            totalBytes /
+              MULTIPART_PART_SIZE
+          )
+        );
+
+      updateVideoQueueItem(
+        uploadItemId,
+        {
+          status: "starting",
+          progress: 0,
+          uploadedBytes: 0,
+          totalParts:
+            partCount,
+          currentPart: 0,
+          error: "",
+        }
+      );
+
+      const startResponse =
+        await api.post(
+          "/resources/multipart/start",
+          {
+            kind: "video",
+            title:
+              queueItem.title ||
+              removeFileExtension(
+                queueItem.fileName
+              ),
+            chapterId:
+              queueItem.chapterId,
+            originalFilename:
+              queueItem.fileName,
+            contentType:
+              queueItem.contentType ||
+              "video/mp4",
+            size:
+              totalBytes,
+            partSize:
+              MULTIPART_PART_SIZE,
+            partCount,
+          }
+        );
+
+      const upload =
+        startResponse.data?.upload;
+
+      if (
+        !upload?.objectKey ||
+        !upload?.uploadId
+      ) {
+        throw new Error(
+          "The backend did not return multipart upload information."
+        );
+      }
+
+      objectKey = upload.objectKey;
+      r2UploadId = upload.uploadId;
+
+      updateVideoQueueItem(
+        uploadItemId,
+        {
+          status: "uploading",
+          objectKey,
+          uploadId:
+            r2UploadId,
+        }
+      );
+
+      assertMultipartNotCancelled(
+        uploadItemId
+      );
+
+      const uploadedParts = [];
+
+      let nextPartNumber = 1;
+      let completedBytes = 0;
+      const activePartProgress = {};
+
+      const getCompletedBytes = () =>
+        completedBytes;
+
+      const setCompletedBytes = (value) => {
+        completedBytes = value;
+      };
+
+      async function worker() {
+        while (
+          nextPartNumber <= partCount
+        ) {
+          const partNumber =
+            nextPartNumber;
+
+          nextPartNumber += 1;
+
+          assertMultipartNotCancelled(
+            uploadItemId
+          );
+
+          const start =
+            (partNumber - 1) *
+            MULTIPART_PART_SIZE;
+
+          const end =
+            Math.min(
+              start +
+                MULTIPART_PART_SIZE,
+              totalBytes
+            );
+
+          const uploadedPart =
+            await uploadMultipartPartWithRetry({
+              uploadItemId,
+              file,
+              objectKey,
+              uploadId:
+                r2UploadId,
+              partNumber,
+              start,
+              end,
+              activePartProgress,
+              getCompletedBytes,
+              setCompletedBytes,
+              totalBytes,
+            });
+
+          uploadedParts.push(
+            uploadedPart
+          );
+        }
+      }
+
+      const workerCount =
+        Math.min(
+          MULTIPART_PART_CONCURRENCY,
+          partCount
+        );
+
+      await Promise.all(
+        Array.from({
+          length: workerCount,
+        }).map(() => worker())
+      );
+
+      assertMultipartNotCancelled(
+        uploadItemId
+      );
+
+      uploadedParts.sort(
+        (a, b) =>
+          a.partNumber - b.partNumber
+      );
+
+      updateVideoQueueItem(
+        uploadItemId,
+        {
+          status: "completing",
+          progress: 100,
+          uploadedBytes:
+            totalBytes,
+          parts:
+            uploadedParts,
+        }
+      );
+
+      const completeResponse =
+        await api.post(
+          "/resources/multipart/complete",
+          {
+            kind: "video",
+            title:
+              queueItem.title ||
+              removeFileExtension(
+                queueItem.fileName
+              ),
+            chapterId:
+              queueItem.chapterId,
+            objectKey,
+            uploadId:
+              r2UploadId,
+            parts:
+              uploadedParts,
+          }
+        );
+
+      updateVideoQueueItem(
+        uploadItemId,
+        {
+          status: "completed",
+          progress: 100,
+          uploadedBytes:
+            totalBytes,
+          resource:
+            completeResponse.data?.resource ||
+            null,
+          error: "",
+        }
+      );
+
+      await loadResources(
+        currentParent,
+        breadcrumbs
+      );
+    } catch (uploadError) {
+      const wasCancelled =
+        isAbortError(uploadError) ||
+        isMultipartUploadCancelled(
+          uploadItemId
+        );
+
+      if (objectKey && r2UploadId) {
+        try {
+          await api.post(
+            "/resources/multipart/abort",
+            {
+              objectKey,
+              uploadId:
+                r2UploadId,
+            }
+          );
+        } catch {
+          // Best effort cleanup only.
+        }
+      }
+
+      updateVideoQueueItem(
+        uploadItemId,
+        {
+          status: wasCancelled
+            ? "cancelled"
+            : "error",
+          error: wasCancelled
+            ? "Upload cancelled."
+            : getApiError(
+                uploadError,
+                "Video upload failed."
+              ),
+        }
+      );
+    } finally {
+        if (
+          Platform.OS === "web" &&
+          (
+            isMultipartUploadCancelled(uploadItemId) ||
+            getQueueItemById(uploadItemId)?.status === "completed"
+          )
+        ) {
+          multipartFileStoreRef.current.delete(
+            uploadItemId
+          );
+        }
+
+        activeMultipartUploadsRef.current =
+          Math.max(
+            0,
+            activeMultipartUploadsRef.current - 1
+          );
+
+        setTimeout(() => {
+          pumpMultipartVideoQueue();
+        }, 0);
+      }
+  }
+
+  function pumpMultipartVideoQueue() {
+    if (multipartPumpRunningRef.current) {
+      return;
+    }
+
+    multipartPumpRunningRef.current = true;
+
+    try {
+      while (
+        activeMultipartUploadsRef.current <
+        MULTIPART_MAX_CONCURRENT_FILES
+      ) {
+        const nextItem =
+          videoUploadQueueRef.current.find(
+            (item) =>
+              item.status === "queued"
+          );
+
+        if (!nextItem) {
+          break;
+        }
+
+        activeMultipartUploadsRef.current += 1;
+
+        updateVideoQueueItem(
+          nextItem.id,
+          {
+            status: "starting",
+            error: "",
+          }
+        );
+
+        uploadMultipartVideoItem(nextItem);
+      }
+    } finally {
+      multipartPumpRunningRef.current = false;
+    }
+  }
+
+  async function cancelMultipartVideoUpload(
+    uploadItemId
+  ) {
+    cancelledMultipartUploadIdsRef.current.add(
+      uploadItemId
+    );
+
+    for (const [
+      xhrKey,
+      xhr,
+    ] of multipartAbortXhrsRef.current.entries()) {
+      if (
+        xhrKey.startsWith(
+          `${uploadItemId}:`
+        )
+      ) {
+        xhr.abort();
+      }
+    }
+
+    const item =
+      getQueueItemById(uploadItemId);
+
+    if (
+      item?.objectKey &&
+      item?.uploadId
+    ) {
+      try {
+        await api.post(
+          "/resources/multipart/abort",
+          {
+            objectKey:
+              item.objectKey,
+            uploadId:
+              item.uploadId,
+          }
+        );
+      } catch {
+        // Best effort cleanup only.
+      }
+    }
+
+    updateVideoQueueItem(
+      uploadItemId,
+      {
+        status: "cancelled",
+        error: "Upload cancelled.",
+      }
+    );
+  }
+
+  async function cancelAllMultipartUploads() {
+    const activeItems =
+      videoUploadQueueRef.current.filter(
+        (item) =>
+          [
+            "queued",
+            "starting",
+            "uploading",
+            "completing",
+          ].includes(item.status)
+      );
+
+    await Promise.all(
+      activeItems.map((item) =>
+        cancelMultipartVideoUpload(item.id)
+      )
+    );
+  }
+
+  function retryMultipartVideoUpload(uploadItemId) {
+    cancelledMultipartUploadIdsRef.current.delete(
+      uploadItemId
+    );
+
+    updateVideoQueueItem(
+      uploadItemId,
+      {
+        status: "queued",
+        progress: 0,
+        uploadedBytes: 0,
+        currentPart: 0,
+        objectKey: null,
+        uploadId: null,
+        parts: [],
+        resource: null,
+        error: "",
+      }
+    );
+
+    setTimeout(() => {
+      pumpMultipartVideoQueue();
+    }, 0);
+  }
+
+  function removeMultipartVideoFromQueue(uploadItemId) {
+    multipartFileStoreRef.current.delete(
+      uploadItemId
+    );
+    setVideoUploadQueue((currentQueue) => {
+      const nextQueue =
+        currentQueue.filter(
+          (item) =>
+            item.id !== uploadItemId
+        );
+
+      videoUploadQueueRef.current =
+        nextQueue;
+
+      return nextQueue;
+    });
+  }
+
+  function cancelDirectUpload() {
+    if (directUploadRequestRef.current) {
+      directUploadRequestRef.current.abort();
+    }
   }
 
   async function uploadResource(type) {
@@ -1449,6 +2745,11 @@ export default function ContentPage() {
       isMaterial
         ? materialObjectKey
         : videoObjectKey;
+
+    const driveUrl =
+      isMaterial
+        ? ""
+        : videoDriveUrl;
 
     const selectedFile =
       isMaterial
@@ -1488,6 +2789,18 @@ export default function ContentPage() {
     }
 
     if (
+      sourceType === SOURCE_GOOGLE_DRIVE_LINK &&
+      !driveUrl.trim()
+    ) {
+      setError(
+        "Enter the Google Drive video link."
+      );
+
+      return;
+    }
+
+    if (
+      isMaterial &&
       sourceType === SOURCE_UPLOAD &&
       !selectedFile
     ) {
@@ -1502,7 +2815,8 @@ export default function ContentPage() {
 
     try {
       if (
-        sourceType === SOURCE_R2_EXISTING
+        sourceType === SOURCE_R2_EXISTING ||
+        sourceType === SOURCE_GOOGLE_DRIVE_LINK
       ) {
         await api.post(
           `/resources/${type}`,
@@ -1510,50 +2824,55 @@ export default function ContentPage() {
             title,
             chapterId:
               currentParent.id,
-            sourceType:
-              SOURCE_R2_EXISTING,
+            sourceType,
             objectKey:
-              objectKey.trim(),
+              sourceType === SOURCE_GOOGLE_DRIVE_LINK
+                ? driveUrl.trim()
+                : objectKey.trim(),
+            driveUrl:
+              sourceType === SOURCE_GOOGLE_DRIVE_LINK
+                ? driveUrl.trim()
+                : undefined,
           }
         );
       } else {
-          if (Platform.OS === "web") {
-            await directUploadResource({
-              type,
-              title,
-              chapterId: currentParent.id,
-              selectedFile,
-            });
-          } else {
-            const formData =
-              new FormData();
+        if (Platform.OS === "web") {
+          await directUploadResource({
+            type,
+            title,
+            chapterId: currentParent.id,
+            selectedFile,
+          });
+        } else {
+          const formData =
+            new FormData();
 
-            formData.append(
-              "title",
-              title
-            );
+          formData.append(
+            "title",
+            title
+          );
 
-            formData.append(
-              "chapterId",
-              currentParent.id
-            );
+          formData.append(
+            "chapterId",
+            currentParent.id
+          );
 
-            formData.append(
-              "sourceType",
-              SOURCE_UPLOAD
-            );
+          formData.append(
+            "sourceType",
+            SOURCE_UPLOAD
+          );
 
-            await addFileToFormData(
-              formData,
-              selectedFile
-            );
+          await addFileToFormData(
+            formData,
+            selectedFile
+          );
 
-            await api.post(
-              `/resources/${type}`,
-              formData
-            );
-          }
+          await api.post(
+            `/resources/${type}`,
+            formData
+          );
         }
+      }
 
       if (isMaterial) {
         setMaterialTitle("");
@@ -1563,6 +2882,7 @@ export default function ContentPage() {
       } else {
         setVideoTitle("");
         setVideoObjectKey("");
+        setVideoDriveUrl("");
         setVideoFile(null);
         setVideoSourceType(SOURCE_UPLOAD);
       }
@@ -1586,27 +2906,27 @@ export default function ContentPage() {
             } uploaded successfully.`
       );
     } catch (requestError) {
-        if (isAbortError(requestError)) {
-          setError(
-            "Upload cancelled. The resource was not saved."
-          );
-          return;
-        }
-
+      if (isAbortError(requestError)) {
         setError(
-          getApiError(
-            requestError,
-            sourceType === SOURCE_R2_EXISTING
-              ? `Couldn't add the ${type} from R2. Check that the object key exists in the configured bucket.`
-              : `Couldn't upload the ${type}. Keep the tab open while uploading and confirm that Cloudflare R2 CORS allows PUT requests.`
-          )
+          "Upload cancelled. The resource was not saved."
         );
-      } finally {
-        setUploadingType(null);
-        setUploadProgress(null);
-        setUploadStatusText("");
-        directUploadRequestRef.current = null;
+        return;
       }
+
+      setError(
+        getApiError(
+          requestError,
+          sourceType === SOURCE_R2_EXISTING
+            ? `Couldn't add the ${type} from R2. Check that the object key exists in the configured bucket.`
+            : `Couldn't upload the ${type}. Keep the tab open while uploading and confirm that Cloudflare R2 CORS allows PUT requests.`
+        )
+      );
+    } finally {
+      setUploadingType(null);
+      setUploadProgress(null);
+      setUploadStatusText("");
+      directUploadRequestRef.current = null;
+    }
   }
 
   function viewResource(item) {
@@ -2269,12 +3589,260 @@ export default function ContentPage() {
     );
   }
 
-  function cancelDirectUpload() {
-    if (directUploadRequestRef.current) {
-      directUploadRequestRef.current.abort();
+  function renderMultipartVideoQueue() {
+    if (!videoUploadQueue.length) {
+      return (
+        <View style={styles.videoQueueEmpty}>
+          <Ionicons
+            name="cloud-upload-outline"
+            size={22}
+            color={colors.textMuted}
+          />
+
+          <Text style={styles.videoQueueEmptyText}>
+            Select one or more videos. They will upload in the background, similar to Google Drive.
+          </Text>
+        </View>
+      );
     }
+
+    const busy =
+      isMultipartQueueBusy();
+
+    return (
+      <View style={styles.videoQueueBox}>
+        <View style={styles.videoQueueHeader}>
+          <View>
+            <Text style={styles.videoQueueTitle}>
+              Upload queue
+            </Text>
+
+            <Text style={styles.videoQueueSubtitle}>
+              {videoUploadQueue.length}{" "}
+              {videoUploadQueue.length === 1
+                ? "video"
+                : "videos"}{" "}
+              selected • up to{" "}
+              {MULTIPART_MAX_CONCURRENT_FILES} uploads at once
+            </Text>
+          </View>
+
+          {busy ? (
+            <Pressable
+              onPress={cancelAllMultipartUploads}
+              style={({ pressed }) => [
+                styles.cancelAllUploadsButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.cancelAllUploadsText}>
+                Cancel all
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.videoQueueList}>
+          {videoUploadQueue.map((item) => {
+            const canCancel = [
+              "queued",
+              "starting",
+              "uploading",
+              "completing",
+            ].includes(item.status);
+
+            const canRetry =
+              item.status === "error" ||
+              item.status === "cancelled";
+
+            const canRemove = [
+              "completed",
+              "error",
+              "cancelled",
+            ].includes(item.status);
+
+            return (
+              <View
+                key={item.id}
+                style={styles.videoQueueItem}
+              >
+                <View style={styles.videoQueueItemTop}>
+                  <View style={styles.videoQueueIcon}>
+                    <Ionicons
+                      name="videocam-outline"
+                      size={19}
+                      color={colors.warning}
+                    />
+                  </View>
+
+                  <View style={styles.videoQueueCopy}>
+                    <Text
+                      numberOfLines={2}
+                      style={styles.videoQueueFileName}
+                    >
+                      {item.fileName}
+                    </Text>
+
+                    <Text style={styles.videoQueueMeta}>
+                      {formatFileSize(item.size)} •{" "}
+                      {item.totalParts} parts •{" "}
+                      <Text
+                        style={{
+                          color:
+                            getMultipartStatusColor(
+                              item.status
+                            ),
+                          fontWeight: "800",
+                        }}
+                      >
+                        {getMultipartStatusLabel(
+                          item.status
+                        )}
+                      </Text>
+                    </Text>
+                  </View>
+                </View>
+
+                <TextInput
+                  value={item.title}
+                  editable={
+                    item.status === "queued" ||
+                    item.status === "error" ||
+                    item.status === "cancelled"
+                  }
+                  onChangeText={(nextTitle) =>
+                    updateVideoQueueItem(
+                      item.id,
+                      {
+                        title: nextTitle,
+                      }
+                    )
+                  }
+                  placeholder="Video title"
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.videoQueueTitleInput}
+                />
+
+                <View style={styles.videoQueueProgressTrack}>
+                  <View
+                    style={[
+                      styles.videoQueueProgressFill,
+                      {
+                        width: `${clampProgress(
+                          item.progress
+                        )}%`,
+                      },
+                    ]}
+                  />
+                </View>
+
+                <View style={styles.videoQueueProgressRow}>
+                  <Text style={styles.videoQueueProgressText}>
+                    {clampProgress(
+                      item.progress
+                    )}% •{" "}
+                    {formatFileSize(
+                      item.uploadedBytes
+                    )} of{" "}
+                    {formatFileSize(item.size)}
+                  </Text>
+
+                  {item.status === "uploading" ? (
+                    <Text style={styles.videoQueueProgressText}>
+                      Part {item.currentPart} /{" "}
+                      {item.totalParts}
+                    </Text>
+                  ) : null}
+                </View>
+
+                {item.error ? (
+                  <Text style={styles.videoQueueError}>
+                    {item.error}
+                  </Text>
+                ) : null}
+
+                <View style={styles.videoQueueActions}>
+                  {canCancel ? (
+                    <Pressable
+                      onPress={() =>
+                        cancelMultipartVideoUpload(
+                          item.id
+                        )
+                      }
+                      style={({ pressed }) => [
+                        styles.videoQueueActionButton,
+                        styles.videoQueueCancelButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name="close-circle-outline"
+                        size={16}
+                        color={colors.danger}
+                      />
+
+                      <Text style={styles.videoQueueCancelText}>
+                        Cancel
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {canRetry ? (
+                    <Pressable
+                      onPress={() =>
+                        retryMultipartVideoUpload(
+                          item.id
+                        )
+                      }
+                      style={({ pressed }) => [
+                        styles.videoQueueActionButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name="refresh-outline"
+                        size={16}
+                        color={colors.primary}
+                      />
+
+                      <Text style={styles.videoQueueActionText}>
+                        Retry
+                      </Text>
+                    </Pressable>
+                  ) : null}
+
+                  {canRemove ? (
+                    <Pressable
+                      onPress={() =>
+                        removeMultipartVideoFromQueue(
+                          item.id
+                        )
+                      }
+                      style={({ pressed }) => [
+                        styles.videoQueueActionButton,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Ionicons
+                        name="trash-outline"
+                        size={16}
+                        color={colors.textMuted}
+                      />
+
+                      <Text style={styles.videoQueueRemoveText}>
+                        Remove
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
   }
-  
+
   function renderResourceCreateCard(type) {
     const isMaterial =
       type === "material";
@@ -2325,6 +3893,11 @@ export default function ContentPage() {
     const anyBusy =
       Boolean(uploadingType);
 
+    const showResourceTitleInput =
+      isMaterial ||
+      sourceType === SOURCE_R2_EXISTING ||
+      sourceType === SOURCE_GOOGLE_DRIVE_LINK;
+
     return (
       <Card style={styles.actionCard}>
         <View style={styles.actionHeader}>
@@ -2360,29 +3933,33 @@ export default function ContentPage() {
             <Text style={styles.actionDescription}>
               {isMaterial
                 ? "Upload a PDF/image or reference an existing R2 object."
-                : "Upload a lesson video or reference an existing R2 object."}
+                : "Upload multiple lesson videos with multipart upload, or reference an existing R2 object."}
             </Text>
           </View>
         </View>
 
-        <Text style={styles.inputLabel}>
-          {isMaterial
-            ? "Material title"
-            : "Video title"}
-        </Text>
+        {showResourceTitleInput ? (
+          <>
+            <Text style={styles.inputLabel}>
+              {isMaterial
+                ? "Material title"
+                : "Video title"}
+            </Text>
 
-        <TextInput
-          value={title}
-          onChangeText={setTitle}
-          editable={!anyBusy}
-          placeholder={
-            isMaterial
-              ? "Material title"
-              : "Video title"
-          }
-          placeholderTextColor={colors.textMuted}
-          style={styles.input}
-        />
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              editable={!anyBusy}
+              placeholder={
+                isMaterial
+                  ? "Material title"
+                  : "Video title"
+              }
+              placeholderTextColor={colors.textMuted}
+              style={styles.input}
+            />
+          </>
+        ) : null}
 
         <View style={styles.sourceSection}>
           <Text style={styles.sourceSectionLabel}>
@@ -2391,185 +3968,249 @@ export default function ContentPage() {
 
           <ResourceSourceSelector
             value={sourceType}
+            allowGoogleDrive={!isMaterial}
             onChange={(nextType) => {
               setSourceType(nextType);
 
               if (nextType === SOURCE_UPLOAD) {
                 setObjectKey("");
+
+                if (!isMaterial) {
+                  setVideoDriveUrl("");
+                }
               }
 
               if (nextType === SOURCE_R2_EXISTING) {
                 setSelectedFile(null);
+
+                if (!isMaterial) {
+                  setVideoDriveUrl("");
+                }
+              }
+
+              if (nextType === SOURCE_GOOGLE_DRIVE_LINK) {
+                setSelectedFile(null);
+                setObjectKey("");
               }
             }}
             disabled={anyBusy}
           />
         </View>
-
+        
         {sourceType === SOURCE_R2_EXISTING ? (
-          <ExistingR2Field
-            value={objectKey}
-            onChangeText={setObjectKey}
-            disabled={anyBusy}
-          />
-        ) : (
-          <View style={styles.replacementBox}>
-            <View style={styles.replacementInfo}>
-              <Ionicons
-                name={
-                  selectedFile
-                    ? "checkmark-circle-outline"
-                    : "cloud-upload-outline"
-                }
-                size={22}
-                color={colors.primary}
-              />
-
-              <View style={styles.replacementCopy}>
-                <Text style={styles.replacementTitle}>
-                  {selectedFile
-                    ? selectedFile.name
-                    : isMaterial
-                      ? "No material file selected"
-                      : "No video file selected"}
-                </Text>
-
-                <Text style={styles.replacementDescription}>
-                  {selectedFile
-                    ? `Ready to upload • ${formatFileSize(
-                        getSelectedUploadSize(selectedFile)
-                      )}`
-                    : isMaterial
-                      ? "Choose a PDF or image file from your laptop."
-                      : "Choose a video file from your laptop."}
-                </Text>
-              </View>
-            </View>
-
-            <Button
-              title={
-                selectedFile
-                  ? "Choose another file"
-                  : isMaterial
-                    ? "Choose material from device"
-                    : "Choose video from device"
-              }
-              variant="outline"
-              onPress={() =>
-                selectCreateResourceFile(type)
-              }
-              disabled={anyBusy}
-            />
-
-            {selectedFile ? (
-              <Pressable
-                onPress={() =>
-                  clearCreateResourceFile(type)
-                }
-                disabled={anyBusy}
-                style={({ pressed }) => [
-                  styles.keepCurrentButton,
-                  pressed &&
-                    !anyBusy &&
-                    styles.pressed,
-                  anyBusy &&
-                    styles.disabledAction,
-                ]}
-              >
-                <Text style={styles.keepCurrentText}>
-                  Clear selected file
-                </Text>
-              </Pressable>
-            ) : null}
-          </View>
-        )}
-        {busy &&
-          sourceType === SOURCE_UPLOAD &&
-          typeof uploadProgress === "number" ? (
-            <View style={styles.uploadProgressBox}>
-              <View style={styles.uploadProgressHeader}>
+        <ExistingR2Field
+          value={objectKey}
+          onChangeText={setObjectKey}
+          disabled={anyBusy}
+        />
+      ) : sourceType === SOURCE_GOOGLE_DRIVE_LINK ? (
+        <GoogleDriveField
+          value={videoDriveUrl}
+          onChangeText={setVideoDriveUrl}
+          disabled={anyBusy}
+        />
+      ) : isMaterial ? (
+          <>
+            <View style={styles.replacementBox}>
+              <View style={styles.replacementInfo}>
                 <Ionicons
-                  name="cloud-upload-outline"
-                  size={18}
+                  name={
+                    selectedFile
+                      ? "checkmark-circle-outline"
+                      : "cloud-upload-outline"
+                  }
+                  size={22}
                   color={colors.primary}
                 />
 
-                <Text style={styles.uploadProgressTitle}>
-                  Uploading directly to R2
-                </Text>
+                <View style={styles.replacementCopy}>
+                  <Text style={styles.replacementTitle}>
+                    {selectedFile
+                      ? selectedFile.name
+                      : "No material file selected"}
+                  </Text>
 
-                <Text style={styles.uploadProgressPercent}>
-                  {uploadProgress}%
-                </Text>
+                  <Text style={styles.replacementDescription}>
+                    {selectedFile
+                      ? `Ready to upload • ${formatFileSize(
+                          getSelectedUploadSize(selectedFile)
+                        )}`
+                      : "Choose a PDF or image file from your laptop."}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.uploadProgressTrack}>
-                <View
-                  style={[
-                    styles.uploadProgressFill,
-                    {
-                      width: `${Math.max(
-                        0,
-                        Math.min(uploadProgress, 100)
-                      )}%`,
-                    },
+              <Button
+                title={
+                  selectedFile
+                    ? "Choose another file"
+                    : "Choose material from device"
+                }
+                variant="outline"
+                onPress={() =>
+                  selectCreateResourceFile(type)
+                }
+                disabled={anyBusy}
+              />
+
+              {selectedFile ? (
+                <Pressable
+                  onPress={() =>
+                    clearCreateResourceFile(type)
+                  }
+                  disabled={anyBusy}
+                  style={({ pressed }) => [
+                    styles.keepCurrentButton,
+                    pressed &&
+                      !anyBusy &&
+                      styles.pressed,
+                    anyBusy &&
+                      styles.disabledAction,
                   ]}
+                >
+                  <Text style={styles.keepCurrentText}>
+                    Clear selected file
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            {busy &&
+            sourceType === SOURCE_UPLOAD &&
+            typeof uploadProgress === "number" ? (
+              <View style={styles.uploadProgressBox}>
+                <View style={styles.uploadProgressHeader}>
+                  <Ionicons
+                    name="cloud-upload-outline"
+                    size={18}
+                    color={colors.primary}
+                  />
+
+                  <Text style={styles.uploadProgressTitle}>
+                    Uploading directly to R2
+                  </Text>
+
+                  <Text style={styles.uploadProgressPercent}>
+                    {uploadProgress}%
+                  </Text>
+                </View>
+
+                <View style={styles.uploadProgressTrack}>
+                  <View
+                    style={[
+                      styles.uploadProgressFill,
+                      {
+                        width: `${Math.max(
+                          0,
+                          Math.min(
+                            uploadProgress,
+                            100
+                          )
+                        )}%`,
+                      },
+                    ]}
+                  />
+                </View>
+
+                <Text style={styles.uploadProgressStatus}>
+                  {uploadStatusText ||
+                    "Keep this tab open until upload completes."}
+                </Text>
+
+                <Pressable
+                  onPress={cancelDirectUpload}
+                  style={({ pressed }) => [
+                    styles.cancelUploadButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={17}
+                    color={colors.danger}
+                  />
+
+                  <Text style={styles.cancelUploadText}>
+                    Cancel upload
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <View style={styles.multiVideoPickerBox}>
+              <View style={styles.replacementInfo}>
+                <Ionicons
+                  name="cloud-upload-outline"
+                  size={24}
+                  color={colors.primary}
                 />
+
+                <View style={styles.replacementCopy}>
+                  <Text style={styles.replacementTitle}>
+                    Upload multiple videos
+                  </Text>
+
+                  <Text style={styles.replacementDescription}>
+                    Select several videos. The platform will split each video into 50MB parts and upload them directly to R2.
+                  </Text>
+                </View>
               </View>
 
-              <Text style={styles.uploadProgressStatus}>
-                {uploadStatusText ||
-                  "Keep this tab open until upload completes."}
-              </Text>
-
-              <Pressable
-                onPress={cancelDirectUpload}
-                style={({ pressed }) => [
-                  styles.cancelUploadButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons
-                  name="close-circle-outline"
-                  size={17}
-                  color={colors.danger}
-                />
-
-                <Text style={styles.cancelUploadText}>
-                  Cancel upload
-                </Text>
-              </Pressable>
+              <Button
+                title="Choose video files"
+                variant="outline"
+                onPress={
+                  selectVideosForMultipartQueue
+                }
+                disabled={!currentParent?.id}
+              />
             </View>
-          ) : null}
-        <Button
-          title={
-            sourceType === SOURCE_R2_EXISTING
-              ? busy
-                ? "Checking R2..."
-                : "Add existing R2 file"
-              : busy
-                ? typeof uploadProgress === "number"
-                  ? `Uploading ${uploadProgress}%`
-                  : "Preparing upload..."
-                : isMaterial
-                  ? "Upload material"
-                  : "Upload video"
-          }
-          variant="warning"
-          loading={busy}
-          disabled={
-            anyBusy ||
-            !title.trim() ||
-            (sourceType ===
-              SOURCE_R2_EXISTING &&
-              !objectKey.trim()) ||
-            (sourceType === SOURCE_UPLOAD &&
-              !selectedFile)
-          }
-          onPress={() =>
-            uploadResource(type)
-          }
-        />
+
+            {renderMultipartVideoQueue()}
+          </>
+        )}
+
+        {isMaterial ||
+          sourceType === SOURCE_R2_EXISTING ||
+          sourceType === SOURCE_GOOGLE_DRIVE_LINK ? (
+          <Button
+            title={
+              sourceType === SOURCE_GOOGLE_DRIVE_LINK
+                ? busy
+                  ? "Saving Drive link..."
+                  : "Add Google Drive video"
+                : sourceType === SOURCE_R2_EXISTING
+                  ? busy
+                    ? "Checking R2..."
+                    : "Add existing R2 file"
+                : busy
+                  ? typeof uploadProgress === "number"
+                    ? `Uploading ${uploadProgress}%`
+                    : "Preparing upload..."
+                  : "Upload material"
+            }
+            variant="warning"
+            loading={busy}
+            disabled={
+              anyBusy ||
+              !title.trim() ||
+              (sourceType ===
+                SOURCE_R2_EXISTING &&
+                !objectKey.trim()) ||
+              (sourceType ===
+                SOURCE_GOOGLE_DRIVE_LINK &&
+                !videoDriveUrl.trim()) ||
+              (isMaterial &&
+                sourceType === SOURCE_UPLOAD &&
+                !selectedFile)
+            }
+            onPress={() =>
+              uploadResource(type)
+            }
+          />
+        ) : null}
       </Card>
     );
   }
@@ -2589,6 +4230,18 @@ export default function ContentPage() {
 
   return (
     <Screen>
+      {Platform.OS === "web" ? (
+        <input
+          ref={webVideoInputRef}
+          type="file"
+          accept="video/*"
+          multiple
+          style={{
+            display: "none",
+          }}
+          onChange={handleWebVideoFilesSelected}
+        />
+      ) : null}
       <View style={styles.page}>
         <View
           style={[
@@ -2863,23 +4516,21 @@ export default function ContentPage() {
                   </View>
 
                   <Text style={styles.r2HelpTitle}>
-                    Existing R2 files
+                    Large videos
                   </Text>
                 </View>
 
                 <Text style={styles.r2HelpText}>
-                  Upload very large files directly
-                  through Cloudflare R2 or direct
-                  multipart upload, then copy the
-                  object's key here. The platform
-                  verifies the object exists and
-                  generates temporary signed URLs
-                  when students open it.
+                  Large videos are uploaded with
+                  multipart direct upload. Each file is
+                  split into smaller parts and sent
+                  directly to Cloudflare R2, similar to
+                  Google Drive.
                 </Text>
 
                 <Text style={styles.r2HelpImportant}>
-                  Do not paste an expiring signed
-                  URL. Paste only the R2 object key.
+                  Keep this browser tab open while videos
+                  are uploading.
                 </Text>
               </Card>
             ) : null}

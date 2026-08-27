@@ -39,6 +39,9 @@ import {
   typography,
 } from "../../../../src/theme";
 
+const SOURCE_GOOGLE_DRIVE_LINK =
+  "GOOGLE_DRIVE_LINK";
+
 function getApiError(error, fallback) {
   return (
     error?.response?.data?.msg ||
@@ -47,7 +50,24 @@ function getApiError(error, fallback) {
   );
 }
 
-function getViewerType(contentType, kind) {
+function isGoogleDriveResource(resource) {
+  return (
+    resource?.sourceType ===
+      SOURCE_GOOGLE_DRIVE_LINK ||
+    resource?.externalProvider ===
+      "google-drive"
+  );
+}
+
+function getViewerType(
+  contentType,
+  kind,
+  resource
+) {
+  if (isGoogleDriveResource(resource)) {
+    return "google-drive-video";
+  }
+
   const normalized =
     typeof contentType === "string"
       ? contentType.toLowerCase()
@@ -82,9 +102,25 @@ function getProtectedPdfUrl(url) {
   );
 }
 
+function getGoogleDriveOpenUrl(url) {
+  if (!url) {
+    return "";
+  }
+
+  const fileMatch =
+    url.match(
+      /drive\.google\.com\/file\/d\/([^/]+)/
+    );
+
+  if (fileMatch?.[1]) {
+    return `https://drive.google.com/file/d/${fileMatch[1]}/view`;
+  }
+
+  return url;
+}
+
 export default function ResourceViewer() {
   const router = useRouter();
-
 
   function handleBack() {
     if (router.canGoBack()) {
@@ -191,6 +227,18 @@ export default function ResourceViewer() {
     }
 
     function preventContextMenu(event) {
+      /*
+       * Do not block right-click inside Google Drive iframe.
+       * The iframe is controlled by Google and blocking the
+       * parent page context menu is enough for platform files.
+       */
+      const targetTag =
+        event?.target?.tagName?.toLowerCase();
+
+      if (targetTag === "iframe") {
+        return;
+      }
+
       event.preventDefault();
     }
 
@@ -219,8 +267,20 @@ export default function ResourceViewer() {
 
   const viewerType = getViewerType(
     resource?.contentType,
-    normalizedKind
+    normalizedKind,
+    resource
   );
+
+  const badgeText =
+    viewerType === "pdf"
+      ? "PDF"
+      : viewerType === "image"
+        ? "IMAGE"
+        : viewerType === "google-drive-video"
+          ? "DRIVE"
+          : viewerType === "video"
+            ? "VIDEO"
+            : "FILE";
 
   return (
     <>
@@ -274,21 +334,29 @@ export default function ResourceViewer() {
                 >
                   {resource.originalName}
                 </Text>
+              ) : isGoogleDriveResource(resource) ? (
+                <Text
+                  numberOfLines={1}
+                  style={styles.subtitle}
+                >
+                  Google Drive video
+                </Text>
               ) : null}
             </View>
 
             {resource ? (
-              <View style={styles.typeBadge}>
+              <View
+                style={[
+                  styles.typeBadge,
+                  viewerType ===
+                    "google-drive-video" &&
+                    styles.driveTypeBadge,
+                ]}
+              >
                 <Text
                   style={styles.typeBadgeText}
                 >
-                  {viewerType === "pdf"
-                    ? "PDF"
-                    : viewerType === "image"
-                      ? "IMAGE"
-                      : viewerType === "video"
-                        ? "VIDEO"
-                        : "FILE"}
+                  {badgeText}
                 </Text>
               </View>
             ) : null}
@@ -358,6 +426,14 @@ function ResourceContent({
     return (
       <UnsupportedViewer
         message="This resource does not have a valid viewing URL."
+      />
+    );
+  }
+
+  if (type === "google-drive-video") {
+    return (
+      <GoogleDriveViewer
+        resource={resource}
       />
     );
   }
@@ -486,7 +562,65 @@ function ResourceContent({
   );
 }
 
+function GoogleDriveViewer({
+  resource,
+}) {
+  const previewUrl = resource.url;
 
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.driveViewer}>
+        <iframe
+          src={previewUrl}
+          title={
+            resource.title ||
+            "Google Drive video"
+          }
+          allow="autoplay; fullscreen"
+          allowFullScreen
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "none",
+            backgroundColor: "#000000",
+          }}
+        />
+
+        <View style={styles.driveTopRightCover} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.driveViewer}>
+      <WebView
+        source={{
+          uri: previewUrl,
+        }}
+        originWhitelist={["*"]}
+        javaScriptEnabled
+        domStorageEnabled
+        allowsFullscreenVideo
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        startInLoadingState
+        renderLoading={() => (
+          <View style={styles.webViewLoading}>
+            <ActivityIndicator
+              size="large"
+              color={colors.primary}
+            />
+
+            <Text style={styles.stateText}>
+              Opening Google Drive video…
+            </Text>
+          </View>
+        )}
+        style={styles.webView}
+      />
+    </View>
+  );
+}
 
 function NativeVideoViewer({ url }) {
   const player = useVideoPlayer(url);
@@ -542,6 +676,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
 
+  driveTopRightCover: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 76,
+    height: 58,
+    backgroundColor: "#000000",
+    zIndex: 20,
+  },
+
   backButton: {
     minHeight: 42,
     flexDirection: "row",
@@ -582,6 +726,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.pill,
     backgroundColor:
       colors.secondary + "22",
+  },
+
+  driveTypeBadge: {
+    backgroundColor:
+      colors.primary + "12",
   },
 
   typeBadgeText: {
@@ -635,6 +784,52 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
 
+  driveViewer: {
+    flex: 1,
+    width: "100%",
+    minHeight: 520,
+    overflow: "hidden",
+    backgroundColor: "#000000",
+  },
+
+  driveFooter: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.white,
+  },
+
+  driveFooterText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.textMuted,
+  },
+
+  driveOpenButton: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+  },
+
+  driveOpenButtonText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+
   webFrameContainer: {
     flex: 1,
     minHeight: 650,
@@ -642,12 +837,14 @@ const styles = StyleSheet.create({
 
   webView: {
     flex: 1,
+    backgroundColor: "#000000",
   },
 
   webViewLoading: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
+    gap: spacing.sm,
     backgroundColor: colors.white,
   },
 

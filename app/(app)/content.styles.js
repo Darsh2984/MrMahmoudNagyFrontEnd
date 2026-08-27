@@ -563,10 +563,6 @@ export const styles =
         : null),
     },
 
-    /*
-     * RESOURCE SOURCE SELECTOR
-     */
-
     sourceSection: {
       gap: spacing.xs,
     },
@@ -642,10 +638,6 @@ export const styles =
       color: colors.textMuted,
     },
 
-    /*
-     * R2 KEY FIELD
-     */
-
     r2FieldSection: {
       gap: spacing.sm,
       padding: spacing.sm,
@@ -697,10 +689,6 @@ export const styles =
       lineHeight: 17,
       color: colors.textMuted,
     },
-
-    /*
-     * HELP CARDS
-     */
 
     helpCard: {
       backgroundColor:
@@ -775,10 +763,6 @@ export const styles =
       color: colors.primary,
       marginTop: spacing.sm,
     },
-
-    /*
-     * MODALS
-     */
 
     modalBackdrop: {
       flex: 1,
@@ -881,10 +865,6 @@ export const styles =
       gap: spacing.sm,
       marginTop: spacing.lg,
     },
-
-    /*
-     * EDIT RESOURCE
-     */
 
     currentResourceSummary: {
       flexDirection: "row",
@@ -1035,71 +1015,288 @@ export const styles =
     },
 
     uploadProgressBox: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.secondary + "70",
-    borderRadius: radius.lg,
-    backgroundColor: colors.secondary + "12",
-  },
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor:
+        colors.secondary + "70",
+      borderRadius: radius.lg,
+      backgroundColor:
+        colors.secondary + "12",
+    },
 
-  uploadProgressHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
+    uploadProgressHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.xs,
+    },
 
-  uploadProgressTitle: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "800",
-    color: colors.textPrimary,
-  },
+    uploadProgressTitle: {
+      flex: 1,
+      fontSize: 13,
+      fontWeight: "800",
+      color: colors.textPrimary,
+    },
 
-  uploadProgressPercent: {
-    fontSize: 13,
-    fontWeight: "900",
-    color: colors.primary,
-  },
+    uploadProgressPercent: {
+      fontSize: 13,
+      fontWeight: "900",
+      color: colors.primary,
+    },
 
-  uploadProgressTrack: {
-    height: 10,
-    overflow: "hidden",
-    borderRadius: radius.pill,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+    uploadProgressTrack: {
+      height: 10,
+      overflow: "hidden",
+      borderRadius: radius.pill,
+      backgroundColor: colors.white,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
 
-  uploadProgressFill: {
-    height: "100%",
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-  },
+    uploadProgressFill: {
+      height: "100%",
+      borderRadius: radius.pill,
+      backgroundColor: colors.primary,
+    },
 
-  uploadProgressStatus: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: colors.textMuted,
-  },
+    uploadProgressStatus: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: colors.textMuted,
+    },
 
-  cancelUploadButton: {
-    alignSelf: "flex-start",
-    minHeight: 32,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingVertical: 5,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radius.md,
-    backgroundColor: colors.danger + "12",
-  },
+    cancelUploadButton: {
+      alignSelf: "flex-start",
+      minHeight: 32,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingVertical: 5,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.danger + "12",
+    },
 
-  cancelUploadText: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: colors.danger,
-  },
+    cancelUploadText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.danger,
+    },
+
+    multiVideoPickerBox: {
+      gap: spacing.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor:
+        colors.secondary + "60",
+      borderRadius: radius.lg,
+      backgroundColor:
+        colors.secondary + "10",
+    },
+
+    videoQueueEmpty: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.sm,
+      padding: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.background,
+    },
+
+    videoQueueEmptyText: {
+      flex: 1,
+      fontSize: 12,
+      lineHeight: 18,
+      color: colors.textMuted,
+    },
+
+    videoQueueBox: {
+      gap: spacing.md,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      backgroundColor: colors.white,
+    },
+
+    videoQueueHeader: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+    },
+
+    videoQueueTitle: {
+      fontSize: 15,
+      fontWeight: "900",
+      color: colors.textPrimary,
+    },
+
+    videoQueueSubtitle: {
+      marginTop: 3,
+      fontSize: 11,
+      lineHeight: 16,
+      color: colors.textMuted,
+    },
+
+    cancelAllUploadsButton: {
+      minHeight: 31,
+      justifyContent: "center",
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.danger + "12",
+    },
+
+    cancelAllUploadsText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.danger,
+    },
+
+    videoQueueList: {
+      gap: spacing.sm,
+    },
+
+    videoQueueItem: {
+      gap: spacing.sm,
+      padding: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.background,
+    },
+
+    videoQueueItemTop: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.sm,
+    },
+
+    videoQueueIcon: {
+      width: 34,
+      height: 34,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: radius.md,
+      backgroundColor:
+        colors.warning + "16",
+    },
+
+    videoQueueCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    videoQueueFileName: {
+      fontSize: 13,
+      fontWeight: "800",
+      color: colors.textPrimary,
+    },
+
+    videoQueueMeta: {
+      marginTop: 3,
+      fontSize: 11,
+      lineHeight: 16,
+      color: colors.textMuted,
+    },
+
+    videoQueueTitleInput: {
+      minHeight: 42,
+      width: "100%",
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.white,
+      color: colors.textPrimary,
+      fontSize: 13,
+
+      ...(Platform.OS === "web"
+        ? {
+            outlineStyle: "none",
+          }
+        : null),
+    },
+
+    videoQueueProgressTrack: {
+      height: 8,
+      overflow: "hidden",
+      borderRadius: radius.pill,
+      backgroundColor: colors.white,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+
+    videoQueueProgressFill: {
+      height: "100%",
+      borderRadius: radius.pill,
+      backgroundColor: colors.primary,
+    },
+
+    videoQueueProgressRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing.xs,
+    },
+
+    videoQueueProgressText: {
+      fontSize: 11,
+      lineHeight: 16,
+      color: colors.textMuted,
+    },
+
+    videoQueueError: {
+      fontSize: 11,
+      lineHeight: 16,
+      fontWeight: "700",
+      color: colors.danger,
+    },
+
+    videoQueueActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.xs,
+    },
+
+    videoQueueActionButton: {
+      minHeight: 30,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor: colors.white,
+    },
+
+    videoQueueActionText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.primary,
+    },
+
+    videoQueueCancelButton: {
+      backgroundColor:
+        colors.danger + "12",
+    },
+
+    videoQueueCancelText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.danger,
+    },
+
+    videoQueueRemoveText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.textMuted,
+    },
 
     pressed: {
       opacity: 0.72,

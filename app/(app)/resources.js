@@ -34,6 +34,11 @@ const LEVELS = {
   RESOURCES: "resources",
 };
 
+const SOURCE_UPLOAD = "UPLOAD";
+const SOURCE_R2_EXISTING = "R2_EXISTING";
+const SOURCE_GOOGLE_DRIVE_LINK =
+  "GOOGLE_DRIVE_LINK";
+
 function getApiError(
   error,
   fallback = "Something went wrong."
@@ -103,6 +108,31 @@ function resolveAssignedYear(user) {
   }
 
   return null;
+}
+
+function getResourceSourceType(item) {
+  if (
+    item?.sourceType ===
+    SOURCE_GOOGLE_DRIVE_LINK
+  ) {
+    return SOURCE_GOOGLE_DRIVE_LINK;
+  }
+
+  if (
+    item?.sourceType === SOURCE_R2_EXISTING
+  ) {
+    return SOURCE_R2_EXISTING;
+  }
+
+  return SOURCE_UPLOAD;
+}
+
+function isGoogleDriveVideo(item) {
+  return (
+    item?.kind === "video" &&
+    getResourceSourceType(item) ===
+      SOURCE_GOOGLE_DRIVE_LINK
+  );
 }
 
 export default function Resources() {
@@ -203,6 +233,16 @@ export default function Resources() {
               (item) =>
                 item.kind === "video"
             ).length
+          : 0,
+      [items, level]
+    );
+
+  const driveVideoCount =
+    useMemo(
+      () =>
+        level === LEVELS.RESOURCES
+          ? items.filter(isGoogleDriveVideo)
+              .length
           : 0,
       [items, level]
     );
@@ -656,6 +696,17 @@ export default function Resources() {
               label="Materials"
               value={materialCount}
             />
+
+            {driveVideoCount > 0 ? (
+              <>
+                <View style={styles.summaryDivider} />
+
+                <SummaryItem
+                  label="Drive"
+                  value={driveVideoCount}
+                />
+              </>
+            ) : null}
           </View>
         ) : null}
 
@@ -669,7 +720,7 @@ export default function Resources() {
           <View style={styles.itemList}>
             {items.map((item, index) => (
               <ResourceRow
-                key={item.id}
+                key={`${item.kind || level}-${item.id}`}
                 item={item}
                 level={level}
                 index={index}
@@ -777,6 +828,9 @@ function ResourceRow({
     isResource &&
     item.kind === "video";
 
+  const isDriveVideo =
+    isGoogleDriveVideo(item);
+
   const title =
     item.name ||
     item.title ||
@@ -811,6 +865,8 @@ function ResourceRow({
           styles.itemIcon,
           isVideo &&
             styles.itemIconVideo,
+          isDriveVideo &&
+            styles.itemIconDrive,
           isResource &&
             !isVideo &&
             styles.itemIconDocument,
@@ -819,18 +875,29 @@ function ResourceRow({
         <Text style={styles.itemIconText}>
           {getItemIcon(
             level,
-            item.kind
+            item.kind,
+            item
           )}
         </Text>
       </View>
 
       <View style={styles.itemText}>
-        <Text
-          numberOfLines={2}
-          style={styles.itemTitle}
-        >
-          {title}
-        </Text>
+        <View style={styles.itemTitleRow}>
+          <Text
+            numberOfLines={2}
+            style={styles.itemTitle}
+          >
+            {title}
+          </Text>
+
+          {isDriveVideo ? (
+            <View style={styles.driveBadge}>
+              <Text style={styles.driveBadgeText}>
+                Drive
+              </Text>
+            </View>
+          ) : null}
+        </View>
 
         <Text
           numberOfLines={2}
@@ -1025,7 +1092,8 @@ function ErrorBanner({
 
 function getItemIcon(
   level,
-  resourceKind
+  resourceKind,
+  item
 ) {
   if (level === LEVELS.UNITS) {
     return "U";
@@ -1033,6 +1101,13 @@ function getItemIcon(
 
   if (level === LEVELS.CHAPTERS) {
     return "C";
+  }
+
+  if (
+    resourceKind === "video" &&
+    isGoogleDriveVideo(item)
+  ) {
+    return "G";
   }
 
   return resourceKind === "video"
@@ -1077,9 +1152,36 @@ function getItemSubtitle(
       : `Chapter ${index + 1}`;
   }
 
-  return item.kind === "video"
-    ? "Lesson video"
-    : "Study material";
+  if (item.kind === "video") {
+    const sourceType =
+      getResourceSourceType(item);
+
+    if (
+      sourceType ===
+      SOURCE_GOOGLE_DRIVE_LINK
+    ) {
+      return "Google Drive video";
+    }
+
+    if (
+      sourceType === SOURCE_R2_EXISTING
+    ) {
+      return "Lesson video";
+    }
+
+    return "Lesson video";
+  }
+
+  const sourceType =
+    getResourceSourceType(item);
+
+  if (
+    sourceType === SOURCE_R2_EXISTING
+  ) {
+    return "Study material";
+  }
+
+  return "Study material";
 }
 
 const styles = StyleSheet.create({
@@ -1370,6 +1472,10 @@ const styles = StyleSheet.create({
     backgroundColor: `${colors.warning}14`,
   },
 
+  itemIconDrive: {
+    backgroundColor: `${colors.secondary}18`,
+  },
+
   itemIconDocument: {
     backgroundColor: `${colors.secondary}18`,
   },
@@ -1385,9 +1491,29 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
 
+  itemTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+
   itemTitle: {
     ...typography.bodyBold,
+    flexShrink: 1,
     color: colors.textPrimary,
+  },
+
+  driveBadge: {
+    paddingVertical: 2,
+    paddingHorizontal: 7,
+    borderRadius: radius.pill,
+    backgroundColor: `${colors.primary}0D`,
+  },
+
+  driveBadgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: colors.primary,
   },
 
   itemSubtitle: {
