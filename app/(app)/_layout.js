@@ -173,6 +173,12 @@ function getNavItems(
         activeIcon: "person-add",
       },
       {
+        label: "AI Correction",
+        route: "/(app)/ai-correction",
+        icon: "sparkles-outline",
+        activeIcon: "sparkles",
+      },
+      {
         label: "Assistant Performance",
         route: "/(app)/assistant-performance",
         icon: "stats-chart-outline",
