@@ -387,6 +387,19 @@ export default function Login() {
             </Text>
           </View>
         </View>
+        <Link href="/privacy-policy" asChild>
+          <Pressable
+            accessibilityRole="link"
+            style={({ pressed }) => [
+              styles.privacyLink,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.privacyLinkText}>
+              Privacy Policy
+            </Text>
+          </Pressable>
+        </Link>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -624,6 +637,19 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.white,
     opacity: 0.85,
+  },
+
+  privacyLink: {
+    alignSelf: "center",
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+
+  privacyLinkText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.primary,
+    textDecorationLine: "underline",
   },
 
   formColumn: {
