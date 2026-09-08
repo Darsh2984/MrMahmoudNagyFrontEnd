@@ -12,6 +12,27 @@ import {
 
 export const styles =
   StyleSheet.create({
+    liveTypeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
+    liveTypeButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white },
+    liveTypeButtonActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+    liveTypeButtonText: { ...typography.caption, fontWeight: "800", color: colors.primary },
+    liveTypeButtonTextActive: { color: colors.white },
+    liveMcqBox: { gap: spacing.sm, marginVertical: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: "rgba(11,60,73,0.05)" },
+    liveChoiceRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+    liveChoiceLetter: { width: 38, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 19, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
+    liveChoiceLetterActive: { backgroundColor: colors.warning, borderColor: colors.warning },
+    liveChoiceLetterText: { fontWeight: "900", color: colors.primary },
+    liveChoiceInput: { flex: 1, minHeight: 42, paddingHorizontal: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, color: colors.textPrimary },
+    liveMcqHint: { ...typography.caption, color: colors.textMuted, marginTop: spacing.xs },
+    liveQuestionImage: { width: "100%", height: 260, marginTop: spacing.md, borderRadius: radius.md, backgroundColor: colors.background },
+    liveAnswerChoices: { gap: 5, marginTop: spacing.sm },
+    liveAnswerChoiceText: { ...typography.body, color: colors.textPrimary },
+    liveCorrectAnswer: { ...typography.bodyBold, marginTop: spacing.xs, color: colors.secondary },
+    liveStudentChoices: { gap: spacing.sm, marginTop: spacing.md },
+    liveStudentChoice: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: spacing.sm, padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white },
+    liveStudentChoiceLetter: { fontWeight: "900", color: colors.primary },
+    liveStudentChoiceText: { ...typography.body, flex: 1, color: colors.textPrimary },
+
     loadingScreen: {
       alignItems: "center",
       justifyContent: "center",

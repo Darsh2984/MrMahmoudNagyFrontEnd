@@ -128,11 +128,13 @@ export default function QuestionBank() {
 
   const isDesktop = width >= 1040;
 
+  const [years, setYears] = useState([]);
   const [units, setUnits] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [topics, setTopics] = useState([]);
   const [questions, setQuestions] = useState([]);
 
+  const [yearId, setYearId] = useState("");
   const [unitId, setUnitId] = useState("");
   const [chapterId, setChapterId] =
     useState("");
@@ -180,6 +182,23 @@ export default function QuestionBank() {
     [units, unitId]
   );
 
+  const selectedYear = useMemo(
+    () => years.find((year) => year.id === yearId) || null,
+    [years, yearId]
+  );
+
+  const filteredUnits = useMemo(
+    () =>
+      yearId
+        ? units.filter(
+            (unit) =>
+              unit.yearId === yearId ||
+              unit.year?.id === yearId
+          )
+        : [],
+    [units, yearId]
+  );
+
   const selectedChapter = useMemo(
     () =>
       chapters.find(
@@ -191,7 +210,7 @@ export default function QuestionBank() {
 
   const filteredChapters = useMemo(() => {
     if (!unitId) {
-      return chapters;
+      return [];
     }
 
     return chapters.filter(
@@ -202,6 +221,10 @@ export default function QuestionBank() {
   }, [chapters, unitId]);
 
   const filteredTopics = useMemo(() => {
+    if (!chapterId) {
+      return [];
+    }
+
     return topics.filter((topic) => {
       const topicChapter =
         topic.chapter;
@@ -262,14 +285,22 @@ export default function QuestionBank() {
   const loadTaxonomy =
     useCallback(async () => {
       const [
+        yearsResponse,
         unitsResponse,
         chaptersResponse,
         topicsResponse,
       ] = await Promise.all([
+        api.get("/years/mine"),
         api.get("/units"),
         api.get("/chapters"),
         api.get("/topics"),
       ]);
+
+      setYears(
+        Array.isArray(yearsResponse.data)
+          ? yearsResponse.data
+          : []
+      );
 
       setUnits(
         Array.isArray(unitsResponse.data)
@@ -419,6 +450,13 @@ export default function QuestionBank() {
     setTopicId("");
   }
 
+  function handleYearFilter(nextYearId) {
+    setYearId(nextYearId);
+    setUnitId("");
+    setChapterId("");
+    setTopicId("");
+  }
+
   function handleChapterFilter(
     nextChapterId
   ) {
@@ -427,6 +465,7 @@ export default function QuestionBank() {
   }
 
   function clearFilters() {
+    setYearId("");
     setUnitId("");
     setChapterId("");
     setTopicId("");
@@ -595,10 +634,9 @@ export default function QuestionBank() {
             <Text
               style={styles.pageSubtitle}
             >
-              Upload and organize MCQ
-              and written questions using
-              the global Unit, Chapter,
-              and Topic structure.
+              Upload and organize MCQ and written
+              questions by Academic Year, Unit,
+              Chapter, and Topic.
             </Text>
           </View>
 
@@ -749,6 +787,28 @@ export default function QuestionBank() {
             </View>
           </FilterSection>
 
+          <FilterSection label="Academic Year">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.horizontalChipList}
+            >
+              <FilterChip
+                label="All years"
+                active={!yearId}
+                onPress={() => handleYearFilter("")}
+              />
+              {years.map((year) => (
+                <FilterChip
+                  key={year.id}
+                  label={year.name}
+                  active={yearId === year.id}
+                  onPress={() => handleYearFilter(year.id)}
+                />
+              ))}
+            </ScrollView>
+          </FilterSection>
+
           <FilterSection label="Unit">
             <ScrollView
               horizontal
@@ -767,7 +827,7 @@ export default function QuestionBank() {
                 }
               />
 
-              {units.map((unit) => (
+              {filteredUnits.map((unit) => (
                 <FilterChip
                   key={unit.id}
                   label={unit.name}
@@ -871,6 +931,8 @@ export default function QuestionBank() {
                 styles.activeFilterLabel
               }
             >
+              {selectedYear ? selectedYear.name : "All years"}
+              {" · "}
               {selectedUnit
                 ? selectedUnit.name
                 : "All units"}
@@ -977,6 +1039,7 @@ export default function QuestionBank() {
       <QuestionFormModal
         visible={formVisible}
         question={editingQuestion}
+        years={years}
         units={units}
         chapters={chapters}
         topics={topics}
@@ -1395,6 +1458,7 @@ function AlertBanner({
 function QuestionFormModal({
   visible,
   question,
+  years,
   units,
   chapters,
   topics,
@@ -1424,6 +1488,9 @@ function QuestionFormModal({
 
   const [selectedTopicIds, setSelectedTopicIds] =
     useState([]);
+
+  const [yearId, setYearId] =
+    useState("");
 
   const [unitId, setUnitId] =
     useState("");
@@ -1476,6 +1543,7 @@ function QuestionFormModal({
       )
     );
 
+    setYearId("");
     setUnitId("");
     setChapterId("");
     setQuestionFile(null);
@@ -1484,10 +1552,23 @@ function QuestionFormModal({
     setFormError("");
   }, [visible, question]);
 
+  const filteredUnits =
+    useMemo(() => {
+      if (!yearId) {
+        return [];
+      }
+
+      return units.filter(
+        (unit) =>
+          unit.yearId === yearId ||
+          unit.year?.id === yearId
+      );
+    }, [units, yearId]);
+
   const filteredChapters =
     useMemo(() => {
       if (!unitId) {
-        return chapters;
+        return [];
       }
 
       return chapters.filter(
@@ -1499,6 +1580,10 @@ function QuestionFormModal({
 
   const filteredTopics =
     useMemo(() => {
+      if (!chapterId) {
+        return [];
+      }
+
       return topics.filter((topic) => {
         if (
           chapterId &&
@@ -2105,8 +2190,41 @@ function QuestionFormModal({
 
             <FormField
               label="Filter Topics"
-              hint="These filters only help find Topics; they do not limit question availability by Year."
+              hint="Choose an Academic Year, then Unit and Chapter to find Topics."
             >
+              <Text style={styles.taxonomyMiniLabel}>
+                Academic Year
+              </Text>
+
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalChipList}
+              >
+                <FilterChip
+                  label="All years"
+                  active={!yearId}
+                  onPress={() => {
+                    setYearId("");
+                    setUnitId("");
+                    setChapterId("");
+                  }}
+                />
+
+                {years.map((year) => (
+                  <FilterChip
+                    key={year.id}
+                    label={year.name}
+                    active={yearId === year.id}
+                    onPress={() => {
+                      setYearId(year.id);
+                      setUnitId("");
+                      setChapterId("");
+                    }}
+                  />
+                ))}
+              </ScrollView>
+
               <Text
                 style={
                   styles.taxonomyMiniLabel
@@ -2133,7 +2251,7 @@ function QuestionFormModal({
                   }}
                 />
 
-                {units.map((unit) => (
+                {filteredUnits.map((unit) => (
                   <FilterChip
                     key={unit.id}
                     label={unit.name}

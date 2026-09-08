@@ -7,6 +7,7 @@ import React, {
 
 import {
   ActivityIndicator,
+  Image,
   Linking,
   Modal,
   Platform,
@@ -2053,6 +2054,12 @@ function LiveQuestionsPanel({
 }) {
   const [prompt, setPrompt] =
     useState("");
+  const [questionType, setQuestionType] = useState("WRITTEN");
+  const [questionImage, setQuestionImage] = useState(null);
+  const [options, setOptions] = useState({
+    A: "", B: "", C: "", D: "",
+  });
+  const [correctAnswer, setCorrectAnswer] = useState("A");
 
   const [
     gradeOutOf,
@@ -2095,10 +2102,19 @@ function LiveQuestionsPanel({
     const parsedGradeOutOf =
       Number(gradeOutOf);
 
-    if (!normalizedPrompt) {
+    if (!normalizedPrompt && !questionImage) {
       setError(
         "Enter a question prompt."
       );
+      return;
+    }
+
+    if (
+      questionType === "MCQ" &&
+      Object.values(options).some(Boolean) &&
+      Object.values(options).some((value) => !value.trim())
+    ) {
+      setError("Enter all four choices, or leave them blank when they are visible in the image.");
       return;
     }
 
@@ -2118,22 +2134,39 @@ function LiveQuestionsPanel({
     setError("");
 
     try {
-      await api.post(
-        "/live-questions",
-        {
-          sessionId:
-            session.id,
-
-          prompt:
-            normalizedPrompt,
-
-          gradeOutOf:
-            parsedGradeOutOf,
-        }
-      );
+      const formData = new FormData();
+      formData.append("sessionId", session.id);
+      formData.append("prompt", normalizedPrompt);
+      formData.append("gradeOutOf", String(parsedGradeOutOf));
+      formData.append("type", questionType);
+      if (questionType === "MCQ") {
+        formData.append("correctAnswer", correctAnswer);
+        Object.entries(options).forEach(([letter, value]) =>
+          formData.append(`option${letter}`, value.trim())
+        );
+      }
+      if (questionImage) {
+        formData.append(
+          "questionImage",
+          Platform.OS === "web"
+            ? questionImage.file || questionImage
+            : {
+                uri: questionImage.uri,
+                name: questionImage.name,
+                type: questionImage.mimeType || "image/jpeg",
+              }
+        );
+      }
+      await api.post("/live-questions", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       setPrompt("");
       setGradeOutOf("5");
+      setQuestionType("WRITTEN");
+      setQuestionImage(null);
+      setOptions({ A: "", B: "", C: "", D: "" });
+      setCorrectAnswer("A");
 
       await onPosted();
     } catch (err) {
@@ -2143,6 +2176,17 @@ function LiveQuestionsPanel({
       );
     } finally {
       setPosting(false);
+    }
+  }
+
+  async function pickQuestionImage() {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: "image/*",
+      multiple: false,
+      copyToCacheDirectory: Platform.OS !== "web",
+    });
+    if (!result.canceled && result.assets?.length) {
+      setQuestionImage(result.assets[0]);
     }
   }
 
@@ -2296,6 +2340,29 @@ function LiveQuestionsPanel({
           styles.questionComposer
         }
       >
+        <Text style={styles.marksLabel}>Question type</Text>
+        <View style={styles.liveTypeRow}>
+          {["WRITTEN", "MCQ"].map((value) => (
+            <Pressable
+              key={value}
+              onPress={() => setQuestionType(value)}
+              style={[
+                styles.liveTypeButton,
+                questionType === value && styles.liveTypeButtonActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.liveTypeButtonText,
+                  questionType === value && styles.liveTypeButtonTextActive,
+                ]}
+              >
+                {value === "MCQ" ? "Multiple choice" : "Written response"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
         <TextInput
           value={prompt}
           onChangeText={setPrompt}
@@ -2308,6 +2375,49 @@ function LiveQuestionsPanel({
             styles.questionPromptInput
           }
         />
+
+        {questionType === "MCQ" ? (
+          <View style={styles.liveMcqBox}>
+            <Text style={styles.marksLabel}>
+              Choices (optional when already shown in the image)
+            </Text>
+            {["A", "B", "C", "D"].map((letter) => (
+              <View key={letter} style={styles.liveChoiceRow}>
+                <Pressable
+                  onPress={() => setCorrectAnswer(letter)}
+                  style={[
+                    styles.liveChoiceLetter,
+                    correctAnswer === letter && styles.liveChoiceLetterActive,
+                  ]}
+                >
+                  <Text style={styles.liveChoiceLetterText}>{letter}</Text>
+                </Pressable>
+                <TextInput
+                  value={options[letter]}
+                  onChangeText={(value) =>
+                    setOptions((current) => ({ ...current, [letter]: value }))
+                  }
+                  placeholder={`Choice ${letter}`}
+                  placeholderTextColor={colors.textMuted}
+                  style={styles.liveChoiceInput}
+                />
+              </View>
+            ))}
+            <Text style={styles.liveMcqHint}>
+              Tap A, B, C, or D to mark the correct answer.
+            </Text>
+          </View>
+        ) : null}
+
+        <Button
+          title={questionImage ? "Choose another question image" : "Add question image"}
+          variant="outline"
+          onPress={pickQuestionImage}
+          disabled={posting}
+        />
+        {questionImage ? (
+          <Text style={styles.liveMcqHint}>{questionImage.name} is ready to upload.</Text>
+        ) : null}
 
         <View
           style={
@@ -2434,6 +2544,27 @@ function LiveQuestionsPanel({
                           question.prompt
                         }
                       </Text>
+                      {question.questionImageUrl ? (
+                        <Image
+                          source={{ uri: question.questionImageUrl }}
+                          style={styles.liveQuestionImage}
+                          resizeMode="contain"
+                        />
+                      ) : null}
+                      {question.type === "MCQ" ? (
+                        <View style={styles.liveAnswerChoices}>
+                          {["A", "B", "C", "D"].map((letter) =>
+                            question[`option${letter}`] ? (
+                              <Text key={letter} style={styles.liveAnswerChoiceText}>
+                                {letter}. {question[`option${letter}`]}
+                              </Text>
+                            ) : null
+                          )}
+                          <Text style={styles.liveCorrectAnswer}>
+                            Correct answer: {question.correctAnswer}
+                          </Text>
+                        </View>
+                      ) : null}
 
                       <Text
                         style={
@@ -2895,6 +3026,26 @@ function StudentSessionView() {
       setUploadingQuestionId(
         null
       );
+    }
+  }
+
+  async function answerMcqQuestion(liveQuestionId, selectedOption) {
+    setUploadingQuestionId(liveQuestionId);
+    setError("");
+
+    try {
+      await api.post(
+        `/live-questions/${liveQuestionId}/answer`,
+        { selectedOption }
+      );
+      await openSession(selected.id);
+    } catch (err) {
+      setError(
+        err.response?.data?.msg ||
+          "Couldn't submit the selected answer."
+      );
+    } finally {
+      setUploadingQuestionId(null);
     }
   }
 
@@ -3360,8 +3511,39 @@ function StudentSessionView() {
                           }{" "}
                           marks
                         </Text>
+                        {question.questionImageUrl ? (
+                          <Image
+                            source={{ uri: question.questionImageUrl }}
+                            style={styles.liveQuestionImage}
+                            resizeMode="contain"
+                          />
+                        ) : null}
                       </View>
                     </View>
+
+                    {!myAnswer && question.type === "MCQ" ? (
+                      <View style={styles.liveStudentChoices}>
+                        {["A", "B", "C", "D"].map((letter) => (
+                          <Pressable
+                            key={letter}
+                            disabled={uploadingQuestionId === question.id}
+                            onPress={() =>
+                              answerMcqQuestion(question.id, letter)
+                            }
+                            style={styles.liveStudentChoice}
+                          >
+                            <Text style={styles.liveStudentChoiceLetter}>
+                              {letter}
+                            </Text>
+                            {question[`option${letter}`] ? (
+                              <Text style={styles.liveStudentChoiceText}>
+                                {question[`option${letter}`]}
+                              </Text>
+                            ) : null}
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
 
                     {myAnswer ? (
                       myAnswer.status ===
@@ -3388,7 +3570,7 @@ function StudentSessionView() {
                           />
                         </View>
                       )
-                    ) : (
+                    ) : question.type !== "MCQ" ? (
                       <Button
                         title="Upload answer photo"
                         variant="warning"
@@ -3405,7 +3587,7 @@ function StudentSessionView() {
                           styles.studentUploadButton
                         }
                       />
-                    )}
+                    ) : null}
                   </Card>
                 );
               }
