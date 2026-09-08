@@ -288,12 +288,10 @@ export default function QuestionBank() {
         yearsResponse,
         unitsResponse,
         chaptersResponse,
-        topicsResponse,
       ] = await Promise.all([
         api.get("/years/mine"),
         api.get("/units"),
         api.get("/chapters"),
-        api.get("/topics"),
       ]);
 
       setYears(
@@ -316,11 +314,6 @@ export default function QuestionBank() {
           : []
       );
 
-      setTopics(
-        Array.isArray(topicsResponse.data)
-          ? topicsResponse.data
-          : []
-      );
     }, []);
 
   const loadQuestions =
@@ -337,6 +330,10 @@ export default function QuestionBank() {
         try {
           const params = {};
 
+          if (yearId) {
+            params.yearId = yearId;
+          }
+
           if (unitId) {
             params.unitId = unitId;
           }
@@ -344,10 +341,6 @@ export default function QuestionBank() {
           if (chapterId) {
             params.chapterId =
               chapterId;
-          }
-
-          if (topicId) {
-            params.topicId = topicId;
           }
 
           if (
@@ -387,6 +380,7 @@ export default function QuestionBank() {
         }
       },
       [
+        yearId,
         unitId,
         chapterId,
         topicId,
@@ -465,9 +459,11 @@ export default function QuestionBank() {
   }
 
   function clearFilters() {
-    setYearId("");
-    setUnitId("");
-    setChapterId("");
+    const existingChapter = question?.chapter || null;
+    const existingUnit = existingChapter?.unit || null;
+    setYearId(existingUnit?.yearId || existingUnit?.year?.id || "");
+    setUnitId(existingUnit?.id || "");
+    setChapterId(existingChapter?.id || "");
     setTopicId("");
     setTypeFilter("ALL");
     setSearch("");
@@ -636,7 +632,7 @@ export default function QuestionBank() {
             >
               Upload and organize MCQ and written
               questions by Academic Year, Unit,
-              Chapter, and Topic.
+              and Chapter.
             </Text>
           </View>
 
@@ -752,7 +748,7 @@ export default function QuestionBank() {
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search title, reference, or topic"
+              placeholder="Search title, reference, or chapter"
               placeholderTextColor={
                 colors.textMuted
               }
@@ -882,41 +878,6 @@ export default function QuestionBank() {
             </ScrollView>
           </FilterSection>
 
-          <FilterSection label="Topic">
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={
-                false
-              }
-              contentContainerStyle={
-                styles.horizontalChipList
-              }
-            >
-              <FilterChip
-                label="All topics"
-                active={!topicId}
-                onPress={() =>
-                  setTopicId("")
-                }
-              />
-
-              {filteredTopics.map(
-                (topic) => (
-                  <FilterChip
-                    key={topic.id}
-                    label={topic.name}
-                    active={
-                      topicId === topic.id
-                    }
-                    onPress={() =>
-                      setTopicId(topic.id)
-                    }
-                  />
-                )
-              )}
-            </ScrollView>
-          </FilterSection>
-
           <View
             style={styles.activeFilterText}
           >
@@ -943,15 +904,6 @@ export default function QuestionBank() {
                 ? selectedChapter.name
                 : "All chapters"}
 
-              {" · "}
-
-              {topicId
-                ? filteredTopics.find(
-                    (topic) =>
-                      topic.id === topicId
-                  )?.name ||
-                  "Selected topic"
-                : "All topics"}
             </Text>
           </View>
         </Card>
@@ -1142,9 +1094,6 @@ function QuestionCard({
   onEdit,
   onDelete,
 }) {
-  const topics =
-    getQuestionTopics(question);
-
   const questionOpenKey =
     `${question.id}:question`;
 
@@ -1279,31 +1228,14 @@ function QuestionCard({
       )}
 
       <View style={styles.topicSection}>
-        <Text style={styles.topicLabel}>
-          Topics
+        <Text style={styles.topicLabel}>Location</Text>
+        <Text style={styles.topicBadgeText}>
+          {[
+            question.chapter?.unit?.year?.name,
+            question.chapter?.unit?.name,
+            question.chapter?.name,
+          ].filter(Boolean).join(" · ") || "No chapter selected"}
         </Text>
-
-        <View style={styles.topicList}>
-          {topics.length ? (
-            topics.map((topic) => (
-              <View
-                key={topic.id}
-                style={styles.topicBadge}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={styles.topicBadgeText}
-                >
-                  {topic.name}
-                </Text>
-              </View>
-            ))
-          ) : (
-            <Text style={styles.noTopicsText}>
-              No topics linked
-            </Text>
-          )}
-        </View>
       </View>
 
       <View style={styles.fileActions}>
@@ -1696,8 +1628,8 @@ function QuestionFormModal({
       return "Points must be greater than zero.";
     }
 
-    if (!selectedTopicIds.length) {
-      return "Select at least one Topic.";
+    if (!chapterId) {
+      return "Select an Academic Year, Unit, and Chapter.";
     }
 
     if (
@@ -1759,12 +1691,7 @@ function QuestionFormModal({
         String(Number(points))
       );
 
-      formData.append(
-        "topicIds",
-        JSON.stringify(
-          selectedTopicIds
-        )
-      );
+      formData.append("chapterId", chapterId);
 
       if (type === "MCQ") {
         formData.append(
@@ -1896,8 +1823,8 @@ function QuestionFormModal({
                   styles.modalSubtitle
                 }
               >
-                Link the question to one
-                or more global Topics.
+                Place the question inside an
+                Academic Year, Unit, and Chapter.
               </Text>
             </View>
 
@@ -2189,8 +2116,8 @@ function QuestionFormModal({
             ) : null}
 
             <FormField
-              label="Filter Topics"
-              hint="Choose an Academic Year, then Unit and Chapter to find Topics."
+              label="Question location"
+              hint="Choose an Academic Year, then its Unit and Chapter."
             >
               <Text style={styles.taxonomyMiniLabel}>
                 Academic Year
@@ -2311,93 +2238,6 @@ function QuestionFormModal({
               </ScrollView>
             </FormField>
 
-            <FormField
-              label="Topics"
-              hint={`${selectedTopicIds.length} selected`}
-            >
-              {!filteredTopics.length ? (
-                <View
-                  style={
-                    styles.noTopicsBox
-                  }
-                >
-                  <Ionicons
-                    name="folder-open-outline"
-                    size={28}
-                    color={
-                      colors.textMuted
-                    }
-                  />
-
-                  <Text
-                    style={
-                      styles.noTopicsBoxText
-                    }
-                  >
-                    No Topics match the
-                    current filters.
-                  </Text>
-                </View>
-              ) : (
-                <View
-                  style={
-                    styles.topicSelectionGrid
-                  }
-                >
-                  {filteredTopics.map(
-                    (topic) => {
-                      const selected =
-                        selectedTopicIds.includes(
-                          topic.id
-                        );
-
-                      return (
-                        <Pressable
-                          key={topic.id}
-                          onPress={() =>
-                            toggleTopic(
-                              topic.id
-                            )
-                          }
-                          style={({ pressed }) => [
-                            styles.topicSelectionItem,
-                            selected &&
-                              styles.topicSelectionItemSelected,
-                            pressed &&
-                              styles.pressed,
-                          ]}
-                        >
-                          <Ionicons
-                            name={
-                              selected
-                                ? "checkmark-circle"
-                                : "ellipse-outline"
-                            }
-                            size={18}
-                            color={
-                              selected
-                                ? colors.white
-                                : colors.primary
-                            }
-                          />
-
-                          <Text
-                            numberOfLines={2}
-                            style={[
-                              styles.topicSelectionText,
-                              selected &&
-                                styles.topicSelectionTextSelected,
-                            ]}
-                          >
-                            {topic.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    }
-                  )}
-                </View>
-              )}
-            </FormField>
           </ScrollView>
 
           <View

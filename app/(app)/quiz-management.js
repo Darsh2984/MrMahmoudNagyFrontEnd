@@ -110,11 +110,24 @@ function getQuestionTopics(question) {
 }
 
 function getQuestionLocation(question) {
+  if (question?.chapter) {
+    return {
+      yearName:
+        question.chapter.unit?.year?.name || "",
+      unitName:
+        question.chapter.unit?.name || "",
+      chapterName:
+        question.chapter.name || "",
+      topicName: "",
+    };
+  }
+
   const firstTopic =
     getQuestionTopics(question)[0];
 
   if (!firstTopic) {
     return {
+      yearName: "",
       unitName: "",
       chapterName: "",
       topicName: "",
@@ -122,6 +135,8 @@ function getQuestionLocation(question) {
   }
 
   return {
+    yearName:
+      firstTopic.chapter?.unit?.year?.name || "",
     unitName:
       firstTopic.chapter?.unit?.name || "",
 
@@ -1318,10 +1333,23 @@ function QuizBuilderModal({
       return getQuizGroups(quiz);
     }, [quiz]);
 
+  const filteredUnits =
+    useMemo(() => {
+      if (!selectedYearId) {
+        return [];
+      }
+
+      return units.filter(
+        (unit) =>
+          unit.yearId === selectedYearId ||
+          unit.year?.id === selectedYearId
+      );
+    }, [units, selectedYearId]);
+
   const filteredChapters =
     useMemo(() => {
       if (!selectedUnitId) {
-        return chapters;
+        return [];
       }
 
       return chapters.filter(
@@ -1406,12 +1434,10 @@ function QuizBuilderModal({
           yearsResponse,
           unitsResponse,
           chaptersResponse,
-          topicsResponse,
         ] = await Promise.all([
           api.get("/years/mine"),
           api.get("/units"),
           api.get("/chapters"),
-          api.get("/topics"),
         ]);
 
         setYears(
@@ -1438,13 +1464,6 @@ function QuizBuilderModal({
             : []
         );
 
-        setTopics(
-          Array.isArray(
-            topicsResponse.data
-          )
-            ? topicsResponse.data
-            : []
-        );
       } catch (requestError) {
         setFormError(
           getErrorMessage(
@@ -1496,6 +1515,12 @@ function QuizBuilderModal({
         return;
       }
 
+      if (!selectedYearId) {
+        setAvailableQuestions([]);
+        setLoadingQuestions(false);
+        return;
+      }
+
       setLoadingQuestions(true);
 
       try {
@@ -1506,6 +1531,10 @@ function QuizBuilderModal({
               : "WRITTEN",
         };
 
+        if (selectedYearId) {
+          params.yearId = selectedYearId;
+        }
+
         if (selectedUnitId) {
           params.unitId =
             selectedUnitId;
@@ -1514,11 +1543,6 @@ function QuizBuilderModal({
         if (selectedChapterId) {
           params.chapterId =
             selectedChapterId;
-        }
-
-        if (selectedTopicId) {
-          params.topicId =
-            selectedTopicId;
         }
 
         if (questionSearch.trim()) {
@@ -1552,9 +1576,9 @@ function QuizBuilderModal({
     }, [
       visible,
       type,
+      selectedYearId,
       selectedUnitId,
       selectedChapterId,
-      selectedTopicId,
       questionSearch,
     ]);
 
@@ -2493,7 +2517,7 @@ function QuizBuilderModal({
 
                 <QuestionFilterRow
                   label="Unit"
-                  items={units}
+                  items={filteredUnits}
                   selectedId={
                     selectedUnitId
                   }
@@ -2528,20 +2552,6 @@ function QuizBuilderModal({
                       ""
                     );
                   }}
-                />
-
-                <QuestionFilterRow
-                  label="Topic"
-                  items={
-                    filteredTopics
-                  }
-                  selectedId={
-                    selectedTopicId
-                  }
-                  allLabel="All topics"
-                  onSelect={
-                    setSelectedTopicId
-                  }
                 />
 
                 <Pressable
@@ -3087,6 +3097,7 @@ function AvailableQuestionCard({
             }}
           >
             {[
+              location.yearName,
               location.unitName,
               location.chapterName,
               location.topicName,
