@@ -81,6 +81,55 @@ function toIsoDate(value) {
   return `${year}-${month}-${day}`;
 }
 
+function LiveQuestionTimer({ closesAt }) {
+  const [now, setNow] = useState(null);
+
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (!closesAt) {
+    return null;
+  }
+
+  const closeTime = new Date(closesAt).getTime();
+  const remaining =
+    now == null || !Number.isFinite(closeTime)
+      ? null
+      : Math.max(0, Math.ceil((closeTime - now) / 1000));
+  const expired = remaining === 0;
+  const minutes =
+    remaining == null ? 0 : Math.floor(remaining / 60);
+  const seconds =
+    remaining == null ? 0 : remaining % 60;
+
+  return (
+    <View
+      style={[
+        styles.liveTimerBadge,
+        expired && styles.liveTimerBadgeExpired,
+      ]}
+    >
+      <Text
+        style={[
+          styles.liveTimerText,
+          expired && styles.liveTimerTextExpired,
+        ]}
+      >
+        {remaining == null
+          ? "Timer…"
+          : expired
+            ? "Time expired"
+            : `Time left ${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`}
+      </Text>
+    </View>
+  );
+}
+
 function NoticeCard({
   message,
   tone = "error",
@@ -2060,6 +2109,8 @@ function LiveQuestionsPanel({
     A: "", B: "", C: "", D: "",
   });
   const [correctAnswer, setCorrectAnswer] = useState("A");
+  const [timerMinutes, setTimerMinutes] = useState("1");
+  const [timerSeconds, setTimerSeconds] = useState("0");
 
   const [
     gradeOutOf,
@@ -2101,6 +2152,10 @@ function LiveQuestionsPanel({
 
     const parsedGradeOutOf =
       Number(gradeOutOf);
+    const parsedMinutes = Number(timerMinutes);
+    const parsedSeconds = Number(timerSeconds);
+    const durationSeconds =
+      parsedMinutes * 60 + parsedSeconds;
 
     if (!normalizedPrompt && !questionImage) {
       setError(
@@ -2115,6 +2170,22 @@ function LiveQuestionsPanel({
       Object.values(options).some((value) => !value.trim())
     ) {
       setError("Enter all four choices, or leave them blank when they are visible in the image.");
+      return;
+    }
+
+    if (
+      !Number.isInteger(parsedMinutes) ||
+      !Number.isInteger(parsedSeconds) ||
+      parsedMinutes < 0 ||
+      parsedMinutes > 180 ||
+      parsedSeconds < 0 ||
+      parsedSeconds > 59 ||
+      durationSeconds < 1 ||
+      durationSeconds > 10800
+    ) {
+      setError(
+        "Set a timer between 1 second and 180 minutes. Seconds must be from 0 to 59."
+      );
       return;
     }
 
@@ -2139,6 +2210,7 @@ function LiveQuestionsPanel({
       formData.append("prompt", normalizedPrompt);
       formData.append("gradeOutOf", String(parsedGradeOutOf));
       formData.append("type", questionType);
+      formData.append("durationSeconds", String(durationSeconds));
       if (questionType === "MCQ") {
         formData.append("correctAnswer", correctAnswer);
         Object.entries(options).forEach(([letter, value]) =>
@@ -2167,6 +2239,8 @@ function LiveQuestionsPanel({
       setQuestionImage(null);
       setOptions({ A: "", B: "", C: "", D: "" });
       setCorrectAnswer("A");
+      setTimerMinutes("1");
+      setTimerSeconds("0");
 
       await onPosted();
     } catch (err) {
@@ -2449,6 +2523,30 @@ function LiveQuestionsPanel({
             />
           </View>
 
+          <View style={styles.marksField}>
+            <Text style={styles.marksLabel}>Minutes</Text>
+            <TextInput
+              value={timerMinutes}
+              onChangeText={setTimerMinutes}
+              keyboardType="numeric"
+              placeholder="1"
+              placeholderTextColor={colors.textMuted}
+              style={styles.marksInput}
+            />
+          </View>
+
+          <View style={styles.marksField}>
+            <Text style={styles.marksLabel}>Seconds</Text>
+            <TextInput
+              value={timerSeconds}
+              onChangeText={setTimerSeconds}
+              keyboardType="numeric"
+              placeholder="0"
+              placeholderTextColor={colors.textMuted}
+              style={styles.marksInput}
+            />
+          </View>
+
           <Button
             title="Post question"
             variant="warning"
@@ -2581,6 +2679,7 @@ function LiveQuestionsPanel({
                           0}{" "}
                         submissions
                       </Text>
+                      <LiveQuestionTimer closesAt={question.closesAt} />
                     </View>
 
                     <Text
@@ -2796,6 +2895,15 @@ function StudentSessionView() {
     uploadingQuestionId,
     setUploadingQuestionId,
   ] = useState(null);
+  const [clockNow, setClockNow] = useState(null);
+
+  useEffect(() => {
+    setClockNow(Date.now());
+    const timer = setInterval(() => {
+      setClockNow(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const myAttendance =
     selected?.attendance?.find(
@@ -3459,6 +3567,13 @@ function StudentSessionView() {
                       ) ===
                       String(user.id)
                   );
+                const closesAtMs = question.closesAt
+                  ? new Date(question.closesAt).getTime()
+                  : null;
+                const timerExpired =
+                  clockNow != null &&
+                  Number.isFinite(closesAtMs) &&
+                  clockNow >= closesAtMs;
 
                 return (
                   <Card
@@ -3518,10 +3633,11 @@ function StudentSessionView() {
                             resizeMode="contain"
                           />
                         ) : null}
+                        <LiveQuestionTimer closesAt={question.closesAt} />
                       </View>
                     </View>
 
-                    {!myAnswer && question.type === "MCQ" ? (
+                    {!myAnswer && !timerExpired && question.type === "MCQ" ? (
                       <View style={styles.liveStudentChoices}>
                         {["A", "B", "C", "D"].map((letter) => (
                           <Pressable
@@ -3570,6 +3686,10 @@ function StudentSessionView() {
                           />
                         </View>
                       )
+                    ) : timerExpired ? (
+                      <View style={styles.studentAnswerStatus}>
+                        <Badge label="Answer window closed" tone="warning" />
+                      </View>
                     ) : question.type !== "MCQ" ? (
                       <Button
                         title="Upload answer photo"

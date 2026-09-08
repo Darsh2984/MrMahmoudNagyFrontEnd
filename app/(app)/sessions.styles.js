@@ -13,6 +13,26 @@ import {
 export const styles =
   StyleSheet.create({
     liveTypeRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.md },
+    liveTimerBadge: {
+      alignSelf: "flex-start",
+      marginTop: spacing.sm,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      borderRadius: radius.pill,
+      backgroundColor: "rgba(215,126,66,0.14)",
+    },
+    liveTimerBadgeExpired: {
+      backgroundColor: "rgba(190,55,55,0.12)",
+    },
+    liveTimerText: {
+      fontSize: 12,
+      fontWeight: "900",
+      color: colors.warning,
+      fontVariant: ["tabular-nums"],
+    },
+    liveTimerTextExpired: {
+      color: colors.danger,
+    },
     liveTypeButton: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white },
     liveTypeButtonActive: { borderColor: colors.primary, backgroundColor: colors.primary },
     liveTypeButtonText: { ...typography.caption, fontWeight: "800", color: colors.primary },
