@@ -105,6 +105,9 @@ export default function Groups() {
     user?.role === "TEACHER" ||
     Boolean(user?.isHeadAssistant);
 
+  const canAddStudents =
+    canManageGroups || isRegularAssistant;
+
   const canEditStudentDetails =
     user?.role === "TEACHER" ||
     user?.role === "ASSISTANT" ||
@@ -519,13 +522,16 @@ export default function Groups() {
   );
 
   const loadUnassigned =
-    useCallback(async () => {
+    useCallback(async (groupId) => {
       setUnassignedLoading(true);
       setError("");
 
       try {
         const response = await api.get(
-          "/students/status/unassigned"
+          "/students/status/unassigned",
+          {
+            params: { groupId },
+          }
         );
 
         setUnassigned(
@@ -838,12 +844,16 @@ export default function Groups() {
   }
 
   async function openAddStudentPicker() {
+    if (!selectedGroup?.id || !canAddStudents) {
+      return;
+    }
+
     setShowAddPicker(true);
     setShowAssistantPicker(false);
     setUnassignedSearch("");
     setSelectedUnassignedStudentIds([]);
 
-    await loadUnassigned();
+    await loadUnassigned(selectedGroup.id);
   }
 
 function toggleUnassignedStudent(studentId) {
@@ -927,7 +937,7 @@ async function handleAddSelectedStudents() {
       await Promise.all([
         loadGroupDetail(selectedGroup.id),
         loadGroupsWithoutReset(selectedYearId),
-        loadUnassigned(),
+        loadUnassigned(selectedGroup.id),
       ]);
     } catch (requestError) {
       setError(
@@ -1374,11 +1384,13 @@ async function handleAddSelectedStudents() {
             >
               Only groups assigned to your
               assistant account are shown.
-              Year structure, assistant
-              assignments, and group
-              membership are managed by
-              the Teacher or a Head
-              Assistant.
+              You can add unassigned students
+              to these groups and update their
+              contact information. Year
+              structure, assistant assignments,
+              session links, removals, and other
+              group settings remain managed by
+              the Teacher or a Head Assistant.
             </Text>
           </View>
         </Card>
@@ -1766,7 +1778,7 @@ async function handleAddSelectedStudents() {
                       </View>
                     </View>
 
-                    {canManageGroups ? (
+                    {canAddStudents ? (
                       <Button
                         title="Add students"
                         variant="secondary"
@@ -2675,7 +2687,7 @@ async function handleAddSelectedStudents() {
                       description={
                         canManageGroups
                           ? "View contact details, edit student information, or remove students from the group."
-                          : "View students and update their contact information."
+                          : "Add unassigned students and update contact information for this assigned group."
                       }
                       compact
                     />
@@ -2703,7 +2715,7 @@ async function handleAddSelectedStudents() {
                       icon="account-school-outline"
                       title="No students in this group"
                       description={
-                        canManageGroups
+                        canAddStudents
                           ? "Use Add student to assign an unassigned student."
                           : "This group currently has no students."
                       }
