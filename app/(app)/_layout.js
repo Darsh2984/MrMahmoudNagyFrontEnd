@@ -53,7 +53,7 @@ function getNavItems(
         icon: "calendar-outline",
         activeIcon: "calendar",
       },
-      {
+      
       {
         label: "Submit your Hw",
         route: "/(app)/my-tasks",
