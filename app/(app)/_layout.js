@@ -199,6 +199,12 @@ function getNavItems(
         activeIcon: "stats-chart",
       },
       {
+        label: "Student Activity",
+        route: "/(app)/student-activity",
+        icon: "pulse-outline",
+        activeIcon: "pulse",
+      },
+      {
         label: "Schools",
         route: "/(app)/schools",
         icon: "business-outline",
