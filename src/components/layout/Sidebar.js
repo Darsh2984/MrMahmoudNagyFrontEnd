@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
@@ -47,9 +48,14 @@ export function Sidebar({
     return pathname === route || pathname.startsWith(`${route}/`);
   }
 
-  function navigate(route) {
-    if (!route || isItemActive(route)) return;
-    router.push(route);
+  function navigate(item) {
+    if (item.externalUrl) {
+      Linking.openURL(item.externalUrl);
+      return;
+    }
+
+    if (!item.route || isItemActive(item.route)) return;
+    router.push(item.route);
   }
 
   function scrollUp() {
@@ -154,9 +160,14 @@ export function Sidebar({
             return (
               <Pressable
                 key={item.route || item.label}
-                onPress={() => navigate(item.route)}
+                onPress={() => navigate(item)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
+                accessibilityHint={
+                  item.externalUrl
+                    ? "Opens in your browser"
+                    : undefined
+                }
                 style={({ pressed }) => [
                   styles.item,
                   active && styles.itemActive,
@@ -206,6 +217,14 @@ export function Sidebar({
                       {item.badge}
                     </Text>
                   </View>
+                ) : null}
+
+                {item.externalUrl ? (
+                  <Ionicons
+                    name="open-outline"
+                    size={16}
+                    color="rgba(245, 241, 235, 0.58)"
+                  />
                 ) : null}
 
                 {active ? (

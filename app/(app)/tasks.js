@@ -26,10 +26,10 @@ import { Screen } from "../../src/components/layout/Screen";
 import { Card } from "../../src/components/ui/Card";
 import { Button } from "../../src/components/ui/Button";
 import { Badge } from "../../src/components/ui/Badge";
-import { DatePickerInput } from "../../src/components/ui/DatePickerInput";
+import { DateTimePickerInput } from "../../src/components/ui/DateTimePickerInput";
 
 import api from "../../src/lib/api";
-import { formatDate } from "../../src/utils/formatDate";
+import { formatEgyptDateTime } from "../../src/utils/egyptTime";
 
 import {
   colors,
@@ -76,6 +76,7 @@ export default function Tasks() {
 
   const [createModalVisible, setCreateModalVisible] =
     useState(false);
+  const [editingTask, setEditingTask] = useState(null);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -114,6 +115,7 @@ export default function Tasks() {
     setAllowLate(true);
     setTaskFile(null);
     setSelectedGroupIds([]);
+    setEditingTask(null);
   }, []);
 
   const loadTasksForYear = useCallback(async (yearGroups) => {
@@ -349,7 +351,7 @@ export default function Tasks() {
     return "";
   }
 
-  async function handleCreate() {
+  async function handleSave() {
     const validationError = validateForm();
 
     if (validationError) {
@@ -383,11 +385,20 @@ export default function Tasks() {
         await appendFileToFormData(formData, taskFile);
       }
 
-      await api.post("/tasks", formData);
+      if (editingTask) {
+        await api.patch(`/tasks/${editingTask.id}`, formData);
+      } else {
+        await api.post("/tasks", formData);
+      }
 
+      const wasEditing = Boolean(editingTask);
       resetForm();
       setCreateModalVisible(false);
-      setSuccess("Task created successfully.");
+      setSuccess(
+        wasEditing
+          ? "Task updated successfully."
+          : "Task created successfully.",
+      );
 
       const groupsResponse = await api.get(
         `/groups/year/${yearId}`,
@@ -414,6 +425,25 @@ export default function Tasks() {
   function openCreateModal() {
     clearMessages();
     resetForm();
+    setCreateModalVisible(true);
+  }
+
+  function openEditModal(task) {
+    clearMessages();
+    setEditingTask(task);
+    setTitle(task.title || "");
+    setDescription(task.description || "");
+    setDeadline(task.deadline || "");
+    setGradeOutOf(String(task.gradeOutOf ?? 100));
+    setAllowLate(task.allowLateSubmission !== false);
+    setTaskFile(null);
+    setSelectedGroupIds(
+      Array.isArray(task.groups)
+        ? task.groups
+            .map((taskGroup) => taskGroup.groupId || taskGroup.group?.id)
+            .filter(Boolean)
+        : [],
+    );
     setCreateModalVisible(true);
   }
 
@@ -542,7 +572,7 @@ export default function Tasks() {
               />
 
               <Text style={styles.taskMeta}>
-                Due {formatDate(task.deadline)}
+                Due {formatEgyptDateTime(task.deadline)}
               </Text>
             </View>
             <View style={styles.taskGroupsRow}>
@@ -624,25 +654,38 @@ export default function Tasks() {
             )}
           </View>
 
-          <Pressable
-            onPress={() =>
-              router.push(`/(app)/tasks/${task.id}`)
-            }
-            style={({ pressed }) => [
-              styles.viewLink,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.viewLinkText}>
-              View task
-            </Text>
+          <View style={styles.taskActions}>
+            <Pressable
+              onPress={() => openEditModal(task)}
+              style={({ pressed }) => [
+                styles.viewLink,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Ionicons name="create-outline" size={16} color={colors.warning} />
+              <Text style={styles.editLinkText}>Edit task</Text>
+            </Pressable>
 
-            <Ionicons
-              name="chevron-forward"
-              size={15}
-              color={colors.primary}
-            />
-          </Pressable>
+            <Pressable
+              onPress={() =>
+                router.push(`/(app)/tasks/${task.id}`)
+              }
+              style={({ pressed }) => [
+                styles.viewLink,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.viewLinkText}>
+                View task
+              </Text>
+
+              <Ionicons
+                name="chevron-forward"
+                size={15}
+                color={colors.primary}
+              />
+            </Pressable>
+          </View>
         </View>
       </Card>
     );
@@ -1143,12 +1186,13 @@ export default function Tasks() {
 
               <View style={styles.modalHeadingCopy}>
                 <Text style={styles.modalTitle}>
-                  Create task
+                  {editingTask ? "Edit task" : "Create task"}
                 </Text>
 
                 <Text style={styles.mutedText}>
-                  Add homework details and select the groups
-                  that should receive it.
+                  {editingTask
+                    ? "Update the homework details, deadline, file, or target groups."
+                    : "Add homework details and select the groups that should receive it."}
                 </Text>
               </View>
 
@@ -1218,10 +1262,10 @@ export default function Tasks() {
                     Deadline
                   </Text>
 
-                  <DatePickerInput
+                  <DateTimePickerInput
                     value={deadline}
                     onChange={setDeadline}
-                    placeholder="Select deadline"
+                    placeholder="Select date and time"
                     style={styles.datePicker}
                   />
                 </View>
@@ -1443,9 +1487,9 @@ export default function Tasks() {
               />
 
               <Button
-                title="Create task"
+                title={editingTask ? "Save changes" : "Create task"}
                 variant="warning"
-                onPress={handleCreate}
+                onPress={handleSave}
                 loading={creatingTask}
               />
             </View>
@@ -1883,10 +1927,23 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
 
+  taskActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+
   viewLinkText: {
     fontSize: 13,
     fontWeight: "700",
     color: colors.primary,
+  },
+
+  editLinkText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.warning,
   },
 
   loadingCard: {

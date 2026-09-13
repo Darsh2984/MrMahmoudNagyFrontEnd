@@ -54,10 +54,24 @@ function getNavItems(
         activeIcon: "calendar",
       },
       {
-        label: "Tasks",
+      {
+        label: "Submit your Hw",
         route: "/(app)/my-tasks",
         icon: "document-text-outline",
         activeIcon: "document-text",
+      },
+      {
+        label: "Quizzes",
+        route: "/(app)/my-tasks",
+        icon: "document-text-outline",
+        activeIcon: "document-text",
+      },
+      {
+        label: "Nagy's Mind",
+        externalUrl:
+          "https://chatgpt.com/g/g-68daa005e46081919fe3515f32c48f72-ask-mahmoud-nagys-mind-4-0-pro",
+        icon: "bulb-outline",
+        activeIcon: "bulb",
       },
       {
         label: "Quizzes",
