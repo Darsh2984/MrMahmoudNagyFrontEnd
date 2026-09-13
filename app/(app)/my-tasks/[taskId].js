@@ -670,7 +670,9 @@ export default function MyTaskDetail() {
         <View style={styles.page}>
           <BackButton
             onPress={() =>
-              router.back()
+              router.canGoBack()
+                ? router.back()
+                : router.replace("/(app)/my-tasks")
             }
           />
 
@@ -725,7 +727,9 @@ export default function MyTaskDetail() {
                 title="Go back"
                 variant="outline"
                 onPress={() =>
-                  router.back()
+                  router.canGoBack()
+                    ? router.back()
+                    : router.replace("/(app)/my-tasks")
                 }
               />
             </View>
@@ -740,7 +744,9 @@ export default function MyTaskDetail() {
       <View style={styles.page}>
         <BackButton
           onPress={() =>
-            router.back()
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/(app)/my-tasks")
           }
         />
 

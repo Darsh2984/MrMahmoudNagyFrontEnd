@@ -890,7 +890,11 @@ useEffect(() => {
             <Button
               title="Back"
               variant="outline"
-              onPress={() => router.back()}
+              onPress={() =>
+                router.canGoBack()
+                  ? router.back()
+                  : router.replace("/(app)/tickets")
+              }
               style={styles.flexButton}
             />
 
@@ -927,7 +931,11 @@ useEffect(() => {
             ]}
           >
             <Pressable
-              onPress={() => router.back()}
+            onPress={() =>
+              router.canGoBack()
+                ? router.back()
+                : router.replace("/(app)/tickets")
+            }
               style={({ pressed }) => [
                 styles.backButton,
                 pressed && styles.pressed,

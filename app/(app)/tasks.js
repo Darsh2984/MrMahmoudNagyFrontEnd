@@ -46,6 +46,20 @@ function getErrorMessage(error, fallback) {
   );
 }
 
+function normalizeDeadline(value) {
+  if (!value) return "";
+
+  if (typeof value === "string") {
+    return value.trim();
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+
+  return Number.isNaN(parsed.getTime())
+    ? ""
+    : parsed.toISOString();
+}
+
 export default function Tasks() {
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -332,8 +346,14 @@ export default function Tasks() {
       return "Task title is required.";
     }
 
-    if (!deadline.trim()) {
+    const normalizedDeadline = normalizeDeadline(deadline);
+
+    if (!normalizedDeadline) {
       return "Deadline is required.";
+    }
+
+    if (Number.isNaN(new Date(normalizedDeadline).getTime())) {
+      return "Choose a valid deadline date and time.";
     }
 
     if (selectedGroupIds.length === 0) {
@@ -368,7 +388,7 @@ export default function Tasks() {
       formData.append("title", title.trim());
       formData.append("description", description.trim());
       formData.append("yearId", yearId);
-      formData.append("deadline", deadline.trim());
+      formData.append("deadline", normalizeDeadline(deadline));
       formData.append("gradeOutOf", gradeOutOf.trim());
 
       formData.append(
@@ -433,7 +453,7 @@ export default function Tasks() {
     setEditingTask(task);
     setTitle(task.title || "");
     setDescription(task.description || "");
-    setDeadline(task.deadline || "");
+    setDeadline(normalizeDeadline(task.deadline));
     setGradeOutOf(String(task.gradeOutOf ?? 100));
     setAllowLate(task.allowLateSubmission !== false);
     setTaskFile(null);

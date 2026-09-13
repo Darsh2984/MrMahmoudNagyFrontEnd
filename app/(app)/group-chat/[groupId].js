@@ -1430,7 +1430,9 @@ export default function GroupChatThread() {
               title="Back"
               variant="outline"
               onPress={() =>
-                router.back()
+                router.canGoBack()
+                  ? router.back()
+                  : router.replace("/(app)/group-chat")
               }
               style={
                 styles.flexButton
@@ -1477,7 +1479,9 @@ export default function GroupChatThread() {
           >
             <Pressable
               onPress={() =>
-                router.back()
+                router.canGoBack()
+                  ? router.back()
+                  : router.replace("/(app)/group-chat")
               }
               style={({
                 pressed,

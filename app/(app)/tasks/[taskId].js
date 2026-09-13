@@ -350,7 +350,9 @@ export default function TaskDetail() {
         <View style={styles.page}>
           <Pressable
             onPress={() =>
-              router.back()
+              router.canGoBack()
+                ? router.back()
+                : router.replace("/(app)/tasks")
             }
             style={({ pressed }) => [
               styles.backButton,
@@ -411,7 +413,9 @@ export default function TaskDetail() {
               title="Go back"
               variant="outline"
               onPress={() =>
-                router.back()
+                router.canGoBack()
+                  ? router.back()
+                  : router.replace("/(app)/tasks")
               }
             />
           </Card>
@@ -437,7 +441,9 @@ export default function TaskDetail() {
       <View style={styles.page}>
         <Pressable
           onPress={() =>
-            router.back()
+            router.canGoBack()
+              ? router.back()
+              : router.replace("/(app)/tasks")
           }
           style={({ pressed }) => [
             styles.backButton,
