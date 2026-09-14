@@ -37,6 +37,85 @@ function formatBytes(value) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function getDisplayAction(log) {
+  const method = String(log.method || "").toUpperCase();
+  const path = String(log.path || "");
+
+  if (method === "POST" && /^\/api\/submissions\/task\//.test(path)) {
+    return "Uploaded homework files";
+  }
+
+  if (method === "GET" && /^\/api\/submissions\/task\/.+\/mine$/.test(path)) {
+    return "Checked homework submission";
+  }
+
+  if (method === "DELETE" && /^\/api\/submissions\/.+\/files\//.test(path)) {
+    return "Deleted a homework file";
+  }
+
+  if (method === "GET" && /^\/api\/students\//.test(path)) {
+    return "Opened a student profile";
+  }
+
+  if (method === "GET" && /^\/api\/tasks\//.test(path)) {
+    return "Opened a homework task";
+  }
+
+  if (/^\/api\/quiz-student\//.test(path)) {
+    return method === "GET" ? "Opened a quiz" : "Submitted quiz activity";
+  }
+
+  if (/^\/api\/live-questions\//.test(path)) {
+    return method === "GET" ? "Viewed a live question" : "Answered a live question";
+  }
+
+  if (/^\/api\/group-chat\//.test(path)) {
+    return method === "GET" ? "Viewed group chat" : "Updated group chat";
+  }
+
+  if (/^\/api\/student-support-chat\//.test(path)) {
+    return method === "GET" ? "Viewed support chat" : "Updated support chat";
+  }
+
+  if (/^\/api\/tickets(?:\/|$)/.test(path)) {
+    return method === "GET" ? "Viewed support tickets" : "Updated a support ticket";
+  }
+
+  const area = path
+    .replace(/^\/api\//, "")
+    .split("/")[0]
+    .replace(/-/g, " ");
+
+  const verb = {
+    GET: "Viewed",
+    POST: "Submitted",
+    PATCH: "Updated",
+    PUT: "Updated",
+    DELETE: "Deleted",
+  }[method] || "Used";
+
+  return `${verb} ${area || "the system"}`;
+}
+
+function getStatusLabel(log) {
+  if (log.statusCode === 499) return "Connection closed";
+  if (log.successful) return "Successful";
+  if (log.statusCode === 400) return "Invalid request";
+  if (log.statusCode === 401) return "Not signed in";
+  if (log.statusCode === 403) return "Access denied";
+  if (log.statusCode === 404) return "Not found";
+  if (log.statusCode >= 500) return "Server error";
+  return "Failed";
+}
+
+function getResponseText(log) {
+  if (log.errorMessage) return log.errorMessage;
+  if (log.metadata?.responseMessage) return log.metadata.responseMessage;
+  return log.successful
+    ? "The backend completed this request successfully."
+    : "The request did not complete successfully.";
+}
+
 export default function StudentActivity() {
   const [logs, setLogs] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
@@ -164,6 +243,7 @@ export default function StudentActivity() {
           <View style={styles.logList}>
             {logs.map((log) => {
               const files = Array.isArray(log.metadata?.files) ? log.metadata.files : [];
+              const responseText = getResponseText(log);
 
               return (
                 <Card key={log.id} style={styles.logCard}>
@@ -177,28 +257,68 @@ export default function StudentActivity() {
                     </View>
 
                     <View style={styles.logMain}>
-                      <Text style={styles.action}>{log.action}</Text>
+                      <Text style={styles.action}>{getDisplayAction(log)}</Text>
                       <Text style={styles.student}>{log.userName} · {log.userEmail}</Text>
                     </View>
 
                     <View style={[styles.statusBadge, log.successful ? styles.successBadge : styles.failureBadge]}>
                       <Text style={[styles.statusText, !log.successful && styles.failureText]}>
-                        {log.statusCode}
+                        {log.successful ? "Success" : "Error"} {log.statusCode}
                       </Text>
                     </View>
                   </View>
 
-                  <View style={styles.detailsRow}>
-                    <Text style={styles.detail}>{log.method} {log.path}</Text>
-                    <Text style={styles.detail}>{log.durationMs} ms</Text>
-                    <Text style={styles.detail}>{formatEgyptDateTime(log.createdAt)} · Egypt time</Text>
+                  <View style={styles.detailsGrid}>
+                    <View style={styles.detailBlock}>
+                      <Text style={styles.detailLabel}>Result</Text>
+                      <Text style={[styles.detailValue, !log.successful && styles.failureText]}>
+                        {getStatusLabel(log)} ({log.statusCode})
+                      </Text>
+                    </View>
+
+                    <View style={styles.detailBlock}>
+                      <Text style={styles.detailLabel}>Time</Text>
+                      <Text style={styles.detailValue}>{formatEgyptDateTime(log.createdAt)} · Egypt</Text>
+                    </View>
+
+                    <View style={styles.detailBlock}>
+                      <Text style={styles.detailLabel}>Duration</Text>
+                      <Text style={styles.detailValue}>{log.durationMs} ms</Text>
+                    </View>
                   </View>
 
-                  {log.errorMessage ? (
-                    <View style={styles.errorBox}>
-                      <Text style={styles.errorBoxText}>{log.errorMessage}</Text>
+                  <View style={[styles.responseBox, !log.successful && styles.errorBox]}>
+                    <Text style={styles.responseLabel}>
+                      {log.successful ? "Backend response" : "Error shown by backend"}
+                    </Text>
+                    <Text style={[styles.responseText, !log.successful && styles.errorBoxText]}>
+                      {responseText}
+                    </Text>
+                  </View>
+
+                  <View style={styles.technicalBox}>
+                    <View style={styles.technicalRow}>
+                      <Text style={styles.technicalLabel}>Request</Text>
+                      <Text selectable style={styles.technicalValue}>{log.method} {log.path}</Text>
                     </View>
-                  ) : null}
+
+                    <View style={styles.technicalRow}>
+                      <Text style={styles.technicalLabel}>Device / browser</Text>
+                      <Text selectable style={styles.technicalValue}>{log.userAgent || "Not reported"}</Text>
+                    </View>
+
+                    <View style={styles.technicalRow}>
+                      <Text style={styles.technicalLabel}>IP address</Text>
+                      <Text selectable style={styles.technicalValue}>{log.ipAddress || "Not reported"}</Text>
+                    </View>
+
+                    {Number.isFinite(Number(log.metadata?.requestSize)) ? (
+                      <View style={styles.technicalRow}>
+                        <Text style={styles.technicalLabel}>Request size</Text>
+                        <Text style={styles.technicalValue}>{formatBytes(log.metadata.requestSize)}</Text>
+                      </View>
+                    ) : null}
+                  </View>
 
                   {files.length ? (
                     <View style={styles.filesBox}>
@@ -269,19 +389,27 @@ const styles = StyleSheet.create({
   logMain: { flex: 1, minWidth: 0 },
   action: { fontSize: 15, fontWeight: "800", color: colors.textPrimary },
   student: { marginTop: 3, fontSize: 13, color: colors.textMuted },
-  statusBadge: { minWidth: 48, paddingVertical: 6, paddingHorizontal: 9, borderRadius: radius.pill, alignItems: "center" },
+  statusBadge: { minWidth: 76, paddingVertical: 6, paddingHorizontal: 9, borderRadius: radius.pill, alignItems: "center" },
   successBadge: { backgroundColor: `${colors.secondary}25` },
   failureBadge: { backgroundColor: `${colors.danger}15` },
   statusText: { fontWeight: "900", color: colors.primary },
   failureText: { color: colors.danger },
-  detailsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, paddingLeft: 50 },
-  detail: { fontSize: 12, color: colors.textMuted },
-  errorBox: { marginLeft: 50, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: `${colors.danger}10` },
-  errorBoxText: { fontSize: 13, color: colors.danger },
+  detailsGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, paddingLeft: 50 },
+  detailBlock: { minWidth: 145, flexGrow: 1, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: colors.background },
+  detailLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 0.7, textTransform: "uppercase", color: colors.textMuted },
+  detailValue: { marginTop: 3, fontSize: 13, fontWeight: "700", color: colors.textPrimary },
+  responseBox: { marginLeft: 50, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: `${colors.secondary}14` },
+  responseLabel: { fontSize: 11, fontWeight: "800", color: colors.textPrimary, marginBottom: 4 },
+  responseText: { fontSize: 13, color: colors.textPrimary },
+  errorBox: { backgroundColor: `${colors.danger}10` },
+  errorBoxText: { color: colors.danger },
+  technicalBox: { marginLeft: 50, padding: spacing.sm, gap: 7, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border },
+  technicalRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  technicalLabel: { width: 110, fontSize: 11, fontWeight: "800", color: colors.textMuted },
+  technicalValue: { flex: 1, minWidth: 180, fontSize: 11, color: colors.textPrimary },
   filesBox: { marginLeft: 50, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: colors.background },
   filesTitle: { fontSize: 12, fontWeight: "800", color: colors.textPrimary, marginBottom: 4 },
   fileText: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   pagination: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: spacing.md, marginTop: spacing.lg },
   pageText: { fontSize: 13, fontWeight: "700", color: colors.textPrimary },
 });
-
