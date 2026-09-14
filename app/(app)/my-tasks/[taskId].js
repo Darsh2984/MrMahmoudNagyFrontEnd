@@ -39,6 +39,8 @@ import { colors } from "../../../src/theme";
 import { styles } from "./[taskId].styles";
 
 const MAX_HOMEWORK_FILES = 20;
+const HOMEWORK_UPLOAD_TIMEOUT_MS =
+  10 * 60 * 1000;
 
 function getErrorMessage(error, fallback) {
   return (
@@ -520,6 +522,10 @@ export default function MyTaskDetail() {
         await api.post(
           `/submissions/task/${taskId}`,
           formData,
+          {
+            timeout:
+              HOMEWORK_UPLOAD_TIMEOUT_MS,
+          },
         );
 
       if (
