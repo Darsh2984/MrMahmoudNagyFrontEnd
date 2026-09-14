@@ -2,6 +2,7 @@ import React, {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -22,6 +23,7 @@ import {
 } from "expo-router";
 
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 
 import { Screen } from "../../../src/components/layout/Screen";
 import { Card } from "../../../src/components/ui/Card";
@@ -39,8 +41,7 @@ import { colors } from "../../../src/theme";
 import { styles } from "./[taskId].styles";
 
 const MAX_HOMEWORK_FILES = 20;
-const HOMEWORK_UPLOAD_TIMEOUT_MS =
-  10 * 60 * 1000;
+const MAX_PARALLEL_UPLOADS = 2;
 
 function getErrorMessage(error, fallback) {
   return (
@@ -72,59 +73,156 @@ function formatFileSize(bytes) {
   ).toFixed(1)} MB`;
 }
 
-async function appendAssetToFormData(
-  formData,
-  asset,
-) {
-  const filename =
-    asset.name ||
-    `homework-${Date.now()}`;
+function createUploadClientId() {
+  return (
+    `homework-${Date.now()}-` +
+    Math.random()
+      .toString(36)
+      .slice(2, 10)
+  );
+}
 
+async function uploadAssetToSignedUrl({
+  asset,
+  upload,
+  onProgress,
+  onCancelReady,
+}) {
   const contentType =
+    upload.contentType ||
     asset.mimeType ||
-    asset.type ||
     "application/octet-stream";
 
-  if (
-    Platform.OS === "web" &&
-    asset.file
-  ) {
-    formData.append(
-      "files",
-      asset.file,
-      filename,
+  if (Platform.OS !== "web") {
+    const task =
+      FileSystem.createUploadTask(
+        upload.uploadUrl,
+        asset.uri,
+        {
+          httpMethod: "PUT",
+          uploadType:
+            FileSystem
+              .FileSystemUploadType
+              .BINARY_CONTENT,
+          headers: {
+            "Content-Type": contentType,
+          },
+        },
+        (progress) => {
+          const total = Number(
+            progress.totalBytesExpectedToSend,
+          );
+
+          if (total > 0) {
+            onProgress(
+              Math.min(
+                99,
+                Math.round(
+                  (Number(
+                    progress.totalBytesSent,
+                  ) /
+                    total) *
+                    100,
+                ),
+              ),
+            );
+          }
+        },
+      );
+
+    onCancelReady(() =>
+      task.cancelAsync(),
     );
 
-    return;
-  }
+    const result =
+      await task.uploadAsync();
 
-  if (Platform.OS === "web") {
-    const response = await fetch(
-      asset.uri,
-    );
-
-    if (!response.ok) {
+    if (
+      !result ||
+      result.status < 200 ||
+      result.status >= 300
+    ) {
       throw new Error(
-        `The file "${filename}" could not be prepared for upload.`,
+        `Upload failed with status ${
+          result?.status || "unknown"
+        }.`
       );
     }
 
-    const blob =
-      await response.blob();
-
-    formData.append(
-      "files",
-      blob,
-      filename,
-    );
-
     return;
   }
 
-  formData.append("files", {
-    uri: asset.uri,
-    name: filename,
-    type: contentType,
+  let uploadBody = asset.file;
+
+  if (!uploadBody) {
+    const fileResponse =
+      await fetch(asset.uri);
+
+    if (!fileResponse.ok) {
+      throw new Error(
+        `The file "${asset.name}" could not be prepared for upload.`,
+      );
+    }
+
+    uploadBody =
+      await fileResponse.blob();
+  }
+
+  await new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    onCancelReady(() => xhr.abort());
+
+    xhr.open("PUT", upload.uploadUrl);
+    xhr.timeout = 0;
+    xhr.setRequestHeader(
+      "Content-Type",
+      contentType,
+    );
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress(
+          Math.min(
+            99,
+            Math.round(
+              (event.loaded /
+                event.total) *
+                100,
+            ),
+          ),
+        );
+      }
+    };
+
+    xhr.onload = () => {
+      if (
+        xhr.status >= 200 &&
+        xhr.status < 300
+      ) {
+        resolve();
+      } else {
+        reject(
+          new Error(
+            `Upload failed with status ${xhr.status}.`,
+          ),
+        );
+      }
+    };
+
+    xhr.onerror = () =>
+      reject(
+        new Error(
+          "Direct upload failed. Check the connection and try again.",
+        ),
+      );
+
+    xhr.onabort = () =>
+      reject(
+        new Error("UPLOAD_CANCELLED"),
+      );
+
+    xhr.send(uploadBody);
   });
 }
 
@@ -164,6 +262,16 @@ export default function MyTaskDetail() {
 
   const [uploading, setUploading] =
     useState(false);
+
+  const [uploadItems, setUploadItems] =
+    useState([]);
+
+  const uploadItemsRef = useRef([]);
+  const uploadCancelRef = useRef(
+    new Map(),
+  );
+  const cancelledUploadIdsRef =
+    useRef(new Set());
 
   const [
     openingTaskFile,
@@ -394,9 +502,432 @@ export default function MyTaskDetail() {
     load();
   }, [load]);
 
+  useEffect(() => {
+    return () => {
+      uploadCancelRef.current.forEach(
+        (cancel) => {
+          Promise.resolve(cancel()).catch(
+            () => {},
+          );
+        },
+      );
+
+      const unfinishedObjectKeys =
+        uploadItemsRef.current
+          .filter(
+            (item) =>
+              [
+                "preparing",
+                "queued",
+                "uploading",
+                "failed",
+                "cancelled",
+              ].includes(item.status),
+          )
+          .map((item) => item.objectKey)
+          .filter(Boolean);
+
+      if (unfinishedObjectKeys.length) {
+        api
+          .post(
+            `/submissions/task/${taskId}/uploads/abort`,
+            {
+              objectKeys:
+                unfinishedObjectKeys,
+            },
+          )
+          .catch(() => {});
+      }
+    };
+  }, [taskId]);
+
   function clearMessages() {
     setError("");
     setSuccess("");
+  }
+
+  const updateUploadItems =
+    useCallback((updater) => {
+      setUploadItems((current) => {
+        const next =
+          typeof updater === "function"
+            ? updater(current)
+            : updater;
+
+        uploadItemsRef.current = next;
+        return next;
+      });
+    }, []);
+
+  function updateUploadItem(
+    clientId,
+    changes,
+  ) {
+    updateUploadItems((current) =>
+      current.map((item) =>
+        item.clientId === clientId
+          ? {
+              ...item,
+              ...(typeof changes ===
+              "function"
+                ? changes(item)
+                : changes),
+            }
+          : item,
+      ),
+    );
+  }
+
+  async function removePreparedUploads(
+    objectKeys,
+  ) {
+    const validKeys = objectKeys.filter(
+      Boolean,
+    );
+
+    if (!validKeys.length) {
+      return;
+    }
+
+    try {
+      await api.post(
+        `/submissions/task/${taskId}/uploads/abort`,
+        { objectKeys: validKeys },
+      );
+    } catch {
+      // Cleanup is best-effort. The signed URL expires quickly.
+    }
+  }
+
+  async function uploadAssets(
+    queuedItems,
+  ) {
+    if (
+      uploading ||
+      !queuedItems.length
+    ) {
+      return;
+    }
+
+    setUploading(true);
+    clearMessages();
+
+    const preparedKeys = [];
+    const completed = [];
+    let confirmationStarted = false;
+
+    try {
+      queuedItems.forEach((item) => {
+        cancelledUploadIdsRef.current.delete(
+          item.clientId,
+        );
+
+        updateUploadItem(
+          item.clientId,
+          {
+            status: "preparing",
+            progress: 0,
+            error: "",
+            objectKey: null,
+          },
+        );
+      });
+
+      const prepareResponse =
+        await api.post(
+          `/submissions/task/${taskId}/uploads/prepare`,
+          {
+            files: queuedItems.map(
+              (item) => ({
+                clientId:
+                  item.clientId,
+                name: item.asset.name,
+                contentType:
+                  item.asset.mimeType ||
+                  item.asset.type ||
+                  "application/octet-stream",
+                size: item.asset.size,
+              }),
+            ),
+          },
+        );
+
+      const preparedUploads =
+        prepareResponse.data?.uploads || [];
+
+      const preparedById = new Map(
+        preparedUploads.map((upload) => [
+          upload.clientId,
+          upload,
+        ]),
+      );
+
+      preparedUploads.forEach((upload) => {
+        preparedKeys.push(
+          upload.objectKey,
+        );
+        updateUploadItem(
+          upload.clientId,
+          {
+            status: "queued",
+            objectKey:
+              upload.objectKey,
+          },
+        );
+      });
+
+      let nextIndex = 0;
+
+      async function worker() {
+        while (
+          nextIndex < queuedItems.length
+        ) {
+          const item =
+            queuedItems[nextIndex];
+          nextIndex += 1;
+
+          const upload =
+            preparedById.get(
+              item.clientId,
+            );
+
+          if (!upload) {
+            updateUploadItem(
+              item.clientId,
+              {
+                status: "failed",
+                error:
+                  "The server did not prepare this file.",
+              },
+            );
+            continue;
+          }
+
+          if (
+            cancelledUploadIdsRef.current.has(
+              item.clientId,
+            )
+          ) {
+            updateUploadItem(
+              item.clientId,
+              { status: "cancelled" },
+            );
+            continue;
+          }
+
+          updateUploadItem(
+            item.clientId,
+            { status: "uploading" },
+          );
+
+          try {
+            await uploadAssetToSignedUrl({
+              asset: item.asset,
+              upload,
+              onProgress: (progress) =>
+                updateUploadItem(
+                  item.clientId,
+                  { progress },
+                ),
+              onCancelReady:
+                (cancel) => {
+                  uploadCancelRef.current.set(
+                    item.clientId,
+                    cancel,
+                  );
+                },
+            });
+
+            uploadCancelRef.current.delete(
+              item.clientId,
+            );
+
+            if (
+              cancelledUploadIdsRef.current.has(
+                item.clientId,
+              )
+            ) {
+              updateUploadItem(
+                item.clientId,
+                { status: "cancelled" },
+              );
+              continue;
+            }
+
+            completed.push({
+              clientId:
+                item.clientId,
+              objectKey:
+                upload.objectKey,
+            });
+
+            updateUploadItem(
+              item.clientId,
+              {
+                status: "confirming",
+                progress: 100,
+              },
+            );
+          } catch (uploadError) {
+            uploadCancelRef.current.delete(
+              item.clientId,
+            );
+
+            const cancelled =
+              uploadError?.message ===
+                "UPLOAD_CANCELLED" ||
+              cancelledUploadIdsRef.current.has(
+                item.clientId,
+              );
+
+            updateUploadItem(
+              item.clientId,
+              {
+                status: cancelled
+                  ? "cancelled"
+                  : "failed",
+                error: cancelled
+                  ? "Upload cancelled."
+                  : getErrorMessage(
+                      uploadError,
+                      "Upload failed.",
+                    ),
+              },
+            );
+          }
+        }
+      }
+
+      await Promise.all(
+        Array.from(
+          {
+            length: Math.min(
+              MAX_PARALLEL_UPLOADS,
+              queuedItems.length,
+            ),
+          },
+          () => worker(),
+        ),
+      );
+
+      if (completed.length) {
+        confirmationStarted = true;
+
+        const confirmResponse =
+          await api.post(
+            `/submissions/task/${taskId}/uploads/confirm`,
+            { uploads: completed },
+          );
+
+        if (
+          confirmResponse.data?.submission
+        ) {
+          setMySubmission(
+            confirmResponse.data.submission,
+          );
+        }
+
+        const completedIds = new Set(
+          completed.map(
+            (item) => item.clientId,
+          ),
+        );
+
+        updateUploadItems((current) =>
+          current.map((item) =>
+            completedIds.has(
+              item.clientId,
+            )
+              ? {
+                  ...item,
+                  status: "complete",
+                  progress: 100,
+                  error: "",
+                }
+              : item,
+          ),
+        );
+
+        setSuccess(
+          `${completed.length} ${
+            completed.length === 1
+              ? "file was"
+              : "files were"
+          } uploaded successfully.`,
+        );
+      }
+
+      const completedKeys = new Set(
+        completed.map(
+          (item) => item.objectKey,
+        ),
+      );
+
+      await removePreparedUploads(
+        preparedKeys.filter(
+          (key) =>
+            !completedKeys.has(key),
+        ),
+      );
+    } catch (requestError) {
+      const completedIds = new Set(
+        completed.map(
+          (item) => item.clientId,
+        ),
+      );
+
+      const affectedIds = new Set(
+        queuedItems.map((item) =>
+          item.clientId,
+        ),
+      );
+
+      updateUploadItems((current) =>
+        current.map((item) =>
+          affectedIds.has(item.clientId) &&
+          item.status !== "complete" &&
+          item.status !== "cancelled"
+            ? {
+                ...item,
+                status:
+                  confirmationStarted &&
+                  completedIds.has(
+                    item.clientId,
+                  )
+                    ? "confirm_failed"
+                    : "failed",
+                error: getErrorMessage(
+                  requestError,
+                  confirmationStarted
+                    ? "The file reached storage, but the submission could not be confirmed. Retry to finish saving it."
+                    : "Couldn't upload this file.",
+                ),
+              }
+            : item,
+        ),
+      );
+
+      await removePreparedUploads(
+        confirmationStarted
+          ? preparedKeys.filter(
+              (key) =>
+                !completed.some(
+                  (item) =>
+                    item.objectKey === key,
+                ),
+            )
+          : preparedKeys,
+      );
+
+      setError(
+        getErrorMessage(
+          requestError,
+          "Couldn't upload your homework files.",
+        ),
+      );
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function openExternalFile(
@@ -506,47 +1037,130 @@ export default function MyTaskDetail() {
         return;
       }
 
-      const formData =
-        new FormData();
-
-      for (const asset of result.assets) {
-        await appendAssetToFormData(
-          formData,
+      const queuedItems =
+        result.assets.map((asset) => ({
+          clientId:
+            createUploadClientId(),
           asset,
-        );
-      }
+          name:
+            asset.name ||
+            "Homework file",
+          size: asset.size,
+          status: "queued",
+          progress: 0,
+          error: "",
+          objectKey: null,
+        }));
 
-      setUploading(true);
+      updateUploadItems((current) => [
+        ...current.filter(
+          (item) =>
+            item.status !== "complete",
+        ),
+        ...queuedItems,
+      ]);
 
-      const response =
-        await api.post(
-          `/submissions/task/${taskId}`,
-          formData,
-          {
-            timeout:
-              HOMEWORK_UPLOAD_TIMEOUT_MS,
-          },
-        );
-
-      if (
-        response.data?.submission
-      ) {
-        setMySubmission(
-          response.data
-            .submission,
-        );
-      }
-
-      setSuccess(
-        mySubmission
-          ? "Additional homework files were uploaded successfully."
-          : "Your homework was submitted successfully.",
-      );
+      await uploadAssets(queuedItems);
     } catch (requestError) {
       setError(
         getErrorMessage(
           requestError,
           "Couldn't upload your homework files.",
+        ),
+      );
+    } finally {
+      // uploadAssets owns the active upload state.
+    }
+  }
+
+  function cancelUpload(item) {
+    cancelledUploadIdsRef.current.add(
+      item.clientId,
+    );
+
+    const cancel =
+      uploadCancelRef.current.get(
+        item.clientId,
+      );
+
+    if (cancel) {
+      Promise.resolve(cancel()).catch(
+        () => {},
+      );
+    }
+
+    updateUploadItem(item.clientId, {
+      status: "cancelled",
+      error: "Upload cancelled.",
+    });
+
+    removePreparedUploads([
+      item.objectKey,
+    ]);
+  }
+
+  function retryUpload(item) {
+    if (uploading || !item?.asset) {
+      return;
+    }
+
+    if (
+      item.status === "confirm_failed" &&
+      item.objectKey
+    ) {
+      retryUploadConfirmation(item);
+      return;
+    }
+
+    uploadAssets([item]);
+  }
+
+  async function retryUploadConfirmation(
+    item,
+  ) {
+    setUploading(true);
+    clearMessages();
+    updateUploadItem(item.clientId, {
+      status: "confirming",
+      error: "",
+      progress: 100,
+    });
+
+    try {
+      const response = await api.post(
+        `/submissions/task/${taskId}/uploads/confirm`,
+        {
+          uploads: [
+            {
+              clientId: item.clientId,
+              objectKey: item.objectKey,
+            },
+          ],
+        },
+      );
+
+      setMySubmission(
+        response.data?.submission || null,
+      );
+      updateUploadItem(item.clientId, {
+        status: "complete",
+        error: "",
+      });
+      setSuccess(
+        "Homework file uploaded successfully.",
+      );
+    } catch (requestError) {
+      updateUploadItem(item.clientId, {
+        status: "confirm_failed",
+        error: getErrorMessage(
+          requestError,
+          "Couldn't finish saving this uploaded file.",
+        ),
+      });
+      setError(
+        getErrorMessage(
+          requestError,
+          "Couldn't finish saving this uploaded file.",
         ),
       );
     } finally {
@@ -1258,6 +1872,13 @@ export default function MyTaskDetail() {
                   </Text>
                 </View>
               ) : null}
+
+              <HomeworkUploadQueue
+                items={uploadItems}
+                uploading={uploading}
+                onCancel={cancelUpload}
+                onRetry={retryUpload}
+              />
             </Card>
           </View>
         </View>
@@ -1292,6 +1913,173 @@ function BackButton({ onPress }) {
         Back to my tasks
       </Text>
     </Pressable>
+  );
+}
+
+function HomeworkUploadQueue({
+  items,
+  uploading,
+  onCancel,
+  onRetry,
+}) {
+  if (!items.length) {
+    return null;
+  }
+
+  const visibleItems = items.filter(
+    (item) =>
+      item.status !== "complete",
+  );
+
+  if (!visibleItems.length) {
+    return null;
+  }
+
+  const statusText = {
+    preparing: "Preparing secure upload...",
+    queued: "Waiting to upload...",
+    uploading: "Uploading directly to storage...",
+    confirming: "Saving submission...",
+    confirm_failed:
+      "Uploaded, but not yet saved",
+    failed: "Upload failed",
+    cancelled: "Upload cancelled",
+  };
+
+  return (
+    <View style={styles.uploadQueue}>
+      <Text style={styles.uploadQueueTitle}>
+        Upload progress
+      </Text>
+
+      {visibleItems.map((item) => {
+        const active = [
+          "preparing",
+          "queued",
+          "uploading",
+        ].includes(item.status);
+
+        const retryable = [
+          "failed",
+          "cancelled",
+          "confirm_failed",
+        ].includes(item.status);
+
+        return (
+          <View
+            key={item.clientId}
+            style={styles.uploadQueueItem}
+          >
+            <View
+              style={
+                styles.uploadQueueHeader
+              }
+            >
+              <View
+                style={
+                  styles.uploadQueueFileCopy
+                }
+              >
+                <Text
+                  numberOfLines={1}
+                  style={
+                    styles.uploadQueueFileName
+                  }
+                >
+                  {item.name}
+                </Text>
+
+                <Text
+                  style={
+                    styles.uploadQueueStatus
+                  }
+                >
+                  {statusText[item.status] ||
+                    item.status}
+                  {item.size
+                    ? ` • ${formatFileSize(
+                        item.size,
+                      )}`
+                    : ""}
+                </Text>
+              </View>
+
+              {active ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    onCancel(item)
+                  }
+                  style={
+                    styles.uploadQueueAction
+                  }
+                >
+                  <Text
+                    style={
+                      styles.uploadQueueCancelText
+                    }
+                  >
+                    Cancel
+                  </Text>
+                </Pressable>
+              ) : retryable ? (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={uploading}
+                  onPress={() =>
+                    onRetry(item)
+                  }
+                  style={
+                    styles.uploadQueueAction
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.uploadQueueRetryText,
+                      uploading &&
+                        styles.uploadQueueActionDisabled,
+                    ]}
+                  >
+                    Retry
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View
+              style={styles.uploadProgressTrack}
+            >
+              <View
+                style={[
+                  styles.uploadProgressFill,
+                  {
+                    width: `${Math.max(
+                      0,
+                      Math.min(
+                        100,
+                        Number(
+                          item.progress,
+                        ) || 0,
+                      ),
+                    )}%`,
+                  },
+                  retryable &&
+                    styles.uploadProgressFillError,
+                ]}
+              />
+            </View>
+
+            {item.error ? (
+              <Text
+                style={styles.uploadQueueError}
+              >
+                {item.error}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
+    </View>
   );
 }
 

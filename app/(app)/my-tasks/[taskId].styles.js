@@ -436,6 +436,96 @@ export const styles =
       marginTop: spacing.sm,
     },
 
+    uploadQueue: {
+      gap: spacing.sm,
+      marginTop: spacing.md,
+      paddingTop: spacing.md,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+
+    uploadQueueTitle: {
+      ...typography.bodyBold,
+      color: colors.textPrimary,
+    },
+
+    uploadQueueItem: {
+      gap: spacing.xs,
+      padding: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.background,
+    },
+
+    uploadQueueHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+
+    uploadQueueFileCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    uploadQueueFileName: {
+      ...typography.caption,
+      color: colors.textPrimary,
+      fontWeight: "700",
+    },
+
+    uploadQueueStatus: {
+      fontSize: 11,
+      color: colors.textMuted,
+      marginTop: 2,
+    },
+
+    uploadQueueAction: {
+      minHeight: 36,
+      justifyContent: "center",
+      paddingHorizontal: spacing.xs,
+    },
+
+    uploadQueueCancelText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.danger,
+    },
+
+    uploadQueueRetryText: {
+      fontSize: 12,
+      fontWeight: "800",
+      color: colors.primary,
+    },
+
+    uploadQueueActionDisabled: {
+      opacity: 0.45,
+    },
+
+    uploadProgressTrack: {
+      height: 7,
+      overflow: "hidden",
+      borderRadius: 999,
+      backgroundColor: colors.border,
+    },
+
+    uploadProgressFill: {
+      height: "100%",
+      borderRadius: 999,
+      backgroundColor: colors.primary,
+    },
+
+    uploadProgressFillError: {
+      backgroundColor: colors.danger,
+    },
+
+    uploadQueueError: {
+      fontSize: 11,
+      lineHeight: 16,
+      color: colors.danger,
+    },
+
     submissionFilesList: {
       marginBottom: spacing.md,
     },
