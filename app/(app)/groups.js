@@ -108,6 +108,9 @@ export default function Groups() {
   const canAddStudents =
     canManageGroups || isRegularAssistant;
 
+  const canCreateGroups =
+    canManageGroups || isRegularAssistant;
+
   const canEditStudentDetails =
     user?.role === "TEACHER" ||
     user?.role === "ASSISTANT" ||
@@ -627,6 +630,7 @@ export default function Groups() {
     const name = newGroupName.trim();
 
     if (
+      !canCreateGroups ||
       !name ||
       !selectedYearId ||
       creatingGroup
@@ -650,9 +654,9 @@ export default function Groups() {
         selectedYearId
       );
 
-      if (response.data?.id) {
+      if (response.data?.group?.id) {
         await loadGroupDetail(
-          response.data.id
+          response.data.group.id
         );
       }
     } catch (requestError) {
@@ -1384,7 +1388,10 @@ async function handleAddSelectedStudents() {
             >
               Only groups assigned to your
               assistant account are shown.
-              You can add unassigned students
+              You can create groups in existing
+              academic years and are automatically
+              assigned to groups you create.
+              You can also add unassigned students
               to these groups and update their
               contact information. Year
               structure, assistant assignments,
@@ -1488,7 +1495,7 @@ async function handleAddSelectedStudents() {
                   />
                 </View>
 
-                {canManageGroups ? (
+                {canCreateGroups ? (
                   <View
                     style={
                       styles.inlineForm
