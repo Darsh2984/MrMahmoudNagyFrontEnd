@@ -35,6 +35,7 @@ import {
 } from "./task-detail/useTaskDetail";
 
 import SubmissionCard from "./task-detail/SubmissionCard";
+import { TaskAIGradingProvider, TaskAIReferences } from "../../../src/components/tasks/TaskAIGrading";
 import DelegationModal from "./task-detail/DelegationModal";
 import DelegationHistoryModal from "./task-detail/DelegationHistoryModal";
 import GradingHistoryModal from "./task-detail/GradingHistoryModal";
@@ -425,6 +426,7 @@ export default function TaskDetail() {
   }
 
   return (
+    <TaskAIGradingProvider taskId={taskId} user={user}>
     <Screen
       refreshControl={
         <RefreshControl
@@ -666,6 +668,8 @@ export default function TaskDetail() {
             </View>
           </View>
         </Card>
+
+        <TaskAIReferences gradeOutOf={task.gradeOutOf} />
 
         <View style={styles.statsGrid}>
           <StatCard
@@ -1264,6 +1268,7 @@ export default function TaskDetail() {
         }
       />
     </Screen>
+    </TaskAIGradingProvider>
   );
 }
 

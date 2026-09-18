@@ -25,6 +25,7 @@ import {
 } from "./taskDetail.helpers";
 
 import { GradingForm } from "./GradingForm";
+import { SubmissionAIGrading } from "../../../../src/components/tasks/TaskAIGrading";
 import { styles } from "./taskSubmission.styles";
 function formatDateTime(value) {
   if (!value) {
@@ -371,6 +372,10 @@ export function SubmissionCard({
             onOpenReopen
           }
         />
+      ) : null}
+
+      {isAdminLevel || delegatedToCurrentUser ? (
+        <SubmissionAIGrading submission={submission} />
       ) : null}
 
       {canGrade || isEditingGrade ? (
