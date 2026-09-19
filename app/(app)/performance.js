@@ -12,6 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
@@ -33,6 +34,93 @@ import {
 
 const EXCEL_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const PDF_MIME_TYPE = "application/pdf";
+const ZIP_MIME_TYPE = "application/zip";
+
+function cairoToday() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Africa/Cairo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type) => parts.find((part) => part.type === type)?.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function daysBefore(dateString, days) {
+  const date = new Date(`${dateString}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() - days);
+  return date.toISOString().slice(0, 10);
+}
+
+function isCalendarDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value || "")) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
+function ReportDateInput({ label, value, onChange, disabled }) {
+  const [open, setOpen] = useState(false);
+  const pickerDate = isCalendarDate(value)
+    ? new Date(`${value}T12:00:00`)
+    : new Date();
+
+  return (
+    <View style={styles.reportDateField}>
+      <Text style={styles.reportFieldLabel}>{label}</Text>
+      {Platform.OS === "web" ? (
+        React.createElement("input", {
+          type: "date",
+          value,
+          disabled,
+          "aria-label": label,
+          onChange: (event) => onChange(event.target.value),
+          style: {
+            height: 46,
+            width: "100%",
+            border: `1px solid ${colors.border}`,
+            borderRadius: 10,
+            padding: "0 12px",
+            backgroundColor: "white",
+            color: colors.textPrimary,
+            fontSize: 15,
+          },
+        })
+      ) : (
+        <>
+          <Pressable
+            disabled={disabled}
+            onPress={() => setOpen(true)}
+            style={styles.reportDatePressable}
+          >
+            <Text style={styles.reportDateText}>{value || "Select date"}</Text>
+          </Pressable>
+          {open ? (
+            <>
+              <DateTimePicker
+                value={pickerDate}
+                mode="date"
+                display="default"
+                onChange={(event, date) => {
+                  if (Platform.OS === "android") setOpen(false);
+                  if (event.type === "set" && date) {
+                    onChange(
+                      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`,
+                    );
+                  }
+                }}
+              />
+              {Platform.OS === "ios" ? (
+                <Button title="Done" variant="outline" onPress={() => setOpen(false)} />
+              ) : null}
+            </>
+          ) : null}
+        </>
+      )}
+    </View>
+  );
+}
 
 function StatCard({
   label,
@@ -570,6 +658,9 @@ function TeacherPerformanceView() {
     useState([]);
   const [studentId, setStudentId] =
     useState(null);
+  const [reportStudentIds, setReportStudentIds] = useState([]);
+  const [reportEndDate, setReportEndDate] = useState(cairoToday);
+  const [reportStartDate, setReportStartDate] = useState(() => daysBefore(cairoToday(), 29));
 
   const [data, setData] = useState(null);
 
@@ -587,6 +678,7 @@ function TeacherPerformanceView() {
   const [error, setError] = useState("");
   const [exporting, setExporting] =
     useState(false);
+  const [reportExporting, setReportExporting] = useState(false);
 
   const currentYear = useMemo(
     () =>
@@ -667,6 +759,7 @@ function TeacherPerformanceView() {
       setGroupId(null);
       setMembers([]);
       setStudentId(null);
+      setReportStudentIds([]);
       setData(null);
 
       if (!yearId) {
@@ -723,6 +816,7 @@ function TeacherPerformanceView() {
     async function loadMembers() {
       setMembers([]);
       setStudentId(null);
+      setReportStudentIds([]);
       setData(null);
 
       if (!groupId) {
@@ -752,6 +846,11 @@ function TeacherPerformanceView() {
         setStudentId(
           loadedMembers[0]?.student?.id ||
             null
+        );
+        setReportStudentIds(
+          loadedMembers[0]?.student?.id
+            ? [loadedMembers[0].student.id]
+            : [],
         );
       } catch (requestError) {
         if (!active) {
@@ -872,6 +971,64 @@ function TeacherPerformanceView() {
       );
     } finally {
       setExporting(false);
+    }
+  }
+
+  const allReportStudentIds = members
+    .map((membership) => membership.student?.id)
+    .filter(Boolean);
+  const allReportsSelected =
+    allReportStudentIds.length > 0 &&
+    allReportStudentIds.every((id) => reportStudentIds.includes(id));
+
+  function toggleReportStudent(id) {
+    setReportStudentIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  }
+
+  async function handleReportExport() {
+    if (reportExporting || !groupId) return;
+    if (!reportStudentIds.length) {
+      setError("Select at least one student for the PDF report.");
+      return;
+    }
+    if (
+      !isCalendarDate(reportStartDate) ||
+      !isCalendarDate(reportEndDate) ||
+      reportStartDate > reportEndDate
+    ) {
+      setError("Choose a valid start and end date. The start must be before or on the end date.");
+      return;
+    }
+
+    setReportExporting(true);
+    setError("");
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Authentication token is missing.");
+      const isAll = allReportsSelected;
+      const ids = isAll ? "all" : reportStudentIds.join(",");
+      const query = `startDate=${encodeURIComponent(reportStartDate)}&endDate=${encodeURIComponent(reportEndDate)}&studentIds=${encodeURIComponent(ids)}`;
+      const exportUrl = `${resolveApiBaseUrl()}/api/performance/export/reports/${encodeURIComponent(groupId)}?${query}`;
+      const multiple = reportStudentIds.length > 1;
+      const student = members.find((membership) => membership.student?.id === reportStudentIds[0])?.student;
+      const fileName = multiple
+        ? `${sanitizeFileName(currentGroup?.name || "Group")}-Student-Reports-${reportStartDate}-to-${reportEndDate}.zip`
+        : `${sanitizeFileName(student?.name || "Student")}-Report-${reportStartDate}-to-${reportEndDate}.pdf`;
+      const mimeType = multiple ? ZIP_MIME_TYPE : PDF_MIME_TYPE;
+
+      if (Platform.OS === "web") {
+        await exportOnWeb({ exportUrl, token, fileName, mimeType });
+      } else {
+        await exportOnNative({ exportUrl, token, fileName, mimeType });
+      }
+    } catch (requestError) {
+      setError(requestError.message || "Couldn't generate student reports.");
+    } finally {
+      setReportExporting(false);
     }
   }
 
@@ -1125,6 +1282,76 @@ function TeacherPerformanceView() {
             </View>
           </Card>
 
+          {groupId ? (
+            <Card style={styles.reportCard}>
+              <View style={styles.reportHeader}>
+                <View style={styles.reportHeaderCopy}>
+                  <Text style={styles.reportEyebrow}>SHAREABLE REPORTS</Text>
+                  <Text style={styles.reportTitle}>Student performance PDFs</Text>
+                  <Text style={styles.filterDescription}>
+                    Choose Egypt dates and one or more students. Each student gets a separate PDF; multiple PDFs are downloaded together as a ZIP.
+                  </Text>
+                </View>
+                <Badge label={`${reportStudentIds.length} selected`} tone="success" />
+              </View>
+
+              <View style={styles.reportDateRow}>
+                <ReportDateInput
+                  label="Start date"
+                  value={reportStartDate}
+                  onChange={setReportStartDate}
+                  disabled={reportExporting}
+                />
+                <ReportDateInput
+                  label="End date"
+                  value={reportEndDate}
+                  onChange={setReportEndDate}
+                  disabled={reportExporting}
+                />
+              </View>
+
+              <Text style={styles.reportFieldLabel}>Students in {currentGroup?.name || "group"}</Text>
+              <View style={styles.reportQuickActions}>
+                <SelectionChip
+                  label={allReportsSelected ? "All selected" : "Select all students"}
+                  selected={allReportsSelected}
+                  disabled={reportExporting || membersLoading || !allReportStudentIds.length}
+                  onPress={() => setReportStudentIds(allReportStudentIds)}
+                />
+                <SelectionChip
+                  label="Clear selection"
+                  selected={false}
+                  disabled={reportExporting || !reportStudentIds.length}
+                  onPress={() => setReportStudentIds([])}
+                />
+              </View>
+              <View style={styles.studentChipRow}>
+                {members.map((membership) => (
+                  <SelectionChip
+                    key={`report-${membership.student.id}`}
+                    label={membership.student.name}
+                    selected={reportStudentIds.includes(membership.student.id)}
+                    disabled={reportExporting}
+                    onPress={() => toggleReportStudent(membership.student.id)}
+                  />
+                ))}
+              </View>
+
+              <View style={styles.reportFooter}>
+                <Text style={styles.reportHint}>
+                  Includes attendance by session date, tasks by deadline, in-class quizzes by quiz date, and published quizzes by start or publication date. Both selected dates are included.
+                </Text>
+                <Button
+                  title={reportExporting ? "Creating reports..." : reportStudentIds.length > 1 ? `Download ${reportStudentIds.length} PDFs (ZIP)` : "Download PDF report"}
+                  variant="secondary"
+                  onPress={handleReportExport}
+                  loading={reportExporting}
+                  disabled={reportExporting || !reportStudentIds.length}
+                />
+              </View>
+            </Card>
+          ) : null}
+
           <View style={styles.resultsHeader}>
             <View>
               <Text style={styles.resultsTitle}>
@@ -1300,12 +1527,13 @@ async function exportOnWeb({
   exportUrl,
   token,
   fileName,
+  mimeType = EXCEL_MIME_TYPE,
 }) {
   const response = await fetch(exportUrl, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
-      Accept: EXCEL_MIME_TYPE,
+      Accept: mimeType,
     },
   });
 
@@ -1341,6 +1569,7 @@ async function exportOnNative({
   exportUrl,
   token,
   fileName,
+  mimeType = EXCEL_MIME_TYPE,
 }) {
   if (!FileSystem.cacheDirectory) {
     throw new Error(
@@ -1358,7 +1587,7 @@ async function exportOnNative({
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          Accept: EXCEL_MIME_TYPE,
+          Accept: mimeType,
         },
       }
     );
@@ -1387,11 +1616,14 @@ async function exportOnNative({
 
   try {
     await Sharing.shareAsync(result.uri, {
-      mimeType: EXCEL_MIME_TYPE,
+      mimeType,
       dialogTitle:
         "Save or share performance report",
-      UTI:
-        "org.openxmlformats.spreadsheetml.sheet",
+      UTI: mimeType === PDF_MIME_TYPE
+        ? "com.adobe.pdf"
+        : mimeType === ZIP_MIME_TYPE
+          ? "public.zip-archive"
+          : "org.openxmlformats.spreadsheetml.sheet",
     });
   } finally {
     /*
@@ -1549,6 +1781,92 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: spacing.xs,
     textAlign: "right",
+  },
+
+  reportCard: {
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: `${colors.secondary}55`,
+  },
+  reportHeader: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  reportHeaderCopy: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 260,
+  },
+  reportEyebrow: {
+    ...typography.caption,
+    color: colors.secondary,
+    fontWeight: "800",
+    letterSpacing: 1,
+    marginBottom: spacing.xs,
+  },
+  reportTitle: {
+    ...typography.h3,
+    color: colors.primary,
+    marginBottom: spacing.xs,
+  },
+  reportDateRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  reportDateField: {
+    flexGrow: 1,
+    flexBasis: 190,
+    gap: spacing.xs,
+  },
+  reportFieldLabel: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  reportDatePressable: {
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+    paddingHorizontal: spacing.md,
+    justifyContent: "center",
+  },
+  reportDateText: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
+  reportQuickActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  reportFooter: {
+    marginTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  reportHint: {
+    ...typography.caption,
+    color: colors.textMuted,
+    lineHeight: 19,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 260,
   },
 
   errorBanner: {

@@ -41,7 +41,57 @@ import { colors } from "../../../src/theme";
 import { styles } from "./[taskId].styles";
 
 const MAX_HOMEWORK_FILES = 20;
+const MAX_HOMEWORK_FILE_SIZE_BYTES =
+  50 * 1024 * 1024;
 const MAX_PARALLEL_UPLOADS = 2;
+
+async function readWebUploadBody(asset) {
+  const reportedSize = Number(
+    asset.file?.size ?? asset.size,
+  );
+
+  if (
+    Number.isFinite(reportedSize) &&
+    reportedSize > MAX_HOMEWORK_FILE_SIZE_BYTES
+  ) {
+    throw new Error(
+      `"${asset.name || "This file"}" is larger than the 50 MB homework limit.`,
+    );
+  }
+
+  try {
+    let bytes;
+
+    if (asset.file?.arrayBuffer) {
+      bytes = await asset.file.arrayBuffer();
+    } else {
+      const response = await fetch(asset.uri);
+
+      if (!response.ok) {
+        throw new Error("The selected file is unavailable.");
+      }
+
+      bytes = await response.arrayBuffer();
+    }
+
+    if (!bytes.byteLength) {
+      throw new Error("The selected file is empty.");
+    }
+
+    if (
+      bytes.byteLength >
+      MAX_HOMEWORK_FILE_SIZE_BYTES
+    ) {
+      throw new Error("The selected file is too large.");
+    }
+
+    return bytes;
+  } catch {
+    throw new Error(
+      `Could not read "${asset.name || "this file"}". If it is in Google Drive, open it there and try again, or save a copy to your phone first.`,
+    );
+  }
+}
 
 function getErrorMessage(error, fallback) {
   return (
@@ -85,6 +135,7 @@ function createUploadClientId() {
 async function uploadAssetToSignedUrl({
   asset,
   upload,
+  webBody,
   onProgress,
   onCancelReady,
 }) {
@@ -152,22 +203,6 @@ async function uploadAssetToSignedUrl({
     return;
   }
 
-  let uploadBody = asset.file;
-
-  if (!uploadBody) {
-    const fileResponse =
-      await fetch(asset.uri);
-
-    if (!fileResponse.ok) {
-      throw new Error(
-        `The file "${asset.name}" could not be prepared for upload.`,
-      );
-    }
-
-    uploadBody =
-      await fileResponse.blob();
-  }
-
   await new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
@@ -213,7 +248,7 @@ async function uploadAssetToSignedUrl({
     xhr.onerror = () =>
       reject(
         new Error(
-          "Direct upload failed. Check the connection and try again.",
+          "The file could not reach storage. Tap Retry. If this keeps happening, try another connection or browser.",
         ),
       );
 
@@ -222,7 +257,7 @@ async function uploadAssetToSignedUrl({
         new Error("UPLOAD_CANCELLED"),
       );
 
-    xhr.send(uploadBody);
+    xhr.send(webBody);
   });
 }
 
@@ -633,50 +668,8 @@ export default function MyTaskDetail() {
         );
       });
 
-      const prepareResponse =
-        await api.post(
-          `/submissions/task/${taskId}/uploads/prepare`,
-          {
-            files: queuedItems.map(
-              (item) => ({
-                clientId:
-                  item.clientId,
-                name: item.asset.name,
-                contentType:
-                  item.asset.mimeType ||
-                  item.asset.type ||
-                  "application/octet-stream",
-                size: item.asset.size,
-              }),
-            ),
-          },
-        );
-
-      const preparedUploads =
-        prepareResponse.data?.uploads || [];
-
-      const preparedById = new Map(
-        preparedUploads.map((upload) => [
-          upload.clientId,
-          upload,
-        ]),
-      );
-
-      preparedUploads.forEach((upload) => {
-        preparedKeys.push(
-          upload.objectKey,
-        );
-        updateUploadItem(
-          upload.clientId,
-          {
-            status: "queued",
-            objectKey:
-              upload.objectKey,
-          },
-        );
-      });
-
       let nextIndex = 0;
+      const failed = [];
 
       async function worker() {
         while (
@@ -685,23 +678,6 @@ export default function MyTaskDetail() {
           const item =
             queuedItems[nextIndex];
           nextIndex += 1;
-
-          const upload =
-            preparedById.get(
-              item.clientId,
-            );
-
-          if (!upload) {
-            updateUploadItem(
-              item.clientId,
-              {
-                status: "failed",
-                error:
-                  "The server did not prepare this file.",
-              },
-            );
-            continue;
-          }
 
           if (
             cancelledUploadIdsRef.current.has(
@@ -715,15 +691,97 @@ export default function MyTaskDetail() {
             continue;
           }
 
-          updateUploadItem(
-            item.clientId,
-            { status: "uploading" },
-          );
-
           try {
+            // Read cloud-provider files before starting the signed URL clock.
+            const webBody =
+              Platform.OS === "web"
+                ? await readWebUploadBody(
+                    item.asset,
+                  )
+                : null;
+
+            if (
+              cancelledUploadIdsRef.current.has(
+                item.clientId,
+              )
+            ) {
+              updateUploadItem(
+                item.clientId,
+                { status: "cancelled" },
+              );
+              continue;
+            }
+
+            const prepareResponse =
+              await api.post(
+                `/submissions/task/${taskId}/uploads/prepare`,
+                {
+                  files: [
+                    {
+                      clientId: item.clientId,
+                      name: item.asset.name,
+                      contentType:
+                        item.asset.mimeType ||
+                        item.asset.file?.type ||
+                        item.asset.type ||
+                        "application/octet-stream",
+                      size:
+                        webBody?.byteLength ||
+                        item.asset.size,
+                    },
+                  ],
+                },
+              );
+
+            const upload =
+              prepareResponse.data?.uploads?.find(
+                (entry) =>
+                  entry.clientId ===
+                  item.clientId,
+              );
+
+            if (
+              !upload?.uploadUrl ||
+              !upload?.objectKey
+            ) {
+              throw new Error(
+                "The server did not prepare this file. Tap Retry.",
+              );
+            }
+
+            preparedKeys.push(
+              upload.objectKey,
+            );
+            updateUploadItem(
+              item.clientId,
+              {
+                status: "queued",
+                objectKey:
+                  upload.objectKey,
+              },
+            );
+
+            if (
+              cancelledUploadIdsRef.current.has(
+                item.clientId,
+              )
+            ) {
+              updateUploadItem(
+                item.clientId,
+                { status: "cancelled" },
+              );
+              continue;
+            }
+
+            updateUploadItem(
+              item.clientId,
+              { status: "uploading" },
+            );
+
             await uploadAssetToSignedUrl({
               asset: item.asset,
               upload,
+              webBody,
               onProgress: (progress) =>
                 updateUploadItem(
                   item.clientId,
@@ -780,18 +838,24 @@ export default function MyTaskDetail() {
                 item.clientId,
               );
 
+            const message = cancelled
+              ? "Upload cancelled."
+              : getErrorMessage(
+                  uploadError,
+                  "Upload failed.",
+                );
+
+            if (!cancelled) {
+              failed.push(message);
+            }
+
             updateUploadItem(
               item.clientId,
               {
                 status: cancelled
                   ? "cancelled"
                   : "failed",
-                error: cancelled
-                  ? "Upload cancelled."
-                  : getErrorMessage(
-                      uploadError,
-                      "Upload failed.",
-                    ),
+                error: message,
               },
             );
           }
@@ -802,7 +866,9 @@ export default function MyTaskDetail() {
         Array.from(
           {
             length: Math.min(
-              MAX_PARALLEL_UPLOADS,
+              Platform.OS === "web"
+                ? 1
+                : MAX_PARALLEL_UPLOADS,
               queuedItems.length,
             ),
           },
@@ -869,6 +935,14 @@ export default function MyTaskDetail() {
             !completedKeys.has(key),
         ),
       );
+
+      if (failed.length) {
+        setError(
+          failed.length === 1
+            ? failed[0]
+            : `${failed.length} files could not be uploaded. Tap Retry next to each file. ${failed[0]}`,
+        );
+      }
     } catch (requestError) {
       const completedIds = new Set(
         completed.map(
@@ -886,7 +960,8 @@ export default function MyTaskDetail() {
         current.map((item) =>
           affectedIds.has(item.clientId) &&
           item.status !== "complete" &&
-          item.status !== "cancelled"
+          item.status !== "cancelled" &&
+          item.status !== "failed"
             ? {
                 ...item,
                 status:
