@@ -148,6 +148,9 @@ export default function Register() {
 
   const [accessCode, setAccessCode] =
     useState("");
+  const [verificationEmail, setVerificationEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationMessage, setVerificationMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] =
     useState(false);
@@ -454,27 +457,53 @@ export default function Register() {
           : undefined,
       };
 
-      const response = await api.post(
+      await api.post(
         "/auth/register-student",
         payload
       );
-
-      const generatedAccessCode =
-        response.data?.user?.accessCode;
-
-      if (!generatedAccessCode) {
-        throw new Error(
-          "Access code was not returned."
-        );
-      }
-
-      setAccessCode(generatedAccessCode);
+      setVerificationEmail(payload.email);
+      setVerificationMessage("We sent a verification link and six-digit code. Check your inbox and spam folder.");
     } catch (requestError) {
       setError(
         requestError.response?.data?.msg ||
           requestError.response?.data?.message ||
           "Registration could not be completed. Please try again."
       );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleVerifyCode() {
+    if (loading || !/^\d{6}$/.test(verificationCode.trim())) {
+      setError("Enter the six-digit code from your email.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const response = await api.post("/auth/verify-student-email", {
+        email: verificationEmail,
+        code: verificationCode.trim(),
+      });
+      setAccessCode(response.data?.user?.accessCode || "");
+      if (!response.data?.user?.accessCode) throw new Error("Access code was not returned.");
+    } catch (requestError) {
+      setError(requestError.response?.data?.msg || requestError.message || "Could not verify your email.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    if (loading) return;
+    setLoading(true);
+    setError("");
+    try {
+      await api.post("/auth/resend-student-verification", { email: verificationEmail });
+      setVerificationMessage("If registration is pending, another email is on its way. Please wait one minute between requests.");
+    } catch (requestError) {
+      setError(requestError.response?.data?.msg || "Could not resend the email.");
     } finally {
       setLoading(false);
     }
@@ -552,6 +581,36 @@ export default function Register() {
               }
               style={styles.fullWidthButton}
             />
+          </Card>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  if (verificationEmail) {
+    return (
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.page}>
+        <View style={styles.successContainer}>
+          <Card style={styles.successCard}>
+            <Text style={styles.successEyebrow}>VERIFY YOUR EMAIL</Text>
+            <Text style={styles.successTitle}>Check your inbox</Text>
+            <Text style={styles.successDescription}>
+              We sent a link and a six-digit code to {verificationEmail}. Your account will be created after verification. The code expires in 30 minutes.
+            </Text>
+            <Text style={styles.successDescription}>{verificationMessage}</Text>
+            <TextInput
+              accessibilityLabel="Six-digit verification code"
+              value={verificationCode}
+              onChangeText={setVerificationCode}
+              placeholder="Six-digit code"
+              keyboardType="number-pad"
+              maxLength={6}
+              style={styles.verificationInput}
+            />
+            {error ? <Text accessibilityRole="alert" style={styles.errorText}>{error}</Text> : null}
+            <Button title="Verify email and create account" onPress={handleVerifyCode} loading={loading} disabled={loading} style={styles.fullWidthButton} />
+            <Button title="Resend email" onPress={handleResend} disabled={loading} style={styles.fullWidthButton} />
+            <Button title="Change email or details" onPress={() => { setVerificationEmail(""); setVerificationCode(""); setError(""); }} disabled={loading} style={styles.fullWidthButton} />
           </Card>
         </View>
       </ScrollView>
@@ -830,7 +889,7 @@ export default function Register() {
           ) : null}
 
           <Button
-            title="Create account"
+            title="Send verification email"
             onPress={handleRegister}
             loading={loading}
             disabled={
@@ -1995,6 +2054,19 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 500,
     alignSelf: "center",
+  },
+
+  verificationInput: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    fontSize: 22,
+    textAlign: "center",
+    letterSpacing: 4,
+    marginBottom: spacing.md,
+    color: colors.textPrimary,
   },
 
   successCard: {
