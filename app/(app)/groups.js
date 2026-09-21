@@ -96,6 +96,7 @@ export default function Groups() {
   const { width } = useWindowDimensions();
 
   const isCompact = width < 900;
+  const isMobile = width < 640;
 
   const isRegularAssistant =
     user?.role === "ASSISTANT" &&
@@ -1425,34 +1426,98 @@ async function handleAddSelectedStudents() {
             description="Choose a year to view and manage its groups."
           />
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={
-              false
-            }
-            contentContainerStyle={
-              styles.yearChipRow
-            }
-          >
-            {years.map((year) => (
-              <SelectionChip
-                key={year.id}
-                label={year.name}
-                selected={
-                  year.id ===
-                  selectedYearId
-                }
-                disabled={
-                  groupsLoading
-                }
-                onPress={() =>
-                  setSelectedYearId(
-                    year.id
-                  )
-                }
+          {isMobile && selectedYear ? (
+            <View
+              style={
+                styles.selectedYearBanner
+              }
+            >
+              <MaterialCommunityIcons
+                name="calendar-check"
+                size={18}
+                color={colors.primary}
               />
-            ))}
-          </ScrollView>
+
+              <View
+                style={
+                  styles.selectedYearBannerText
+                }
+              >
+                <Text
+                  style={
+                    styles.selectedYearLabel
+                  }
+                >
+                  Selected academic year
+                </Text>
+
+                <Text
+                  style={
+                    styles.selectedYearName
+                  }
+                >
+                  {selectedYear.name}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
+          {isMobile ? (
+            <View
+              style={[
+                styles.yearChipRow,
+                styles.yearChipRowWrapped,
+              ]}
+            >
+              {years.map((year) => (
+                <SelectionChip
+                  key={year.id}
+                  label={year.name}
+                  selected={
+                    year.id ===
+                    selectedYearId
+                  }
+                  disabled={
+                    groupsLoading
+                  }
+                  onPress={() =>
+                    setSelectedYearId(
+                      year.id
+                    )
+                  }
+                />
+              ))}
+            </View>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={
+                false
+              }
+              contentContainerStyle={
+                styles.yearChipRow
+              }
+            >
+              {years.map((year) => (
+                <SelectionChip
+                  key={year.id}
+                  label={year.name}
+                  selected={
+                    year.id ===
+                    selectedYearId
+                  }
+                  disabled={
+                    groupsLoading
+                  }
+                  onPress={() =>
+                    setSelectedYearId(
+                      year.id
+                    )
+                  }
+                />
+              ))}
+            </ScrollView>
+          )}
 
           <View
             style={[
@@ -2626,7 +2691,9 @@ async function handleAddSelectedStudents() {
                                     />
 
                                     <Text
-                                      numberOfLines={1}
+                                      numberOfLines={
+                                        isMobile ? 2 : 1
+                                      }
                                       style={[
                                         styles.unassignedMetaText,
                                         student.desiredYear?.name &&
@@ -3916,7 +3983,7 @@ function SelectionChip({
       />
 
       <Text
-        numberOfLines={1}
+        numberOfLines={2}
         style={[
           styles.selectionChipText,
 

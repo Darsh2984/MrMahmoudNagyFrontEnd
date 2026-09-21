@@ -333,9 +333,44 @@ export const styles =
       paddingBottom: spacing.lg,
     },
 
+    yearChipRowWrapped: {
+      flexWrap: "wrap",
+      paddingBottom: spacing.md,
+    },
+
+    selectedYearBanner: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.xs,
+      marginBottom: spacing.sm,
+      padding: spacing.sm,
+      borderWidth: 1,
+      borderColor: `${colors.primary}25`,
+      borderRadius: radius.md,
+      backgroundColor: `${colors.primary}08`,
+    },
+
+    selectedYearBannerText: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    selectedYearLabel: {
+      ...typography.caption,
+      color: colors.textMuted,
+      marginBottom: 2,
+    },
+
+    selectedYearName: {
+      ...typography.bodyBold,
+      color: colors.primary,
+      lineHeight: 21,
+    },
+
     selectionChip: {
       minHeight: 43,
       maxWidth: 260,
+      flexShrink: 1,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -360,6 +395,8 @@ export const styles =
     selectionChipText: {
       fontSize: 13,
       fontWeight: "700",
+      flexShrink: 1,
+      minWidth: 0,
       color: colors.textPrimary,
     },
 
@@ -1060,6 +1097,7 @@ export const styles =
     unassignedMetaText: {
       ...typography.caption,
       flexShrink: 1,
+      minWidth: 0,
       color: colors.textMuted,
     },
 
