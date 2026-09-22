@@ -58,10 +58,20 @@ export const styles =
       overflow: "hidden",
     },
 
+    pageHeaderMobile: {
+      padding: spacing.md,
+      marginBottom: spacing.md,
+      borderRadius: radius.md,
+    },
+
     pageHeaderMain: {
       flexDirection: "row",
       alignItems: "flex-start",
       gap: spacing.md,
+    },
+
+    pageHeaderMainMobile: {
+      gap: spacing.sm,
     },
 
     pageHeaderIcon: {
@@ -72,6 +82,12 @@ export const styles =
       borderRadius: radius.md,
       backgroundColor:
         "rgba(255,255,255,0.14)",
+    },
+
+    pageHeaderIconMobile: {
+      width: 42,
+      height: 42,
+      borderRadius: radius.sm,
     },
 
     pageHeaderText: {
@@ -94,10 +110,21 @@ export const styles =
       marginBottom: spacing.xs,
     },
 
+    pageTitleMobile: {
+      fontSize: 24,
+      lineHeight: 29,
+      marginBottom: 3,
+    },
+
     pageSubtitle: {
       ...typography.body,
       color: "#E4ECEA",
       lineHeight: 22,
+    },
+
+    pageSubtitleMobile: {
+      fontSize: 13,
+      lineHeight: 19,
     },
 
     summaryGrid: {
@@ -105,6 +132,11 @@ export const styles =
       flexWrap: "wrap",
       gap: spacing.sm,
       marginBottom: spacing.lg,
+    },
+
+    summaryGridMobile: {
+      gap: spacing.xs,
+      marginBottom: spacing.md,
     },
 
     summaryCard: {
@@ -193,6 +225,10 @@ export const styles =
       alignItems: "center",
       gap: spacing.sm,
       marginBottom: spacing.md,
+    },
+
+    mobileHeaderRow: {
+      alignItems: "flex-start",
     },
 
     creationHeaderIcon: {
@@ -301,6 +337,16 @@ export const styles =
       minWidth: 125,
     },
 
+    mobileFullButton: {
+      width: "100%",
+      alignSelf: "stretch",
+    },
+
+    mobilePanel: {
+      padding: spacing.sm,
+      borderRadius: radius.md,
+    },
+
     sectionHeader: {
       marginBottom: spacing.sm,
     },
@@ -325,6 +371,52 @@ export const styles =
       color: colors.textMuted,
       lineHeight: 18,
       marginTop: 4,
+    },
+
+    managementShell: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.md,
+    },
+
+    managementShellCompact: {
+      flexDirection: "column",
+    },
+
+    yearPanel: {
+      flexGrow: 0,
+      flexShrink: 0,
+      flexBasis: 270,
+      padding: spacing.md,
+    },
+
+    yearPanelCompact: {
+      width: "100%",
+      minWidth: 0,
+      flexBasis: "auto",
+      flexGrow: 0,
+      flexShrink: 0,
+    },
+
+    managementBody: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    managementBodyMobile: {
+      width: "100%",
+      flexBasis: "auto",
+    },
+
+    yearListScroll: {
+      width: "100%",
+      maxHeight: 320,
+      marginTop: spacing.md,
+    },
+
+    yearList: {
+      gap: spacing.xs,
+      paddingBottom: spacing.xs,
     },
 
     yearChipRow: {
@@ -386,6 +478,12 @@ export const styles =
         colors.white,
     },
 
+    selectionChipWide: {
+      width: "100%",
+      maxWidth: "100%",
+      justifyContent: "flex-start",
+    },
+
     selectionChipSelected: {
       borderColor: colors.primary,
       backgroundColor:
@@ -405,6 +503,7 @@ export const styles =
     },
 
     workspace: {
+      width: "100%",
       flexDirection: "row",
       alignItems: "flex-start",
       gap: spacing.md,
@@ -415,10 +514,10 @@ export const styles =
     },
 
     groupsColumn: {
-      flexGrow: 0.85,
+      flexGrow: 0.75,
       flexShrink: 1,
-      flexBasis: 310,
-      minWidth: 270,
+      flexBasis: 300,
+      minWidth: 280,
     },
 
     rosterColumn: {
@@ -431,6 +530,9 @@ export const styles =
     fullWidthColumn: {
       width: "100%",
       minWidth: 0,
+      flexBasis: "auto",
+      flexGrow: 0,
+      flexShrink: 0,
     },
 
     columnCard: {
@@ -444,6 +546,12 @@ export const styles =
         "space-between",
       gap: spacing.sm,
       marginBottom: spacing.md,
+    },
+
+    columnHeaderMobile: {
+      flexDirection: "column",
+      alignItems: "stretch",
+      gap: spacing.xs,
     },
 
     countBadge: {
@@ -588,6 +696,13 @@ export const styles =
       gap: spacing.md,
     },
 
+    rosterHeaderMobile: {
+      flexDirection: "column",
+      flexWrap: "nowrap",
+      alignItems: "stretch",
+      gap: spacing.sm,
+    },
+
     rosterIdentity: {
       flexGrow: 1,
       flexShrink: 1,
@@ -596,6 +711,13 @@ export const styles =
       flexDirection: "row",
       alignItems: "center",
       gap: spacing.sm,
+    },
+
+    rosterIdentityMobile: {
+      width: "100%",
+      flexBasis: "auto",
+      flexGrow: 0,
+      alignItems: "flex-start",
     },
 
     rosterHeaderIcon: {
@@ -1040,8 +1162,6 @@ export const styles =
 
     unassignedRow: {
       minHeight: 62,
-      flexDirection: "row",
-      alignItems: "center",
       gap: spacing.sm,
       padding: spacing.sm,
       borderWidth: 1,
@@ -1053,6 +1173,12 @@ export const styles =
     unassignedRowSelected: {
       borderColor: colors.primary,
       backgroundColor: `${colors.primary}0D`,
+    },
+
+    unassignedMainRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
     },
 
     studentCheckbox: {
@@ -1104,6 +1230,52 @@ export const styles =
     unassignedDesiredYearText: {
       color: colors.primary,
       fontWeight: "700",
+    },
+
+    unassignedYearBlock: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      gap: spacing.xs,
+      padding: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.background,
+    },
+
+    unassignedYearBlockActive: {
+      borderColor: `${colors.primary}35`,
+      backgroundColor: `${colors.primary}08`,
+    },
+
+    unassignedYearIcon: {
+      width: 30,
+      height: 30,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 15,
+      backgroundColor: colors.white,
+    },
+
+    unassignedYearContent: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    unassignedYearLabel: {
+      ...typography.caption,
+      color: colors.textMuted,
+      marginBottom: 2,
+    },
+
+    unassignedYearValue: {
+      ...typography.bodyBold,
+      color: colors.textPrimary,
+      lineHeight: 21,
+    },
+
+    unassignedYearValueActive: {
+      color: colors.primary,
     },
 
     addStudentAction: {

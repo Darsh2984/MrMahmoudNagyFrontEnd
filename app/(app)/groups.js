@@ -1176,13 +1176,25 @@ async function handleAddSelectedStudents() {
   return (
     <Screen>
       <View
-        style={styles.pageHeader}
+        style={[
+          styles.pageHeader,
+          isMobile &&
+            styles.pageHeaderMobile,
+        ]}
       >
         <View
-          style={styles.pageHeaderMain}
+          style={[
+            styles.pageHeaderMain,
+            isMobile &&
+              styles.pageHeaderMainMobile,
+          ]}
         >
           <View
-            style={styles.pageHeaderIcon}
+            style={[
+              styles.pageHeaderIcon,
+              isMobile &&
+                styles.pageHeaderIconMobile,
+            ]}
           >
             <MaterialCommunityIcons
               name="account-group"
@@ -1201,7 +1213,11 @@ async function handleAddSelectedStudents() {
             </Text>
 
             <Text
-              style={styles.pageTitle}
+              style={[
+                styles.pageTitle,
+                isMobile &&
+                  styles.pageTitleMobile,
+              ]}
             >
               {isRegularAssistant
                 ? "My Assigned Groups"
@@ -1209,13 +1225,19 @@ async function handleAddSelectedStudents() {
             </Text>
 
             <Text
-              style={
-                styles.pageSubtitle
-              }
+              style={[
+                styles.pageSubtitle,
+                isMobile &&
+                  styles.pageSubtitleMobile,
+              ]}
             >
               {isRegularAssistant
-                ? "View your assigned groups and manage the contact information of their students."
-                : "Organize academic years, groups, assistants, student membership, session links, and parent contact information."}
+                ? isMobile
+                  ? "Manage your assigned groups and students."
+                  : "View your assigned groups and manage the contact information of their students."
+                : isMobile
+                  ? "Manage years, groups, assistants, and students."
+                  : "Organize academic years, groups, assistants, student membership, session links, and parent contact information."}
             </Text>
           </View>
         </View>
@@ -1227,7 +1249,11 @@ async function handleAddSelectedStudents() {
       />
 
       <View
-        style={styles.summaryGrid}
+        style={[
+          styles.summaryGrid,
+          isMobile &&
+            styles.summaryGridMobile,
+        ]}
       >
         <SummaryCard
           icon="calendar-text-outline"
@@ -1264,12 +1290,20 @@ async function handleAddSelectedStudents() {
 
       {canManageGroups ? (
         <Card
-          style={styles.creationCard}
+          style={[
+            styles.creationCard,
+            isMobile &&
+              styles.mobilePanel,
+          ]}
         >
           <View
-            style={
-              styles.creationHeader
-            }
+              style={
+                [
+                  styles.creationHeader,
+                  isMobile &&
+                    styles.mobileHeaderRow,
+                ]
+              }
           >
             <View
               style={
@@ -1346,7 +1380,11 @@ async function handleAddSelectedStudents() {
                 !newYearName.trim()
               }
               style={
-                styles.createYearButton
+                [
+                  styles.createYearButton,
+                  isMobile &&
+                    styles.mobileFullButton,
+                ]
               }
             />
           </View>
@@ -1354,7 +1392,11 @@ async function handleAddSelectedStudents() {
       ) : (
         <Card
           style={
-            styles.assistantNoticeCard
+            [
+              styles.assistantNoticeCard,
+              isMobile &&
+                styles.mobilePanel,
+            ]
           }
         >
           <View
@@ -1420,104 +1462,99 @@ async function handleAddSelectedStudents() {
         />
       ) : (
         <>
-          <SectionHeader
-            icon="calendar-month-outline"
-            title="Academic years"
-            description="Choose a year to view and manage its groups."
-          />
-
-          {isMobile && selectedYear ? (
-            <View
-              style={
-                styles.selectedYearBanner
-              }
-            >
-              <MaterialCommunityIcons
-                name="calendar-check"
-                size={18}
-                color={colors.primary}
-              />
-
-              <View
-                style={
-                  styles.selectedYearBannerText
-                }
-              >
-                <Text
-                  style={
-                    styles.selectedYearLabel
-                  }
-                >
-                  Selected academic year
-                </Text>
-
-                <Text
-                  style={
-                    styles.selectedYearName
-                  }
-                >
-                  {selectedYear.name}
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          {isMobile ? (
-            <View
+          <View
+            style={[
+              styles.managementShell,
+              isCompact &&
+                styles.managementShellCompact,
+            ]}
+          >
+            <Card
               style={[
-                styles.yearChipRow,
-                styles.yearChipRowWrapped,
+                styles.yearPanel,
+                isCompact &&
+                  styles.yearPanelCompact,
+                isMobile &&
+                  styles.mobilePanel,
               ]}
             >
-              {years.map((year) => (
-                <SelectionChip
-                  key={year.id}
-                  label={year.name}
-                  selected={
-                    year.id ===
-                    selectedYearId
+              <SectionHeader
+                icon="calendar-month-outline"
+                title="Academic years"
+                description={
+                  isMobile
+                    ? "Choose a year to continue."
+                    : "Choose the year first, then manage its groups and students."
+                }
+                compact
+              />
+
+              {selectedYear ? (
+                <View
+                  style={
+                    styles.selectedYearBanner
                   }
-                  disabled={
-                    groupsLoading
-                  }
-                  onPress={() =>
-                    setSelectedYearId(
-                      year.id
-                    )
-                  }
-                />
-              ))}
-            </View>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={
-                false
-              }
-              contentContainerStyle={
-                styles.yearChipRow
-              }
+                >
+                  <MaterialCommunityIcons
+                    name="calendar-check"
+                    size={18}
+                    color={colors.primary}
+                  />
+
+                  <View
+                    style={
+                      styles.selectedYearBannerText
+                    }
+                  >
+                    <Text
+                      style={
+                        styles.selectedYearLabel
+                      }
+                    >
+                      Selected academic year
+                    </Text>
+
+                    <Text
+                      style={
+                        styles.selectedYearName
+                      }
+                    >
+                      {selectedYear.name}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              <ScrollView
+                style={styles.yearListScroll}
+                contentContainerStyle={styles.yearList}
+                showsVerticalScrollIndicator
+                nestedScrollEnabled
+              >
+                {years.map((year) => (
+                  <SelectionChip
+                    key={year.id}
+                    label={year.name}
+                    selected={
+                      year.id === selectedYearId
+                    }
+                    disabled={groupsLoading}
+                    wide
+                    onPress={() =>
+                      setSelectedYearId(year.id)
+                    }
+                  />
+                ))}
+              </ScrollView>
+            </Card>
+
+            <View
+              style={[
+                styles.managementBody,
+                isMobile &&
+                  styles.managementBodyMobile,
+              ]}
             >
-              {years.map((year) => (
-                <SelectionChip
-                  key={year.id}
-                  label={year.name}
-                  selected={
-                    year.id ===
-                    selectedYearId
-                  }
-                  disabled={
-                    groupsLoading
-                  }
-                  onPress={() =>
-                    setSelectedYearId(
-                      year.id
-                    )
-                  }
-                />
-              ))}
-            </ScrollView>
-          )}
 
           <View
             style={[
@@ -1536,12 +1573,18 @@ async function handleAddSelectedStudents() {
               ]}
             >
               <Card
-                style={styles.columnCard}
+                style={[
+                  styles.columnCard,
+                  isMobile &&
+                    styles.mobilePanel,
+                ]}
               >
                 <View
-                  style={
-                    styles.columnHeader
-                  }
+                  style={[
+                    styles.columnHeader,
+                    isMobile &&
+                      styles.columnHeaderMobile,
+                  ]}
                 >
                   <SectionHeader
                     icon="account-multiple-outline"
@@ -1609,7 +1652,11 @@ async function handleAddSelectedStudents() {
                         !newGroupName.trim()
                       }
                       style={
-                        styles.addGroupButton
+                        [
+                          styles.addGroupButton,
+                          isMobile &&
+                            styles.mobileFullButton,
+                        ]
                       }
                     />
                   </View>
@@ -1770,7 +1817,11 @@ async function handleAddSelectedStudents() {
               {groupLoading ? (
                 <Card
                   style={
-                    styles.rosterCard
+                    [
+                      styles.rosterCard,
+                      isMobile &&
+                        styles.mobilePanel,
+                    ]
                   }
                 >
                   <LoadingPanel message="Loading group details..." />
@@ -1778,7 +1829,11 @@ async function handleAddSelectedStudents() {
               ) : !selectedGroup ? (
                 <Card
                   style={
-                    styles.rosterCard
+                    [
+                      styles.rosterCard,
+                      isMobile &&
+                        styles.mobilePanel,
+                    ]
                   }
                 >
                   <EmptyState
@@ -1790,18 +1845,26 @@ async function handleAddSelectedStudents() {
               ) : (
                 <Card
                   style={
-                    styles.rosterCard
+                    [
+                      styles.rosterCard,
+                      isMobile &&
+                        styles.mobilePanel,
+                    ]
                   }
                 >
                   <View
-                    style={
-                      styles.rosterHeader
-                    }
+                    style={[
+                      styles.rosterHeader,
+                      isMobile &&
+                        styles.rosterHeaderMobile,
+                    ]}
                   >
                     <View
-                      style={
-                        styles.rosterIdentity
-                      }
+                      style={[
+                        styles.rosterIdentity,
+                        isMobile &&
+                          styles.rosterIdentityMobile,
+                      ]}
                     >
                       <View
                         style={
@@ -1858,6 +1921,11 @@ async function handleAddSelectedStudents() {
                         disabled={
                           unassignedLoading ||
                           addingSelectedStudents
+                        }
+                        style={
+                          isMobile
+                            ? styles.mobileFullButton
+                            : null
                         }
                       />
                     ) : null}
@@ -2637,106 +2705,124 @@ async function handleAddSelectedStudents() {
                                     styles.disabledOpacity,
                                 ]}
                               >
-                                <View
-                                  style={[
-                                    styles.studentCheckbox,
-                                    selected &&
-                                      styles.studentCheckboxSelected,
-                                  ]}
-                                >
-                                  {selected ? (
-                                    <MaterialCommunityIcons
-                                      name="check"
-                                      size={15}
-                                      color={colors.white}
-                                    />
-                                  ) : null}
-                                </View>
-
-                                <Avatar name={student.name} />
-
-                                <View style={styles.unassignedInfo}>
-                                  <Text
-                                    numberOfLines={1}
-                                    style={styles.unassignedName}
+                                <View style={styles.unassignedMainRow}>
+                                  <View
+                                    style={[
+                                      styles.studentCheckbox,
+                                      selected &&
+                                        styles.studentCheckboxSelected,
+                                    ]}
                                   >
-                                    {student.name}
-                                  </Text>
+                                    {selected ? (
+                                      <MaterialCommunityIcons
+                                        name="check"
+                                        size={15}
+                                        color={colors.white}
+                                      />
+                                    ) : null}
+                                  </View>
 
-                                  <View style={styles.unassignedMetaRow}>
+                                  <Avatar name={student.name} />
+
+                                  <View style={styles.unassignedInfo}>
+                                    <Text
+                                      numberOfLines={1}
+                                      style={styles.unassignedName}
+                                    >
+                                      {student.name}
+                                    </Text>
+
+                                    <View style={styles.unassignedMetaRow}>
+                                      <MaterialCommunityIcons
+                                        name="office-building-outline"
+                                        size={14}
+                                        color={colors.textMuted}
+                                      />
+
+                                      <Text
+                                        numberOfLines={1}
+                                        style={styles.unassignedMetaText}
+                                      >
+                                        {student.school?.name ||
+                                          "No school selected"}
+                                      </Text>
+                                    </View>
+                                  </View>
+
+                                  <View
+                                    style={[
+                                      styles.addStudentAction,
+                                      selected &&
+                                        styles.addStudentActionSelected,
+                                    ]}
+                                  >
                                     <MaterialCommunityIcons
-                                      name="office-building-outline"
-                                      size={14}
-                                      color={colors.textMuted}
+                                      name={
+                                        selected
+                                          ? "check-circle-outline"
+                                          : "plus"
+                                      }
+                                      size={16}
+                                      color={
+                                        selected
+                                          ? colors.white
+                                          : colors.primary
+                                      }
                                     />
 
                                     <Text
-                                      numberOfLines={1}
-                                      style={styles.unassignedMetaText}
+                                      style={[
+                                        styles.addStudentLabel,
+                                        selected &&
+                                          styles.addStudentLabelSelected,
+                                      ]}
                                     >
-                                      {student.school?.name ||
-                                        "No school selected"}
+                                      {selected ? "Selected" : "Select"}
                                     </Text>
                                   </View>
+                                </View>
 
-                                  <View style={styles.unassignedMetaRow}>
+                                <View
+                                  style={[
+                                    styles.unassignedYearBlock,
+                                    student.desiredYear?.name &&
+                                      styles.unassignedYearBlockActive,
+                                  ]}
+                                >
+                                  <View
+                                    style={styles.unassignedYearIcon}
+                                  >
                                     <MaterialCommunityIcons
                                       name="calendar-text-outline"
-                                      size={14}
+                                      size={16}
                                       color={
                                         student.desiredYear?.name
                                           ? colors.primary
                                           : colors.textMuted
                                       }
                                     />
+                                  </View>
+
+                                  <View
+                                    style={styles.unassignedYearContent}
+                                  >
+                                    <Text
+                                      style={styles.unassignedYearLabel}
+                                    >
+                                      Wanted academic year
+                                    </Text>
 
                                     <Text
-                                      numberOfLines={
-                                        isMobile ? 2 : 1
-                                      }
                                       style={[
-                                        styles.unassignedMetaText,
+                                        styles.unassignedYearValue,
                                         student.desiredYear?.name &&
-                                          styles.unassignedDesiredYearText,
+                                          styles.unassignedYearValueActive,
                                       ]}
                                     >
-                                      Wanted academic year:{" "}
                                       {student.desiredYear?.name ||
                                         "Not selected"}
                                     </Text>
                                   </View>
-                                </View>
-
-                                <View
-                                  style={[
-                                    styles.addStudentAction,
-                                    selected &&
-                                      styles.addStudentActionSelected,
-                                  ]}
-                                >
-                                  <MaterialCommunityIcons
-                                    name={
-                                      selected
-                                        ? "check-circle-outline"
-                                        : "plus"
-                                    }
-                                    size={16}
-                                    color={
-                                      selected
-                                        ? colors.white
-                                        : colors.primary
-                                    }
-                                  />
-
-                                  <Text
-                                    style={[
-                                      styles.addStudentLabel,
-                                      selected &&
-                                        styles.addStudentLabelSelected,
-                                    ]}
-                                  >
-                                    {selected ? "Selected" : "Select"}
-                                  </Text>
                                 </View>
                               </Pressable>
                             );
@@ -3107,6 +3193,8 @@ async function handleAddSelectedStudents() {
                 </Card>
               )}
             </View>
+          </View>
+          </View>
           </View>
         </>
       )}
@@ -3943,6 +4031,7 @@ function SelectionChip({
   label,
   selected,
   disabled,
+  wide = false,
   onPress,
 }) {
   return (
@@ -3956,6 +4045,9 @@ function SelectionChip({
       onPress={onPress}
       style={({ pressed }) => [
         styles.selectionChip,
+
+        wide &&
+          styles.selectionChipWide,
 
         selected &&
           styles.selectionChipSelected,
