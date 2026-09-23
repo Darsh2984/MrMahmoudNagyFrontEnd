@@ -94,6 +94,10 @@ function getTaskStatus(task) {
   };
 }
 
+function getRouteParam(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function TaskDetail() {
   const router = useRouter();
 
@@ -111,6 +115,31 @@ export default function TaskDetail() {
   )
     ? params.taskId[0]
     : params.taskId;
+
+  const returnYearId = getRouteParam(params.yearId);
+  const returnGroupId = getRouteParam(params.groupId);
+
+  function goBackToTasks() {
+    if (returnYearId) {
+      router.replace({
+        pathname: "/(app)/tasks",
+        params: {
+          yearId: returnYearId,
+          ...(returnGroupId
+            ? { groupId: returnGroupId }
+            : {}),
+        },
+      });
+      return;
+    }
+
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    router.replace("/(app)/tasks");
+  }
 
   const isDesktop =
     width >= 1050;
@@ -350,11 +379,7 @@ export default function TaskDetail() {
       <Screen>
         <View style={styles.page}>
           <Pressable
-            onPress={() =>
-              router.canGoBack()
-                ? router.back()
-                : router.replace("/(app)/tasks")
-            }
+            onPress={goBackToTasks}
             style={({ pressed }) => [
               styles.backButton,
               pressed &&
@@ -413,11 +438,7 @@ export default function TaskDetail() {
             <Button
               title="Go back"
               variant="outline"
-              onPress={() =>
-                router.canGoBack()
-                  ? router.back()
-                  : router.replace("/(app)/tasks")
-              }
+              onPress={goBackToTasks}
             />
           </Card>
         </View>
@@ -442,11 +463,7 @@ export default function TaskDetail() {
     >
       <View style={styles.page}>
         <Pressable
-          onPress={() =>
-            router.canGoBack()
-              ? router.back()
-              : router.replace("/(app)/tasks")
-          }
+          onPress={goBackToTasks}
           style={({ pressed }) => [
             styles.backButton,
             pressed &&

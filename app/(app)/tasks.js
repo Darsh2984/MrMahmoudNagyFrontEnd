@@ -19,7 +19,7 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 
 import { Screen } from "../../src/components/layout/Screen";
@@ -27,6 +27,7 @@ import { Card } from "../../src/components/ui/Card";
 import { Button } from "../../src/components/ui/Button";
 import { Badge } from "../../src/components/ui/Badge";
 import { DateTimePickerInput } from "../../src/components/ui/DateTimePickerInput";
+import { useAuth } from "../../src/contexts/AuthContext";
 
 import api from "../../src/lib/api";
 import { formatEgyptDateTime } from "../../src/utils/egyptTime";
@@ -60,21 +61,30 @@ function normalizeDeadline(value) {
     : parsed.toISOString();
 }
 
+function getRouteParam(value) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function Tasks() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
 
   const isDesktop = width >= 980;
   const isSmallScreen = width < 640;
 
+  const requestedYearId = getRouteParam(params.yearId);
+  const requestedGroupId = getRouteParam(params.groupId);
+
   const [years, setYears] = useState([]);
-  const [yearId, setYearId] = useState(null);
+  const [yearId, setYearId] = useState(requestedYearId || null);
 
   const [groups, setGroups] = useState([]);
   const [tasks, setTasks] = useState([]);
 
   const [filterGroupId, setFilterGroupId] =
-    useState("ALL");
+    useState(requestedGroupId || "ALL");
   const [selectedGroupIds, setSelectedGroupIds] = useState([]);
 
   const [title, setTitle] = useState("");
@@ -94,6 +104,7 @@ export default function Tasks() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [showAllUndelegated, setShowAllUndelegated] = useState(false);
 
   const selectedYear = useMemo(() => {
     return years.find((year) => year.id === yearId) || null;
@@ -115,6 +126,41 @@ export default function Tasks() {
       )
     );
   }, [tasks, filterGroupId]);
+
+  const isDelegationAdmin =
+    user?.role === "TEACHER" ||
+    (user?.role === "ASSISTANT" && user?.isHeadAssistant === true);
+
+  const undelegatedSubmissions = useMemo(() => {
+    if (!isDelegationAdmin) return [];
+
+    const submissionsById = new Map();
+
+    filteredTasks.forEach((task) => {
+      (task.submissions || []).forEach((submission) => {
+        const isInSelectedGroup =
+          filterGroupId === "ALL" ||
+          (submission.student?.groupMemberships || []).some(
+            (membership) =>
+              String(membership.groupId) === String(filterGroupId),
+          );
+
+        if (!isInSelectedGroup) return;
+
+        submissionsById.set(submission.id, {
+          ...submission,
+          taskId: task.id,
+          taskTitle: task.title,
+        });
+      });
+    });
+
+    return Array.from(submissionsById.values());
+  }, [filteredTasks, filterGroupId, isDelegationAdmin]);
+
+  const visibleUndelegatedSubmissions = showAllUndelegated
+    ? undelegatedSubmissions
+    : undelegatedSubmissions.slice(0, 8);
 
   const clearMessages = useCallback(() => {
     setError("");
@@ -210,7 +256,14 @@ export default function Tasks() {
 
         setGroups(loadedGroups);
         setSelectedGroupIds([]);
-        setFilterGroupId("ALL");
+        setFilterGroupId((currentGroupId) =>
+          currentGroupId !== "ALL" &&
+          loadedGroups.some(
+            (group) => String(group.id) === String(currentGroupId),
+          )
+            ? currentGroupId
+            : "ALL",
+        );
 
         await loadTasksForYear(loadedGroups);
       } catch (requestError) {
@@ -271,6 +324,16 @@ export default function Tasks() {
   }, [loadYears]);
 
   useEffect(() => {
+    if (requestedYearId) {
+      setYearId(requestedYearId);
+    }
+
+    if (requestedGroupId) {
+      setFilterGroupId(requestedGroupId);
+    }
+  }, [requestedGroupId, requestedYearId]);
+
+  useEffect(() => {
     if (yearId) {
       loadGroupsAndTasks(yearId);
     }
@@ -280,7 +343,33 @@ export default function Tasks() {
     if (selectedYearId === yearId) return;
 
     clearMessages();
+    setShowAllUndelegated(false);
+    setFilterGroupId("ALL");
     setYearId(selectedYearId);
+    router.setParams({
+      yearId: selectedYearId,
+      groupId: "ALL",
+    });
+  }
+
+  function selectTaskGroupFilter(selectedGroupId) {
+    setShowAllUndelegated(false);
+    setFilterGroupId(selectedGroupId);
+    router.setParams({
+      yearId,
+      groupId: selectedGroupId,
+    });
+  }
+
+  function openTask(taskId) {
+    router.push({
+      pathname: "/(app)/tasks/[taskId]",
+      params: {
+        taskId,
+        yearId,
+        groupId: filterGroupId,
+      },
+    });
   }
 
   function toggleGroup(groupId) {
@@ -627,9 +716,7 @@ export default function Tasks() {
           </View>
 
           <Pressable
-            onPress={() =>
-              router.push(`/(app)/tasks/${task.id}`)
-            }
+            onPress={() => openTask(task.id)}
             style={({ pressed }) => [
               styles.openButton,
               pressed && styles.pressed,
@@ -687,9 +774,7 @@ export default function Tasks() {
             </Pressable>
 
             <Pressable
-              onPress={() =>
-                router.push(`/(app)/tasks/${task.id}`)
-              }
+              onPress={() => openTask(task.id)}
               style={({ pressed }) => [
                 styles.viewLink,
                 pressed && styles.pressed,
@@ -707,6 +792,114 @@ export default function Tasks() {
             </Pressable>
           </View>
         </View>
+      </Card>
+    );
+  }
+
+  function renderUndelegatedQueue() {
+    if (!isDelegationAdmin) return null;
+
+    return (
+      <Card style={styles.undelegatedCard}>
+        <View style={styles.undelegatedHeader}>
+          <View style={styles.undelegatedHeadingRow}>
+            <View style={styles.undelegatedIcon}>
+              <Ionicons
+                name="person-add-outline"
+                size={21}
+                color={colors.warning}
+              />
+            </View>
+
+            <View style={styles.undelegatedHeadingCopy}>
+              <Text style={styles.undelegatedTitle}>
+                Waiting for delegation
+              </Text>
+              <Text style={styles.mutedText}>
+                Submitted homework that has not been assigned to an assistant yet.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.undelegatedCount}>
+            <Text style={styles.undelegatedCountText}>
+              {undelegatedSubmissions.length}
+            </Text>
+          </View>
+        </View>
+
+        {undelegatedSubmissions.length ? (
+          <View style={styles.undelegatedList}>
+            {visibleUndelegatedSubmissions.map((submission) => (
+              <Pressable
+                key={submission.id}
+                onPress={() => openTask(submission.taskId)}
+                style={({ pressed }) => [
+                  styles.undelegatedRow,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <View style={styles.undelegatedStudentIcon}>
+                  <Ionicons
+                    name="person-outline"
+                    size={17}
+                    color={colors.primary}
+                  />
+                </View>
+
+                <View style={styles.undelegatedRowCopy}>
+                  <Text numberOfLines={1} style={styles.undelegatedStudentName}>
+                    {submission.student?.name || "Student"}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.undelegatedTaskName}>
+                    {submission.taskTitle}
+                    {submission.submittedAt
+                      ? ` · ${formatEgyptDateTime(submission.submittedAt)}`
+                      : ""}
+                  </Text>
+                </View>
+
+                <Ionicons
+                  name="chevron-forward"
+                  size={17}
+                  color={colors.primary}
+                />
+              </Pressable>
+            ))}
+
+            {undelegatedSubmissions.length > 8 ? (
+              <Pressable
+                onPress={() => setShowAllUndelegated((current) => !current)}
+                style={({ pressed }) => [
+                  styles.undelegatedToggle,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.undelegatedToggleText}>
+                  {showAllUndelegated
+                    ? "Show fewer"
+                    : `Show all ${undelegatedSubmissions.length} submissions`}
+                </Text>
+                <Ionicons
+                  name={showAllUndelegated ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color={colors.primary}
+                />
+              </Pressable>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.undelegatedEmpty}>
+            <Ionicons
+              name="checkmark-circle-outline"
+              size={20}
+              color={colors.primary}
+            />
+            <Text style={styles.undelegatedEmptyText}>
+              Every submitted, ungraded paper in this view has been delegated.
+            </Text>
+          </View>
+        )}
       </Card>
     );
   }
@@ -930,6 +1123,26 @@ export default function Tasks() {
               Tasks in selected year
             </Text>
           </Card>
+
+          {isDelegationAdmin ? (
+            <Card style={styles.statCard}>
+              <View style={styles.statIconWarning}>
+                <Ionicons
+                  name="person-add-outline"
+                  size={22}
+                  color={colors.warning}
+                />
+              </View>
+
+              <Text style={styles.statValue}>
+                {undelegatedSubmissions.length}
+              </Text>
+
+              <Text style={styles.statLabel}>
+                Submissions awaiting delegation
+              </Text>
+            </Card>
+          ) : null}
         </View>
 
         <Card style={styles.yearCard}>
@@ -978,7 +1191,7 @@ export default function Tasks() {
             contentContainerStyle={styles.groupFilterList}
           >
             <Pressable
-              onPress={() => setFilterGroupId("ALL")}
+              onPress={() => selectTaskGroupFilter("ALL")}
               style={({ pressed }) => [
                 styles.groupFilterChip,
                 filterGroupId === "ALL" &&
@@ -1031,9 +1244,7 @@ export default function Tasks() {
               return (
                 <Pressable
                   key={group.id}
-                  onPress={() =>
-                    setFilterGroupId(group.id)
-                  }
+                  onPress={() => selectTaskGroupFilter(group.id)}
                   style={({ pressed }) => [
                     styles.groupFilterChip,
                     active &&
@@ -1088,6 +1299,8 @@ export default function Tasks() {
             })}
           </ScrollView>
         </Card>
+
+        {renderUndelegatedQueue()}
 
         <View
           style={[
@@ -1643,6 +1856,16 @@ const styles = StyleSheet.create({
     backgroundColor: `${colors.secondary}25`,
   },
 
+  statIconWarning: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: spacing.md,
+    backgroundColor: `${colors.warning}18`,
+  },
+
   statValue: {
     fontSize: 26,
     fontWeight: "800",
@@ -1660,6 +1883,135 @@ const styles = StyleSheet.create({
   },
   groupFilterCard: {
     marginBottom: spacing.lg,
+  },
+
+  undelegatedCard: {
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    borderColor: `${colors.warning}45`,
+  },
+
+  undelegatedHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+
+  undelegatedHeadingRow: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+
+  undelegatedIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.lg,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${colors.warning}18`,
+  },
+
+  undelegatedHeadingCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  undelegatedTitle: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+
+  undelegatedCount: {
+    minWidth: 42,
+    height: 42,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${colors.warning}18`,
+  },
+
+  undelegatedCountText: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: colors.warning,
+  },
+
+  undelegatedList: {
+    gap: spacing.xs,
+  },
+
+  undelegatedRow: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.background,
+  },
+
+  undelegatedStudentIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${colors.secondary}25`,
+  },
+
+  undelegatedRowCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  undelegatedStudentName: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.textPrimary,
+    marginBottom: 3,
+  },
+
+  undelegatedTaskName: {
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+
+  undelegatedToggle: {
+    minHeight: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+
+  undelegatedToggleText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.primary,
+  },
+
+  undelegatedEmpty: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: `${colors.secondary}15`,
+  },
+
+  undelegatedEmptyText: {
+    flex: 1,
+    ...typography.caption,
+    color: colors.textMuted,
   },
 
   groupFilterHeader: {
