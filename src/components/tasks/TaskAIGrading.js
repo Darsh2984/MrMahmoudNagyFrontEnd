@@ -25,11 +25,20 @@ function confirmAction(title, message) {
   ], { cancelable: true, onDismiss: () => resolve(false) }));
 }
 
-async function downloadCorrectionPdf(submissionId, correctionId) {
+function safeFilePart(value, fallback) {
+  return String(value || fallback)
+    .normalize("NFC")
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80) || fallback;
+}
+
+async function downloadCorrectionPdf(submissionId, correctionId, studentName, assignmentName) {
   const token = await getToken();
   const path = `/ai-correction/submissions/${submissionId}/corrections/${correctionId}/pdf`;
   const url = `${String(api.defaults.baseURL || "").replace(/\/$/, "")}${path}`;
-  const fileName = `AI-grading-review-${correctionId}.pdf`;
+  const fileName = `${safeFilePart(studentName, "Student")} - ${safeFilePart(assignmentName, "Assignment")} - Corrected.pdf`;
   if (Platform.OS === "web") {
     const response = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: "application/pdf" } });
     if (!response.ok) {
@@ -56,10 +65,10 @@ async function downloadCorrectionPdf(submissionId, correctionId) {
   });
   if (response.status < 200 || response.status >= 300) throw new Error(`PDF export failed with status ${response.status}.`);
   if (!await Sharing.isAvailableAsync()) throw new Error("File sharing is not available on this device.");
-  await Sharing.shareAsync(response.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: "Save or share AI grading review" });
+  await Sharing.shareAsync(response.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf", dialogTitle: "Save or share corrected submission" });
 }
 
-export function TaskAIGradingProvider({ taskId, user, children }) {
+export function TaskAIGradingProvider({ taskId, taskTitle, user, children }) {
   const [pack, setPack] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -85,7 +94,7 @@ export function TaskAIGradingProvider({ taskId, user, children }) {
     return () => clearInterval(timer);
   }, [pack?.status, loadPack]);
   return (
-    <Context.Provider value={{ taskId, user, pack, setPack, loading, error, loadPack }}>
+    <Context.Provider value={{ taskId, taskTitle, user, pack, setPack, loading, error, loadPack }}>
       {children}
     </Context.Provider>
   );
@@ -250,7 +259,7 @@ export function TaskAIReferences({ gradeOutOf }) {
 
 export function SubmissionAIGrading({ submission }) {
   const context = useContext(Context);
-  const { user, pack } = context || {};
+  const { user, pack, taskTitle } = context || {};
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState([]);
   const [fileIds, setFileIds] = useState([]);
@@ -349,7 +358,14 @@ export function SubmissionAIGrading({ submission }) {
   async function exportPdf() {
     if (!selected) return;
     setExporting(true); setError("");
-    try { await downloadCorrectionPdf(submission.id, selected.id); }
+    try {
+      await downloadCorrectionPdf(
+        submission.id,
+        selected.id,
+        submission.student?.name,
+        taskTitle,
+      );
+    }
     catch (requestError) { setError(errorText(requestError)); }
     finally { setExporting(false); }
   }

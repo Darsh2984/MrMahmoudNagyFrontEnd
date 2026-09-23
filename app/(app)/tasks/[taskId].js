@@ -447,7 +447,7 @@ export default function TaskDetail() {
   }
 
   return (
-    <TaskAIGradingProvider taskId={taskId} user={user}>
+    <TaskAIGradingProvider taskId={taskId} taskTitle={task.title} user={user}>
     <Screen
       refreshControl={
         <RefreshControl

@@ -67,7 +67,7 @@ function getNavItems(
         activeIcon: "document-text",
       },
       {
-        label: "Nagy's Mind",
+        label: "Mahmoud Nagy's Team",
         externalUrl:
           "https://chatgpt.com/g/g-68daa005e46081919fe3515f32c48f72-ask-mahmoud-nagys-mind-4-0-pro",
         icon: "bulb-outline",
