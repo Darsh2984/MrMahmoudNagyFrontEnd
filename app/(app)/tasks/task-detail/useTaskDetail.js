@@ -968,6 +968,9 @@ export function useTaskDetail({
               delegationReason.trim() ||
               undefined,
           },
+          {
+            timeout: 180000,
+          },
         );
 
       const delegated =
