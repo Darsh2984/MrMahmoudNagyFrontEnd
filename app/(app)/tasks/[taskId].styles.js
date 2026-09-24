@@ -274,6 +274,97 @@ export const styles =
       minWidth: 0,
     },
 
+    submissionTabs: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: spacing.sm,
+      marginBottom: spacing.lg,
+      padding: spacing.xs,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      backgroundColor: colors.white,
+    },
+
+    submissionTab: {
+      flexGrow: 1,
+      flexShrink: 1,
+      flexBasis: 190,
+      minHeight: 48,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: spacing.sm,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderRadius: radius.md,
+      backgroundColor:
+        `${colors.primary}08`,
+    },
+
+    submissionTabActive: {
+      backgroundColor: colors.primary,
+    },
+
+    flaggedSubmissionTab: {
+      backgroundColor:
+        `${colors.danger}0D`,
+    },
+
+    flaggedSubmissionTabActive: {
+      backgroundColor: colors.danger,
+    },
+
+    submissionTabText: {
+      flexShrink: 1,
+      fontSize: 13,
+      fontWeight: "800",
+      color: colors.textMuted,
+    },
+
+    flaggedSubmissionTabText: {
+      color: colors.danger,
+    },
+
+    submissionTabTextActive: {
+      color: colors.white,
+    },
+
+    submissionTabCount: {
+      minWidth: 26,
+      height: 26,
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 7,
+      borderRadius: 13,
+      backgroundColor:
+        `${colors.primary}15`,
+    },
+
+    flaggedSubmissionTabCount: {
+      backgroundColor:
+        `${colors.danger}16`,
+    },
+
+    submissionTabCountActive: {
+      backgroundColor:
+        "rgba(255, 255, 255, 0.2)",
+    },
+
+    submissionTabCountText: {
+      fontSize: 11,
+      fontWeight: "900",
+      color: colors.primary,
+    },
+
+    flaggedSubmissionTabCountText: {
+      color: colors.danger,
+    },
+
+    submissionTabCountTextActive: {
+      color: colors.white,
+    },
+
     sideColumn: {
       width: "100%",
       gap: spacing.md,

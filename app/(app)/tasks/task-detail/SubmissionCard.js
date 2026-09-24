@@ -20,6 +20,7 @@ import {
 import {
   formatFileSize,
   getInitial,
+  getSubmissionFlagStatus,
   getSubmissionStatus,
   isSubmissionDelegatedToUser,
 } from "./taskDetail.helpers";
@@ -107,6 +108,21 @@ export function SubmissionCard({
       submission,
       user?.id,
     );
+
+  const flagStatus =
+    getSubmissionFlagStatus(
+      submission,
+      task?.gradeOutOf,
+    );
+
+  const studentGroupNames =
+    Array.isArray(
+      submission.student?.groups,
+    )
+      ? submission.student.groups
+          .map((group) => group?.name)
+          .filter(Boolean)
+      : [];
 
   const studentFiles =
     Array.isArray(
@@ -208,6 +224,15 @@ export function SubmissionCard({
               )}
             </Text>
 
+            {studentGroupNames.length ? (
+              <Text style={styles.studentMeta}>
+                {studentGroupNames.length === 1
+                  ? "Group"
+                  : "Groups"}
+                : {studentGroupNames.join(", ")}
+              </Text>
+            ) : null}
+
             {submission.lastModifiedAt ? (
               <Text style={styles.studentMeta}>
                 Last modified{" "}
@@ -224,6 +249,13 @@ export function SubmissionCard({
             label={status.label}
             tone={status.tone}
           />
+
+          {flagStatus.isFlagged ? (
+            <Badge
+              label={`Flagged · ${flagStatus.gradePercentage}%`}
+              tone="danger"
+            />
+          ) : null}
 
           {submission.lastModifiedAfterDeadline ||
           submission.wasModifiedAfterDeadline ? (

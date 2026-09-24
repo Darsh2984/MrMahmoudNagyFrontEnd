@@ -25,6 +25,7 @@ import {
   getEligibleAssistants,
   getErrorMessage,
   getProgressPercentage,
+  getSubmissionFlagStatus,
   getSubmissionSummary,
   normalizeTaskGroups,
   removeLocalFile,
@@ -240,6 +241,22 @@ export function useTaskDetail({
           summary,
         ),
       [summary],
+    );
+
+  const flaggedSubmissions =
+    useMemo(
+      () =>
+        submissions.filter(
+          (submission) =>
+            getSubmissionFlagStatus(
+              submission,
+              task?.gradeOutOf,
+            ).isFlagged,
+        ),
+      [
+        submissions,
+        task?.gradeOutOf,
+      ],
     );
 
   const selectableSubmissions =
@@ -1460,6 +1477,7 @@ export function useTaskDetail({
 
     summary,
     progressPercentage,
+    flaggedSubmissions,
 
     eligibleAssistants,
     filteredAssistants,

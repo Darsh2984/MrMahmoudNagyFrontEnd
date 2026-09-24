@@ -450,6 +450,56 @@ export function getSubmissionStatus(
   };
 }
 
+export function getSubmissionFlagStatus(
+  submission,
+  gradeOutOf,
+) {
+  const grade = submission?.grade;
+  const hasGrade =
+    grade !== null &&
+    grade !== undefined &&
+    grade !== "";
+
+  const numericGrade = Number(grade);
+  const maximumGrade = Number(gradeOutOf);
+
+  if (
+    !hasGrade ||
+    !Number.isFinite(numericGrade) ||
+    !Number.isFinite(maximumGrade) ||
+    maximumGrade <= 0
+  ) {
+    return {
+      gradePercentage: null,
+      isFlagged: false,
+    };
+  }
+
+  const calculatedPercentage =
+    Math.round(
+      (numericGrade / maximumGrade) *
+        10000,
+    ) / 100;
+
+  const apiPercentage = Number(
+    submission?.gradePercentage,
+  );
+
+  const gradePercentage =
+    Number.isFinite(apiPercentage)
+      ? apiPercentage
+      : calculatedPercentage;
+
+  return {
+    gradePercentage,
+    isFlagged:
+      typeof submission?.isFlagged ===
+      "boolean"
+        ? submission.isFlagged
+        : gradePercentage < 60,
+  };
+}
+
 export function getSubmissionSummary(
   submissions,
 ) {

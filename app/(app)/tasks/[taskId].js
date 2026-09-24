@@ -1,4 +1,6 @@
-import React from "react";
+import React, {
+  useState,
+} from "react";
 
 import {
   ActivityIndicator,
@@ -168,6 +170,7 @@ export default function TaskDetail() {
 
     summary,
     progressPercentage,
+    flaggedSubmissions,
 
     filteredAssistants,
 
@@ -247,6 +250,22 @@ export default function TaskDetail() {
     setReopenReason,
     confirmReopenSubmission,
   } = detail;
+
+  const [submissionTab, setSubmissionTab] =
+    useState("ALL");
+
+  const canViewFlaggedStudents =
+    user?.role === "TEACHER" ||
+    user?.role === "ASSISTANT";
+
+  const showingFlaggedStudents =
+    canViewFlaggedStudents &&
+    submissionTab === "FLAGGED";
+
+  const visibleSubmissions =
+    showingFlaggedStudents
+      ? flaggedSubmissions
+      : submissions;
 
   const selectedIdSet =
     new Set(
@@ -715,6 +734,15 @@ export default function TaskDetail() {
             label="Pending"
             value={summary.pending}
           />
+
+          {canViewFlaggedStudents ? (
+            <StatCard
+              icon="flag-outline"
+              label="Flagged below 60%"
+              value={flaggedSubmissions.length}
+              tone="danger"
+            />
+          ) : null}
         </View>
 
         <View
@@ -729,6 +757,124 @@ export default function TaskDetail() {
               styles.mainColumn
             }
           >
+            {canViewFlaggedStudents ? (
+              <View style={styles.submissionTabs}>
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{
+                    selected:
+                      !showingFlaggedStudents,
+                  }}
+                  onPress={() =>
+                    setSubmissionTab("ALL")
+                  }
+                  style={({ pressed }) => [
+                    styles.submissionTab,
+                    !showingFlaggedStudents &&
+                      styles.submissionTabActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="documents-outline"
+                    size={18}
+                    color={
+                      !showingFlaggedStudents
+                        ? colors.white
+                        : colors.textMuted
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.submissionTabText,
+                      !showingFlaggedStudents &&
+                        styles.submissionTabTextActive,
+                    ]}
+                  >
+                    All submissions
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.submissionTabCount,
+                      !showingFlaggedStudents &&
+                        styles.submissionTabCountActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.submissionTabCountText,
+                        !showingFlaggedStudents &&
+                          styles.submissionTabCountTextActive,
+                      ]}
+                    >
+                      {submissions.length}
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{
+                    selected:
+                      showingFlaggedStudents,
+                  }}
+                  onPress={() =>
+                    setSubmissionTab("FLAGGED")
+                  }
+                  style={({ pressed }) => [
+                    styles.submissionTab,
+                    styles.flaggedSubmissionTab,
+                    showingFlaggedStudents &&
+                      styles.flaggedSubmissionTabActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="flag-outline"
+                    size={18}
+                    color={
+                      showingFlaggedStudents
+                        ? colors.white
+                        : colors.danger
+                    }
+                  />
+
+                  <Text
+                    style={[
+                      styles.submissionTabText,
+                      styles.flaggedSubmissionTabText,
+                      showingFlaggedStudents &&
+                        styles.submissionTabTextActive,
+                    ]}
+                  >
+                    Flagged students
+                  </Text>
+
+                  <View
+                    style={[
+                      styles.submissionTabCount,
+                      styles.flaggedSubmissionTabCount,
+                      showingFlaggedStudents &&
+                        styles.submissionTabCountActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.submissionTabCountText,
+                        styles.flaggedSubmissionTabCountText,
+                        showingFlaggedStudents &&
+                          styles.submissionTabCountTextActive,
+                      ]}
+                    >
+                      {flaggedSubmissions.length}
+                    </Text>
+                  </View>
+                </Pressable>
+              </View>
+            ) : null}
+
             <View
               style={
                 styles.sectionHeader
@@ -740,7 +886,9 @@ export default function TaskDetail() {
                     styles.sectionTitle
                   }
                 >
-                  Student submissions
+                  {showingFlaggedStudents
+                    ? "Flagged students"
+                    : "Student submissions"}
                 </Text>
 
                 <Text
@@ -748,9 +896,9 @@ export default function TaskDetail() {
                     styles.sectionSubtitle
                   }
                 >
-                  Review files, delegate papers,
-                  grade work, and manage grading
-                  history.
+                  {showingFlaggedStudents
+                    ? "Students whose recorded grade is below 60% for this task."
+                    : "Review files, delegate papers, grade work, and manage grading history."}
                 </Text>
               </View>
 
@@ -759,11 +907,12 @@ export default function TaskDetail() {
                   styles.sectionCount
                 }
               >
-                {submissions.length}
+                {visibleSubmissions.length}
               </Text>
             </View>
 
-            {isAdminLevel &&
+            {!showingFlaggedStudents &&
+            isAdminLevel &&
             selectableSubmissions.length ? (
               <View
                 style={
@@ -839,7 +988,7 @@ export default function TaskDetail() {
               </View>
             ) : null}
 
-            {!submissions.length ? (
+            {!visibleSubmissions.length ? (
               <Card
                 style={
                   styles.emptyCard
@@ -862,7 +1011,9 @@ export default function TaskDetail() {
                     styles.emptyTitle
                   }
                 >
-                  No submissions yet
+                  {showingFlaggedStudents
+                    ? "No flagged students"
+                    : "No submissions yet"}
                 </Text>
 
                 <Text
@@ -870,9 +1021,9 @@ export default function TaskDetail() {
                     styles.emptyDescription
                   }
                 >
-                  Student homework submissions
-                  will appear here when they are
-                  uploaded.
+                  {showingFlaggedStudents
+                    ? "Students will appear here automatically when their recorded grade is below 60%."
+                    : "Student homework submissions will appear here when they are uploaded."}
                 </Text>
               </Card>
             ) : (
@@ -881,7 +1032,7 @@ export default function TaskDetail() {
                   styles.submissionList
                 }
               >
-                {submissions.map(
+                {visibleSubmissions.map(
                   (submission) => {
                     const canSelect =
                       isAdminLevel &&
