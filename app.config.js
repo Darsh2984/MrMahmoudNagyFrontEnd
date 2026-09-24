@@ -22,6 +22,8 @@ module.exports = {
 
     android: {
       package: "com.mahmoudnagy.platform",
+      googleServicesFile: "./google-services.json",
+
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#FFFFFF",
@@ -51,6 +53,7 @@ module.exports = {
       "expo-status-bar",
       "expo-audio",
       "expo-video",
+      "expo-notifications",
     ],
 
 

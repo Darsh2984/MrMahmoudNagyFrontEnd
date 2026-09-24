@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const TOKEN_KEY = "auth_token";
+const USER_KEY = "auth_user";
 
 // expo-secure-store has no web implementation, so we fall back to
 // AsyncStorage (which itself uses localStorage under react-native-web).
@@ -28,4 +29,23 @@ export async function clearToken() {
   } else {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
   }
+}
+
+export async function setStoredUser(user) {
+  await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export async function getStoredUser() {
+  const value = await AsyncStorage.getItem(USER_KEY);
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    await AsyncStorage.removeItem(USER_KEY);
+    return null;
+  }
+}
+
+export async function clearStoredUser() {
+  await AsyncStorage.removeItem(USER_KEY);
 }

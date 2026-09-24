@@ -1,23 +1,32 @@
 import React from "react";
+import { Platform, StatusBar, StyleSheet, View } from "react-native";
 import { Stack } from "expo-router";
 import {
   SafeAreaProvider,
-  SafeAreaView,
+  useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { AuthProvider } from "../src/contexts/AuthContext";
+import PushNotificationRegistrar from "../src/components/notifications/PushNotificationRegistrar";
 import { colors } from "../src/theme";
 
-export default function RootLayout() {
+function RootSafeArea() {
+  const insets = useSafeAreaInsets();
+  const androidTopFallback = Platform.OS === "android" ? (StatusBar.currentHeight || 24) : 0;
+
   return (
-    <SafeAreaProvider>
-      <SafeAreaView
-        style={{
-          flex: 1,
-          backgroundColor: colors.background,
-        }}
-        edges={["top", "bottom", "left", "right"]}
-      >
+    <View
+      style={[
+        styles.safeRoot,
+        {
+          paddingTop: Math.max(insets.top, androidTopFallback),
+          paddingBottom: Math.max(insets.bottom, Platform.OS === "android" ? 16 : 0),
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+      ]}
+    >
         <AuthProvider>
+          <PushNotificationRegistrar />
           <Stack
             screenOptions={{
               headerShown: false,
@@ -30,7 +39,21 @@ export default function RootLayout() {
             <Stack.Screen name="(app)" />
           </Stack>
         </AuthProvider>
-      </SafeAreaView>
+    </View>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <SafeAreaProvider>
+      <RootSafeArea />
     </SafeAreaProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  safeRoot: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+});

@@ -30,6 +30,7 @@ function StatCard({
   icon,
   accent,
   actionLabel,
+  description,
   onPress,
   disabled = false,
 }) {
@@ -58,6 +59,12 @@ function StatCard({
           <Text style={styles.statLabel}>{label}</Text>
 
           <Text style={styles.statValue}>{value ?? 0}</Text>
+
+          {description ? (
+            <Text style={styles.statDescription}>
+              {description}
+            </Text>
+          ) : null}
 
           <View style={styles.statActionRow}>
             <Text style={[styles.statActionText, { color: accent }]}>
@@ -574,6 +581,16 @@ export default function Dashboard() {
               actionLabel="Review answers"
               onPress={() => router.push("/(app)/quizzes")}
             />
+
+            <StatCard
+              label="Awaiting delegation"
+              value={undelegatedSubmissions}
+              icon="git-branch-outline"
+              accent={colors.secondary}
+              description="Submitted, ungraded homework that has not been assigned to an assistant."
+              actionLabel="Manage submissions"
+              onPress={() => router.push("/(app)/tasks")}
+            />
           </View>
 
           {isDesktop ? (
@@ -711,6 +728,13 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     fontWeight: "800",
     color: colors.textPrimary,
+  },
+
+  statDescription: {
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textMuted,
   },
 
   statActionRow: {

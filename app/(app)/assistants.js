@@ -460,6 +460,18 @@ export default function Assistants() {
 
   function renderAssistantCard(assistant) {
     const permissionCount = countPermissions(assistant);
+    const assignedGroups = Array.isArray(assistant.groupAssignments)
+      ? assistant.groupAssignments
+          .map((assignment) => assignment?.group)
+          .filter(Boolean)
+          .sort((first, second) => {
+            const yearComparison = String(first.year?.name || "")
+              .localeCompare(String(second.year?.name || ""));
+
+            return yearComparison || String(first.name || "")
+              .localeCompare(String(second.name || ""));
+          })
+      : [];
     const managedByHead =
       assistant.managedByHead ||
       heads.find(
@@ -610,6 +622,44 @@ export default function Assistants() {
               </Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.assignedGroupsSection}>
+          <View style={styles.assignedGroupsHeader}>
+            <View style={styles.assignedGroupsTitleRow}>
+              <Ionicons
+                name="people-outline"
+                size={17}
+                color={colors.primary}
+              />
+              <Text style={styles.assignedGroupsTitle}>
+                Assigned groups
+              </Text>
+            </View>
+
+            <Text style={styles.assignedGroupsCount}>
+              {assignedGroups.length}
+            </Text>
+          </View>
+
+          {assignedGroups.length ? (
+            <View style={styles.assignedGroupList}>
+              {assignedGroups.map((group) => (
+                <View key={group.id} style={styles.assignedGroupBadge}>
+                  <Text numberOfLines={1} style={styles.assignedGroupName}>
+                    {group.name || "Unnamed group"}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.assignedGroupYear}>
+                    {group.year?.name || "Academic year unavailable"}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={styles.noAssignedGroupsText}>
+              This assistant is not currently assigned to any groups.
+            </Text>
+          )}
         </View>
 
         {assistant.isHeadAssistant ? (
@@ -2038,6 +2088,83 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: colors.textPrimary,
+  },
+
+  assignedGroupsSection: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
+  },
+
+  assignedGroupsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+
+  assignedGroupsTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+
+  assignedGroupsTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+
+  assignedGroupsCount: {
+    minWidth: 26,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: radius.pill,
+    overflow: "hidden",
+    textAlign: "center",
+    fontSize: 11,
+    fontWeight: "800",
+    color: colors.primary,
+    backgroundColor: `${colors.secondary}25`,
+  },
+
+  assignedGroupList: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.xs,
+  },
+
+  assignedGroupBadge: {
+    minWidth: 135,
+    maxWidth: 220,
+    flexGrow: 1,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderWidth: 1,
+    borderColor: `${colors.secondary}45`,
+    borderRadius: radius.md,
+    backgroundColor: colors.white,
+  },
+
+  assignedGroupName: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+
+  assignedGroupYear: {
+    marginTop: 2,
+    fontSize: 10,
+    color: colors.textMuted,
+  },
+
+  noAssignedGroupsText: {
+    fontSize: 11,
+    lineHeight: 17,
+    color: colors.textMuted,
   },
 
   headNotice: {

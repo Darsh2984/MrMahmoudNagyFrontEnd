@@ -1,6 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../lib/api";
-import { setToken, getToken, clearToken } from "../lib/storage";
+import {
+  setToken,
+  getToken,
+  clearToken,
+  setStoredUser,
+  getStoredUser,
+  clearStoredUser,
+} from "../lib/storage";
 
 const AuthContext = createContext(null);
 
@@ -10,18 +17,24 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     (async () => {
-      const token = await getToken();
+      const [token, cachedUser] = await Promise.all([getToken(), getStoredUser()]);
       if (!token) {
+        await clearStoredUser();
         setLoading(false);
         return;
       }
+      if (cachedUser) setUser(cachedUser);
       try {
         const res = await api.get("/auth/me");
         setUser(res.data);
+        await setStoredUser(res.data);
       } catch (err) {
-        // Token invalid/expired — clear it and send back to login.
-        await clearToken();
-        setUser(null);
+        // Only an authentication rejection means the saved login is invalid.
+        // Keep the cached session during temporary network/server failures.
+        if (err?.response?.status === 401 || err?.response?.status === 403) {
+          await Promise.all([clearToken(), clearStoredUser()]);
+          setUser(null);
+        }
       } finally {
         setLoading(false);
       }
@@ -37,11 +50,12 @@ export function AuthProvider({ children }) {
     // not just after an app relaunch.
     const meRes = await api.get("/auth/me");
     setUser(meRes.data);
+    await setStoredUser(meRes.data);
     return meRes.data;
   }
 
   async function logout() {
-    await clearToken();
+    await Promise.all([clearToken(), clearStoredUser()]);
     setUser(null);
   }
 

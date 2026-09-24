@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "897129655411",
+    "project_id": "mahmoud-nagy-platform-dev",
+    "storage_bucket": "mahmoud-nagy-platform-dev.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:897129655411:android:70770738574d2ffe830e06",
+        "android_client_info": {
+          "package_name": "com.mahmoudnagy.platform"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0SSNCHS3MGaXN8RPboJ0KGOvSYbOWSVw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
