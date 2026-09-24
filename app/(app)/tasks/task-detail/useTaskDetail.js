@@ -34,7 +34,12 @@ import {
 export function useTaskDetail({
   taskId,
   user,
+  currentGroupId,
 }) {
+  const delegationGroupId =
+    currentGroupId && String(currentGroupId) !== "ALL"
+      ? String(currentGroupId)
+      : null;
   const isAdminLevel =
     user?.role === "TEACHER" ||
     Boolean(
@@ -201,8 +206,9 @@ export function useTaskDetail({
       () =>
         getEligibleAssistants(
           task,
+          delegationGroupId,
         ),
-      [task],
+      [task, delegationGroupId],
     );
 
   const filteredAssistants =
@@ -303,6 +309,11 @@ export function useTaskDetail({
           const response =
             await api.get(
               `/tasks/${taskId}`,
+              {
+                params: delegationGroupId
+                  ? { groupId: delegationGroupId }
+                  : undefined,
+              },
             );
 
           setTask(
@@ -324,7 +335,7 @@ export function useTaskDetail({
           setRefreshing(false);
         }
       },
-      [taskId],
+      [taskId, delegationGroupId],
     );
 
   useEffect(() => {
@@ -892,6 +903,9 @@ export function useTaskDetail({
           reason:
             delegationReason.trim() ||
             undefined,
+
+          groupId:
+            delegationGroupId || undefined,
         },
       );
 
@@ -967,6 +981,9 @@ export function useTaskDetail({
             reason:
               delegationReason.trim() ||
               undefined,
+
+            groupId:
+              delegationGroupId || undefined,
           },
           {
             timeout: 180000,
@@ -1055,6 +1072,9 @@ export function useTaskDetail({
           reason:
             delegationReason.trim() ||
             undefined,
+
+          groupId:
+            delegationGroupId || undefined,
         },
       );
 

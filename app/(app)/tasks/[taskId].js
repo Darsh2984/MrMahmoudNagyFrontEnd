@@ -151,6 +151,7 @@ export default function TaskDetail() {
     useTaskDetail({
       taskId,
       user,
+      currentGroupId: returnGroupId,
     });
 
   const {

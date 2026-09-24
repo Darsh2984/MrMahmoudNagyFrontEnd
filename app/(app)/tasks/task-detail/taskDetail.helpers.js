@@ -193,13 +193,25 @@ function normalizeAssistantAssignments(task) {
   return assignments;
 }
 
-export function getEligibleAssistants(task) {
+export function getEligibleAssistants(task, currentGroupId) {
   const assignments =
     normalizeAssistantAssignments(task);
+
+  const scopedGroupId =
+    currentGroupId && String(currentGroupId) !== "ALL"
+      ? String(currentGroupId)
+      : null;
 
   const assistantsById = new Map();
 
   for (const assignment of assignments) {
+    if (
+      scopedGroupId &&
+      String(assignment.group?.id || "") !== scopedGroupId
+    ) {
+      continue;
+    }
+
     const assistant = assignment.assistant;
 
     if (!assistant?.id) {
