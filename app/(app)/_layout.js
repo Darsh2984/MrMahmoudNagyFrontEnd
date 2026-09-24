@@ -55,7 +55,7 @@ function getNavItems(
       },
       
       {
-        label: "Submit your Hw",
+        label: "Homework & Inschool exam submission",
         route: "/(app)/my-tasks",
         icon: "document-text-outline",
         activeIcon: "document-text",
