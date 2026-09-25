@@ -80,6 +80,23 @@ function getRouteParam(value) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function getUngradedSubmissionCount(task, groupId = "ALL") {
+  const byGroup = task?._ungradedSubmissionsByGroup;
+
+  if (byGroup && typeof byGroup === "object") {
+    if (groupId !== "ALL") {
+      return Number(byGroup[String(groupId)] || 0);
+    }
+
+    return Object.values(byGroup).reduce(
+      (total, count) => total + Number(count || 0),
+      0,
+    );
+  }
+
+  return Number(task?._count?.submissions || 0);
+}
+
 export default function Tasks() {
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -127,20 +144,32 @@ export default function Tasks() {
   }, [years, yearId]);
 
   const filteredTasks = useMemo(() => {
-    if (filterGroupId === "ALL") {
-      return tasks;
-    }
+    const groupTasks = filterGroupId === "ALL"
+      ? tasks
+      : tasks.filter((task) =>
+          Array.isArray(task.groups) &&
+          task.groups.some(
+            (taskGroup) =>
+              String(taskGroup.groupId) === String(filterGroupId) ||
+              String(taskGroup.group?.id) === String(filterGroupId),
+          ),
+        );
 
-    return tasks.filter((task) =>
-      Array.isArray(task.groups) &&
-      task.groups.some(
-        (taskGroup) =>
-          String(taskGroup.groupId) ===
-            String(filterGroupId) ||
-          String(taskGroup.group?.id) ===
-            String(filterGroupId)
-      )
-    );
+    return [...groupTasks].sort((first, second) => {
+      const firstNeedsGrading =
+        getUngradedSubmissionCount(first, filterGroupId) > 0 ? 1 : 0;
+      const secondNeedsGrading =
+        getUngradedSubmissionCount(second, filterGroupId) > 0 ? 1 : 0;
+
+      if (firstNeedsGrading !== secondNeedsGrading) {
+        return secondNeedsGrading - firstNeedsGrading;
+      }
+
+      return (
+        new Date(second.createdAt || 0).getTime() -
+        new Date(first.createdAt || 0).getTime()
+      );
+    });
   }, [tasks, filterGroupId]);
 
   const isDelegationAdmin =
@@ -213,13 +242,33 @@ export default function Tasks() {
 
       const uniqueTasks = new Map();
 
-      responses.forEach((response) => {
+      responses.forEach((response, index) => {
         if (
           response.status === "fulfilled" &&
           Array.isArray(response.value.data)
         ) {
           response.value.data.forEach((task) => {
-            uniqueTasks.set(task.id, task);
+            const existing = uniqueTasks.get(task.id);
+            const responseGroupId = String(yearGroups[index]?.id || "");
+            const ungradedSubmissionCount = Number(
+              task?._count?.submissions || 0,
+            );
+
+            uniqueTasks.set(task.id, {
+              ...(existing || {}),
+              ...task,
+              _count: {
+                ...(existing?._count || {}),
+                ...(task?._count || {}),
+                submissions: ungradedSubmissionCount,
+              },
+              _ungradedSubmissionsByGroup: {
+                ...(existing?._ungradedSubmissionsByGroup || {}),
+                ...(responseGroupId
+                  ? { [responseGroupId]: ungradedSubmissionCount }
+                  : {}),
+              },
+            });
           });
         }
       });
@@ -660,6 +709,10 @@ export default function Tasks() {
 
   function renderTaskCard(task) {
     const expired = isPastDeadline(task.deadline);
+    const ungradedSubmissionCount = getUngradedSubmissionCount(
+      task,
+      filterGroupId,
+    );
     const taskGroups = Array.isArray(task.groups)
       ? task.groups
           .map((taskGroup) => taskGroup.group)
@@ -765,6 +818,13 @@ export default function Tasks() {
 
         <View style={styles.taskFooter}>
           <View style={styles.badgeRow}>
+            {ungradedSubmissionCount > 0 ? (
+              <Badge
+                label={`${ungradedSubmissionCount} not graded`}
+                tone="warning"
+              />
+            ) : null}
+
             <Badge
               label={
                 task.allowLateSubmission

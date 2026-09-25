@@ -315,6 +315,14 @@ export const styles =
       backgroundColor: colors.danger,
     },
 
+    missingSubmissionTab: {
+      backgroundColor: `${colors.warning}0D`,
+    },
+
+    missingSubmissionTabActive: {
+      backgroundColor: colors.warning,
+    },
+
     submissionTabText: {
       flexShrink: 1,
       fontSize: 13,
@@ -324,6 +332,10 @@ export const styles =
 
     flaggedSubmissionTabText: {
       color: colors.danger,
+    },
+
+    missingSubmissionTabText: {
+      color: colors.warning,
     },
 
     submissionTabTextActive: {
@@ -346,6 +358,10 @@ export const styles =
         `${colors.danger}16`,
     },
 
+    missingSubmissionTabCount: {
+      backgroundColor: `${colors.warning}16`,
+    },
+
     submissionTabCountActive: {
       backgroundColor:
         "rgba(255, 255, 255, 0.2)",
@@ -359,6 +375,10 @@ export const styles =
 
     flaggedSubmissionTabCountText: {
       color: colors.danger,
+    },
+
+    missingSubmissionTabCountText: {
+      color: colors.warning,
     },
 
     submissionTabCountTextActive: {
@@ -467,6 +487,48 @@ export const styles =
 
     submissionList: {
       gap: spacing.md,
+    },
+
+    hardcopyStudentCard: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing.md,
+      padding: spacing.md,
+    },
+
+    hardcopyStudentInfo: {
+      flex: 1,
+      minWidth: 220,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+
+    hardcopyStudentIcon: {
+      width: 42,
+      height: 42,
+      alignItems: "center",
+      justifyContent: "center",
+      borderRadius: 21,
+      backgroundColor: `${colors.primary}12`,
+    },
+
+    hardcopyStudentCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+
+    hardcopyStudentName: {
+      ...typography.bodyBold,
+      color: colors.textPrimary,
+    },
+
+    hardcopyStudentMeta: {
+      ...typography.caption,
+      color: colors.textMuted,
+      marginTop: 2,
     },
 
     progressCard: {

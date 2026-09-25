@@ -193,6 +193,17 @@ export function useTaskDetail({
       user,
     ]);
 
+  const unsubmittedStudents = useMemo(
+    () =>
+      Array.isArray(task?.unsubmittedStudents)
+        ? task.unsubmittedStudents
+        : [],
+    [task?.unsubmittedStudents],
+  );
+
+  const [markingHardcopyStudentId, setMarkingHardcopyStudentId] =
+    useState(null);
+
   const taskGroups =
     useMemo(
       () =>
@@ -1454,6 +1465,45 @@ export function useTaskDetail({
     );
   }
 
+  async function markHardcopySubmitted(student) {
+    if (!student?.id) {
+      return false;
+    }
+
+    clearMessages();
+    setMarkingHardcopyStudentId(student.id);
+
+    const studentGroups = Array.isArray(student.groups)
+      ? student.groups
+      : [];
+    const resolvedGroupId =
+      delegationGroupId ||
+      (studentGroups.length === 1 ? studentGroups[0]?.id : null);
+
+    try {
+      await api.post(`/submissions/task/${taskId}/hardcopy`, {
+        studentId: student.id,
+        groupId: resolvedGroupId || undefined,
+      });
+
+      setSuccess(
+        `${student.name || "Student"} is now recorded as having submitted a hardcopy.`,
+      );
+      await loadTask({ silent: true });
+      return true;
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          "Couldn't record the hardcopy submission.",
+        ),
+      );
+      return false;
+    } finally {
+      setMarkingHardcopyStudentId(null);
+    }
+  }
+
   function dismissError() {
     setError("");
   }
@@ -1465,6 +1515,7 @@ export function useTaskDetail({
   return {
     task,
     submissions,
+    unsubmittedStudents,
     taskGroups,
 
     loading,
@@ -1513,6 +1564,7 @@ export function useTaskDetail({
     reopeningSubmission,
     reopenReason,
     reopeningSubmissionId,
+    markingHardcopyStudentId,
 
     loadTask,
     clearMessages,
@@ -1560,5 +1612,6 @@ export function useTaskDetail({
     closeReopenModal,
     setReopenReason,
     confirmReopenSubmission,
+    markHardcopySubmitted,
   };
 }

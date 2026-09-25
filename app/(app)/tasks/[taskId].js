@@ -4,6 +4,8 @@ import React, {
 
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   RefreshControl,
   Text,
@@ -100,6 +102,43 @@ function getRouteParam(value) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function HardcopyStudentCard({ student, busy, onMarkHardcopy }) {
+  const groupNames = Array.isArray(student?.groups)
+    ? student.groups.map((group) => group?.name).filter(Boolean)
+    : [];
+
+  return (
+    <Card style={styles.hardcopyStudentCard}>
+      <View style={styles.hardcopyStudentInfo}>
+        <View style={styles.hardcopyStudentIcon}>
+          <Ionicons name="person-outline" size={21} color={colors.primary} />
+        </View>
+        <View style={styles.hardcopyStudentCopy}>
+          <Text style={styles.hardcopyStudentName}>
+            {student?.name || "Unknown student"}
+          </Text>
+          {student?.email ? (
+            <Text style={styles.hardcopyStudentMeta}>{student.email}</Text>
+          ) : null}
+          {groupNames.length ? (
+            <Text style={styles.hardcopyStudentMeta}>
+              {groupNames.join(", ")}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+
+      <Button
+        title="Mark as hardcopy submitted"
+        variant="outline"
+        loading={busy}
+        disabled={busy}
+        onPress={onMarkHardcopy}
+      />
+    </Card>
+  );
+}
+
 export default function TaskDetail() {
   const router = useRouter();
 
@@ -159,6 +198,7 @@ export default function TaskDetail() {
   const {
     task,
     submissions,
+    unsubmittedStudents,
     taskGroups,
 
     loading,
@@ -204,6 +244,7 @@ export default function TaskDetail() {
     reopeningSubmission,
     reopenReason,
     reopeningSubmissionId,
+    markingHardcopyStudentId,
 
     loadTask,
     dismissError,
@@ -249,6 +290,7 @@ export default function TaskDetail() {
     closeReopenModal,
     setReopenReason,
     confirmReopenSubmission,
+    markHardcopySubmitted,
   } = detail;
 
   const [submissionTab, setSubmissionTab] =
@@ -262,10 +304,21 @@ export default function TaskDetail() {
     canViewFlaggedStudents &&
     submissionTab === "FLAGGED";
 
+  const showingMissingStudents =
+    canViewFlaggedStudents &&
+    submissionTab === "MISSING";
+
+  const showingAllSubmissions =
+    !showingFlaggedStudents && !showingMissingStudents;
+
   const visibleSubmissions =
     showingFlaggedStudents
       ? flaggedSubmissions
       : submissions;
+
+  const visibleCount = showingMissingStudents
+    ? unsubmittedStudents.length
+    : visibleSubmissions.length;
 
   const selectedIdSet =
     new Set(
@@ -347,6 +400,25 @@ export default function TaskDetail() {
       submission,
       "Delegation removed from the task page.",
     );
+  }
+
+  function confirmHardcopySubmission(student) {
+    const message =
+      `Mark ${student?.name || "this student"} as having submitted this homework externally as a hardcopy?`;
+    const proceed = () => markHardcopySubmitted(student);
+
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && !window.confirm(message)) {
+        return;
+      }
+      proceed();
+      return;
+    }
+
+    Alert.alert("Record hardcopy submission", message, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Mark submitted", onPress: proceed },
+    ]);
   }
 
   if (loading) {
@@ -772,14 +844,14 @@ export default function TaskDetail() {
                   accessibilityRole="tab"
                   accessibilityState={{
                     selected:
-                      !showingFlaggedStudents,
+                      showingAllSubmissions,
                   }}
                   onPress={() =>
                     setSubmissionTab("ALL")
                   }
                   style={({ pressed }) => [
                     styles.submissionTab,
-                    !showingFlaggedStudents &&
+                    showingAllSubmissions &&
                       styles.submissionTabActive,
                     pressed && styles.pressed,
                   ]}
@@ -788,7 +860,7 @@ export default function TaskDetail() {
                     name="documents-outline"
                     size={18}
                     color={
-                      !showingFlaggedStudents
+                      showingAllSubmissions
                         ? colors.white
                         : colors.textMuted
                     }
@@ -797,7 +869,7 @@ export default function TaskDetail() {
                   <Text
                     style={[
                       styles.submissionTabText,
-                      !showingFlaggedStudents &&
+                      showingAllSubmissions &&
                         styles.submissionTabTextActive,
                     ]}
                   >
@@ -807,18 +879,62 @@ export default function TaskDetail() {
                   <View
                     style={[
                       styles.submissionTabCount,
-                      !showingFlaggedStudents &&
+                      showingAllSubmissions &&
                         styles.submissionTabCountActive,
                     ]}
                   >
                     <Text
                       style={[
                         styles.submissionTabCountText,
-                        !showingFlaggedStudents &&
+                        showingAllSubmissions &&
                           styles.submissionTabCountTextActive,
                       ]}
                     >
                       {submissions.length}
+                    </Text>
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: showingMissingStudents }}
+                  onPress={() => setSubmissionTab("MISSING")}
+                  style={({ pressed }) => [
+                    styles.submissionTab,
+                    styles.missingSubmissionTab,
+                    showingMissingStudents && styles.missingSubmissionTabActive,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="file-tray-outline"
+                    size={18}
+                    color={showingMissingStudents ? colors.white : colors.warning}
+                  />
+                  <Text
+                    style={[
+                      styles.submissionTabText,
+                      styles.missingSubmissionTabText,
+                      showingMissingStudents && styles.submissionTabTextActive,
+                    ]}
+                  >
+                    Awaiting submission
+                  </Text>
+                  <View
+                    style={[
+                      styles.submissionTabCount,
+                      styles.missingSubmissionTabCount,
+                      showingMissingStudents && styles.submissionTabCountActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.submissionTabCountText,
+                        styles.missingSubmissionTabCountText,
+                        showingMissingStudents && styles.submissionTabCountTextActive,
+                      ]}
+                    >
+                      {unsubmittedStudents.length}
                     </Text>
                   </View>
                 </Pressable>
@@ -897,7 +1013,9 @@ export default function TaskDetail() {
                 >
                   {showingFlaggedStudents
                     ? "Flagged students"
-                    : "Student submissions"}
+                    : showingMissingStudents
+                      ? "Awaiting submission"
+                      : "Student submissions"}
                 </Text>
 
                 <Text
@@ -907,7 +1025,9 @@ export default function TaskDetail() {
                 >
                   {showingFlaggedStudents
                     ? "Students whose recorded grade is below 60% for this task."
-                    : "Review files, delegate papers, grade work, and manage grading history."}
+                    : showingMissingStudents
+                      ? "Students with no online or hardcopy submission yet. Record a hardcopy here when paper work is received."
+                      : "Review files, delegate papers, grade work, and manage grading history."}
                 </Text>
               </View>
 
@@ -916,11 +1036,11 @@ export default function TaskDetail() {
                   styles.sectionCount
                 }
               >
-                {visibleSubmissions.length}
+                {visibleCount}
               </Text>
             </View>
 
-            {!showingFlaggedStudents &&
+            {showingAllSubmissions &&
             isAdminLevel &&
             selectableSubmissions.length ? (
               <View
@@ -997,7 +1117,7 @@ export default function TaskDetail() {
               </View>
             ) : null}
 
-            {!visibleSubmissions.length ? (
+            {!visibleCount ? (
               <Card
                 style={
                   styles.emptyCard
@@ -1020,7 +1140,9 @@ export default function TaskDetail() {
                     styles.emptyTitle
                   }
                 >
-                  {showingFlaggedStudents
+                  {showingMissingStudents
+                    ? "Everyone has submitted"
+                    : showingFlaggedStudents
                     ? "No flagged students"
                     : "No submissions yet"}
                 </Text>
@@ -1030,7 +1152,9 @@ export default function TaskDetail() {
                     styles.emptyDescription
                   }
                 >
-                  {showingFlaggedStudents
+                  {showingMissingStudents
+                    ? "There are no students waiting for an online or hardcopy submission in the selected group."
+                    : showingFlaggedStudents
                     ? "Students will appear here automatically when their recorded grade is below 60%."
                     : "Student homework submissions will appear here when they are uploaded."}
                 </Text>
@@ -1041,7 +1165,18 @@ export default function TaskDetail() {
                   styles.submissionList
                 }
               >
-                {visibleSubmissions.map(
+                {showingMissingStudents
+                  ? unsubmittedStudents.map((student) => (
+                      <HardcopyStudentCard
+                        key={student.id}
+                        student={student}
+                        busy={
+                          String(markingHardcopyStudentId) === String(student.id)
+                        }
+                        onMarkHardcopy={() => confirmHardcopySubmission(student)}
+                      />
+                    ))
+                  : visibleSubmissions.map(
                   (submission) => {
                     const canSelect =
                       isAdminLevel &&

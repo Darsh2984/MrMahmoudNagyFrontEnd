@@ -177,8 +177,38 @@ export const styles = StyleSheet.create({
   },
 
   noFileText: {
+    flex: 1,
     ...typography.body,
     color: colors.textMuted,
+  },
+
+  aiUnavailablePanel: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
+  },
+
+  aiUnavailableCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  aiUnavailableTitle: {
+    ...typography.bodyBold,
+    color: colors.textPrimary,
+  },
+
+  aiUnavailableText: {
+    ...typography.caption,
+    color: colors.textMuted,
+    lineHeight: 18,
+    marginTop: 2,
   },
 
   fileRow: {

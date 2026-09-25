@@ -79,6 +79,9 @@ export function SubmissionCard({
     submission.grade !== null &&
     submission.grade !== undefined;
 
+  const isHardcopy =
+    submission.submissionMethod === "HARDCOPY";
+
   const delegatedToCurrentUser =
     isSubmissionDelegatedToUser(
       submission,
@@ -217,12 +220,19 @@ export function SubmissionCard({
             </Text>
 
             <Text style={styles.studentMeta}>
-              Submitted{" "}
+              {isHardcopy ? "Hardcopy recorded" : "Submitted"}{" "}
               {formatDateTime(
-                submission.submittedAt ||
+                submission.hardcopyMarkedAt ||
+                  submission.submittedAt ||
                   submission.firstSubmittedAt,
               )}
             </Text>
+
+            {isHardcopy && submission.hardcopyMarkedBy?.name ? (
+              <Text style={styles.studentMeta}>
+                Recorded by {submission.hardcopyMarkedBy.name}
+              </Text>
+            ) : null}
 
             {studentGroupNames.length ? (
               <Text style={styles.studentMeta}>
@@ -245,6 +255,10 @@ export function SubmissionCard({
         </View>
 
         <View style={styles.statusBadges}>
+          {isHardcopy ? (
+            <Badge label="Hardcopy / External" tone="warning" />
+          ) : null}
+
           <Badge
             label={status.label}
             tone={status.tone}
@@ -291,6 +305,7 @@ export function SubmissionCard({
 
       <SubmissionFiles
         files={studentFiles}
+        isHardcopy={isHardcopy}
         openingFileKey={openingFileKey}
         onOpenFile={onOpenFile}
       />
@@ -406,7 +421,19 @@ export function SubmissionCard({
         />
       ) : null}
 
-      {isAdminLevel || delegatedToCurrentUser ? (
+      {(isAdminLevel || delegatedToCurrentUser) && isHardcopy ? (
+        <View style={styles.aiUnavailablePanel}>
+          <Ionicons name="sparkles-outline" size={20} color={colors.textMuted} />
+          <View style={styles.aiUnavailableCopy}>
+            <Text style={styles.aiUnavailableTitle}>AI grading unavailable</Text>
+            <Text style={styles.aiUnavailableText}>
+              This submission was received as a hardcopy, so there are no original student answer files for AI grading. Manual grading and corrected-file uploads remain available.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+
+      {(isAdminLevel || delegatedToCurrentUser) && !isHardcopy ? (
         <SubmissionAIGrading submission={submission} />
       ) : null}
 
@@ -437,6 +464,7 @@ export function SubmissionCard({
 
 function SubmissionFiles({
   files,
+  isHardcopy,
   openingFileKey,
   onOpenFile,
 }) {
@@ -464,7 +492,9 @@ function SubmissionFiles({
           />
 
           <Text style={styles.noFileText}>
-            No submission files were found.
+            {isHardcopy
+              ? "Submitted externally as a hardcopy. No original student files are stored online."
+              : "No submission files were found."}
           </Text>
         </View>
       ) : (
