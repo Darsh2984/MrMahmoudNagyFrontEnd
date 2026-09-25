@@ -359,6 +359,18 @@ function PerformanceSection({
 }
 
 function PerformanceSummary({ data }) {
+  const attendance = Array.isArray(data?.attendance)
+    ? data.attendance
+    : [];
+  const homework = Array.isArray(data?.homework)
+    ? data.homework
+    : Array.isArray(data?.tasks)
+      ? data.tasks
+      : [];
+  const inClassQuizzes = Array.isArray(data?.inClassQuizzes)
+    ? data.inClassQuizzes
+    : [];
+
   const metrics = useMemo(() => {
     if (!data) {
       return {
@@ -366,59 +378,47 @@ function PerformanceSummary({ data }) {
         attendancePercentage: 0,
         submittedTasks: 0,
         taskPercentage: 0,
-        attemptedQuizzes: [],
-        averageQuizPercentage: null,
+        submittedInClass: 0,
+        inClassPercentage: 0,
       };
     }
 
     const attendedCount =
-      data.attendance.filter(
+      attendance.filter(
         (attendance) =>
           attendance.present
       ).length;
 
     const attendancePercentage =
-      data.attendance.length > 0
+      attendance.length > 0
         ? Math.round(
             (attendedCount /
-              data.attendance.length) *
+              attendance.length) *
               100
           )
         : 0;
 
     const submittedTasks =
-      data.tasks.filter(
+      homework.filter(
         (task) => task.submitted
       ).length;
 
     const taskPercentage =
-      data.tasks.length > 0
+      homework.length > 0
         ? Math.round(
             (submittedTasks /
-              data.tasks.length) *
+              homework.length) *
               100
           )
         : 0;
 
-    const attemptedQuizzes =
-      data.quizzes.filter(
-        (quiz) =>
-          quiz.attempted &&
-          quiz.score != null
-      );
-
-    const averageQuizPercentage =
-      attemptedQuizzes.length > 0
+    const submittedInClass = inClassQuizzes.filter(
+      (task) => task.submitted,
+    ).length;
+    const inClassPercentage =
+      inClassQuizzes.length > 0
         ? Math.round(
-            attemptedQuizzes.reduce(
-              (total, quiz) =>
-                total +
-                (quiz.score /
-                  (quiz.total || 1)) *
-                  100,
-              0
-            ) /
-              attemptedQuizzes.length
+            (submittedInClass / inClassQuizzes.length) * 100,
           )
         : null;
 
@@ -427,10 +427,10 @@ function PerformanceSummary({ data }) {
       attendancePercentage,
       submittedTasks,
       taskPercentage,
-      attemptedQuizzes,
-      averageQuizPercentage,
+      submittedInClass,
+      inClassPercentage,
     };
-  }, [data]);
+  }, [data, attendance, homework, inClassQuizzes]);
 
   if (!data) {
     return null;
@@ -442,40 +442,31 @@ function PerformanceSummary({ data }) {
         <StatCard
           label="Attendance"
           value={`${metrics.attendancePercentage}%`}
-          helper={`${metrics.attendedCount} of ${data.attendance.length} sessions`}
+          helper={`${metrics.attendedCount} of ${attendance.length} sessions`}
           accent={colors.secondary}
         />
 
         <StatCard
-          label="Tasks submitted"
-          value={`${metrics.submittedTasks}/${data.tasks.length}`}
+          label="Homework submitted"
+          value={`${metrics.submittedTasks}/${homework.length}`}
           helper={`${metrics.taskPercentage}% completion`}
           accent={colors.primary}
         />
 
         <StatCard
-          label="Average quiz score"
+          label="In Class Quiz submitted"
           value={
-            metrics.averageQuizPercentage !=
+            metrics.inClassPercentage !=
             null
-              ? `${metrics.averageQuizPercentage}%`
+              ? `${metrics.inClassPercentage}%`
               : "—"
           }
           helper={
-            metrics.attemptedQuizzes.length
-              ? `${metrics.attemptedQuizzes.length} attempted`
-              : "No attempted quizzes"
+            inClassQuizzes.length
+              ? `${metrics.submittedInClass} of ${inClassQuizzes.length} submitted`
+              : "No In Class Quizzes"
           }
           accent={colors.warning}
-        />
-
-        <StatCard
-          label="In-class quizzes"
-          value={`${data.inClassQuizzes.filter(
-            (quiz) => quiz.grade != null
-          ).length}/${data.inClassQuizzes.length}`}
-          helper="Graded quizzes"
-          accent={colors.danger}
         />
       </View>
 
@@ -483,13 +474,13 @@ function PerformanceSummary({ data }) {
         title="Attendance history"
         description="Session-by-session attendance record."
       >
-        {data.attendance.length === 0 ? (
+        {attendance.length === 0 ? (
           <EmptyState
             title="No sessions yet"
             description="Attendance will appear after sessions are recorded."
           />
         ) : (
-          data.attendance.map(
+          attendance.map(
             (attendance, index) => (
               <PerformanceRow
                 key={
@@ -524,16 +515,16 @@ function PerformanceSummary({ data }) {
       </PerformanceSection>
 
       <PerformanceSection
-        title="Tasks"
-        description="Homework and task submission status."
+        title="Homework"
+        description="Homework submission status and grades."
       >
-        {data.tasks.length === 0 ? (
+        {homework.length === 0 ? (
           <EmptyState
-            title="No tasks yet"
-            description="Assigned tasks will appear here."
+            title="No homework yet"
+            description="Assigned homework will appear here."
           />
         ) : (
-          data.tasks.map((task) => (
+          homework.map((task) => (
             <PerformanceRow
               key={task.taskId}
               title={task.title}
@@ -545,52 +536,16 @@ function PerformanceSummary({ data }) {
                   : undefined
               }
               rightContent={
-                <Badge
-                  label={
-                    task.submitted
-                      ? "Submitted"
-                      : "Not submitted"
-                  }
-                  tone={
-                    task.submitted
-                      ? "success"
-                      : "neutral"
-                  }
-                />
-              }
-            />
-          ))
-        )}
-      </PerformanceSection>
-
-      <PerformanceSection
-        title="Quizzes"
-        description="Question-bank quiz attempts and scores."
-      >
-        {data.quizzes.length === 0 ? (
-          <EmptyState
-            title="No quizzes yet"
-            description="Quiz results will appear after quizzes are assigned."
-          />
-        ) : (
-          data.quizzes.map((quiz) => (
-            <PerformanceRow
-              key={quiz.quizId}
-              title={quiz.title}
-              rightContent={
-                quiz.attempted ? (
+                task.grade != null ? (
                   <View style={styles.scorePill}>
-                    <Text
-                      style={styles.scorePillText}
-                    >
-                      {quiz.score ?? 0}/
-                      {quiz.total ?? 0}
+                    <Text style={styles.scorePillText}>
+                      {task.grade}/{task.gradeOutOf}
                     </Text>
                   </View>
                 ) : (
                   <Badge
-                    label="Not attempted"
-                    tone="neutral"
+                    label={task.submitted ? "Submitted" : "Not submitted"}
+                    tone={task.submitted ? "success" : "neutral"}
                   />
                 )
               }
@@ -601,20 +556,20 @@ function PerformanceSummary({ data }) {
 
       <PerformanceSection
         title="In-class quizzes"
-        description="Grades entered for quizzes completed during class."
+        description="In Class Quiz submission status and grades."
       >
-        {data.inClassQuizzes.length ===
-        0 ? (
+        {inClassQuizzes.length === 0 ? (
           <EmptyState
             title="No in-class quizzes yet"
             description="In-class quiz grades will appear here."
           />
         ) : (
-          data.inClassQuizzes.map(
+          inClassQuizzes.map(
             (quiz) => (
               <PerformanceRow
-                key={quiz.quizId}
-                title={quiz.quizName}
+                key={quiz.taskId}
+                title={quiz.title}
+                subtitle={quiz.dueDate ? `Due ${formatDate(quiz.dueDate)}` : undefined}
                 rightContent={
                   quiz.grade != null ? (
                     <View
@@ -631,8 +586,8 @@ function PerformanceSummary({ data }) {
                     </View>
                   ) : (
                     <Badge
-                      label="Not graded"
-                      tone="neutral"
+                      label={quiz.submitted ? "Submitted" : "Not submitted"}
+                      tone={quiz.submitted ? "success" : "neutral"}
                     />
                   )
                 }
@@ -1063,7 +1018,7 @@ function TeacherPerformanceView() {
           </Text>
 
           <Text style={styles.pageSubtitle}>
-            Review attendance, tasks and quiz
+            Review attendance, Homework and In Class Quiz
             results for each student.
           </Text>
         </View>
@@ -1339,7 +1294,7 @@ function TeacherPerformanceView() {
 
               <View style={styles.reportFooter}>
                 <Text style={styles.reportHint}>
-                  Includes attendance by session date, tasks by deadline, in-class quizzes by quiz date, and published quizzes by start or publication date. Both selected dates are included.
+                  Includes attendance by session date, plus Homework and In Class Quiz tasks by their deadlines. Both selected dates are included.
                 </Text>
                 <Button
                   title={reportExporting ? "Creating reports..." : reportStudentIds.length > 1 ? `Download ${reportStudentIds.length} PDFs (ZIP)` : "Download PDF report"}
@@ -1381,7 +1336,7 @@ function TeacherPerformanceView() {
           ) : (
             <EmptyState
               title="Select a student"
-              description="Choose a student above to view attendance, tasks and quiz results."
+              description="Choose a student above to view attendance, Homework and In Class Quiz results."
             />
           )}
         </>
@@ -1498,8 +1453,8 @@ function StudentPerformanceView() {
           </Text>
 
           <Text style={styles.pageSubtitle}>
-            Review your attendance, task
-            submissions and quiz results.
+            Review your attendance, Homework and
+            In Class Quiz results.
           </Text>
         </View>
       </View>

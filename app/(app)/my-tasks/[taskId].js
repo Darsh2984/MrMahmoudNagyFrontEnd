@@ -1514,6 +1514,15 @@ export default function MyTaskDetail() {
                 }
               >
                 <Badge
+                  label={
+                    task.taskType === "IN_CLASS_QUIZ"
+                      ? "In Class Quiz"
+                      : "Homework"
+                  }
+                  tone="info"
+                />
+
+                <Badge
                   label={`Due ${formatDate(
                     task.deadline,
                   )}`}

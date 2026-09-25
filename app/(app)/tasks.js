@@ -39,6 +39,21 @@ import {
   typography,
 } from "../../src/theme";
 
+const TASK_TYPES = [
+  {
+    value: "HOMEWORK",
+    label: "Homework",
+    description: "Work students complete outside the class.",
+    icon: "home-outline",
+  },
+  {
+    value: "IN_CLASS_QUIZ",
+    label: "In Class Quiz",
+    description: "A graded activity completed during class.",
+    icon: "school-outline",
+  },
+];
+
 function getErrorMessage(error, fallback) {
   return (
     error?.response?.data?.msg ||
@@ -91,6 +106,7 @@ export default function Tasks() {
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
   const [gradeOutOf, setGradeOutOf] = useState("100");
+  const [taskType, setTaskType] = useState("HOMEWORK");
   const [allowLate, setAllowLate] = useState(true);
   const [taskFile, setTaskFile] = useState(null);
 
@@ -172,6 +188,7 @@ export default function Tasks() {
     setDescription("");
     setDeadline("");
     setGradeOutOf("100");
+    setTaskType("HOMEWORK");
     setAllowLate(true);
     setTaskFile(null);
     setSelectedGroupIds([]);
@@ -479,6 +496,7 @@ export default function Tasks() {
       formData.append("yearId", yearId);
       formData.append("deadline", normalizeDeadline(deadline));
       formData.append("gradeOutOf", gradeOutOf.trim());
+      formData.append("taskType", taskType);
 
       formData.append(
         "allowLateSubmission",
@@ -544,6 +562,7 @@ export default function Tasks() {
     setDescription(task.description || "");
     setDeadline(normalizeDeadline(task.deadline));
     setGradeOutOf(String(task.gradeOutOf ?? 100));
+    setTaskType(task.taskType || "HOMEWORK");
     setAllowLate(task.allowLateSubmission !== false);
     setTaskFile(null);
     setSelectedGroupIds(
@@ -666,6 +685,11 @@ export default function Tasks() {
           </View>
 
           <View style={styles.taskTitleBlock}>
+            <Text style={styles.taskTypeLabel}>
+              {task.taskType === "IN_CLASS_QUIZ"
+                ? "IN CLASS QUIZ"
+                : "HOMEWORK"}
+            </Text>
             <Text
               numberOfLines={2}
               style={styles.taskTitle}
@@ -937,7 +961,7 @@ export default function Tasks() {
 
           <Text style={styles.emptyDescription}>
             {filterGroupId === "ALL"
-              ? `Create the first homework task for ${
+              ? `Create the first task for ${
                   selectedYear?.name ||
                   "this academic year"
                 }.`
@@ -998,11 +1022,11 @@ export default function Tasks() {
             </View>
 
             <Text style={styles.pageTitle}>
-              Tasks and homework
+              Student tasks
             </Text>
 
             <Text style={styles.pageSubtitle}>
-              Create assignments, attach homework files,
+              Create Homework or In Class Quiz tasks, attach files,
               choose target groups, and monitor submissions.
             </Text>
           </View>
@@ -1354,7 +1378,7 @@ export default function Tasks() {
 
                 <View style={styles.sideCardCopy}>
                   <Text style={styles.sideCardTitle}>
-                    Create homework
+                    Create task
                   </Text>
 
                   <Text style={styles.mutedText}>
@@ -1424,8 +1448,8 @@ export default function Tasks() {
 
                 <Text style={styles.mutedText}>
                   {editingTask
-                    ? "Update the homework details, deadline, file, or target groups."
-                    : "Add homework details and select the groups that should receive it."}
+                    ? "Update the task type, details, deadline, file, or target groups."
+                    : "Choose a task type, add its details, and select the groups that should receive it."}
                 </Text>
               </View>
 
@@ -1456,6 +1480,66 @@ export default function Tasks() {
               }
             >
               <Text style={styles.inputLabel}>
+                Task type
+              </Text>
+
+              <View
+                style={[
+                  styles.taskTypeOptions,
+                  isSmallScreen && styles.taskTypeOptionsSmall,
+                ]}
+              >
+                {TASK_TYPES.map((option) => {
+                  const selected = taskType === option.value;
+
+                  return (
+                    <Pressable
+                      key={option.value}
+                      onPress={() => setTaskType(option.value)}
+                      style={({ pressed }) => [
+                        styles.taskTypeOption,
+                        selected && styles.taskTypeOptionSelected,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.taskTypeIcon,
+                          selected && styles.taskTypeIconSelected,
+                        ]}
+                      >
+                        <Ionicons
+                          name={option.icon}
+                          size={20}
+                          color={selected ? colors.white : colors.primary}
+                        />
+                      </View>
+
+                      <View style={styles.taskTypeCopy}>
+                        <Text
+                          style={[
+                            styles.taskTypeOptionTitle,
+                            selected && styles.taskTypeOptionTitleSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                        <Text style={styles.taskTypeOptionDescription}>
+                          {option.description}
+                        </Text>
+                      </View>
+
+                      <Ionicons
+                        name={selected ? "radio-button-on" : "radio-button-off"}
+                        size={20}
+                        color={selected ? colors.primary : colors.textMuted}
+                      />
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Text style={styles.inputLabel}>
                 Task title
               </Text>
 
@@ -1474,7 +1558,7 @@ export default function Tasks() {
               <TextInput
                 value={description}
                 onChangeText={setDescription}
-                placeholder="Describe the homework or provide instructions"
+                placeholder="Describe the task or provide instructions"
                 placeholderTextColor={colors.textMuted}
                 multiline
                 textAlignVertical="top"
@@ -1520,7 +1604,7 @@ export default function Tasks() {
               </View>
 
               <Text style={styles.inputLabel}>
-                Homework file
+                Task file
               </Text>
 
               <Pressable
@@ -1546,7 +1630,7 @@ export default function Tasks() {
                   >
                     {taskFile
                       ? taskFile.name
-                      : "Attach homework PDF"}
+                      : "Attach task PDF"}
                   </Text>
 
                   <Text style={styles.fileSubtitle}>
@@ -2244,6 +2328,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
 
+  taskTypeLabel: {
+    marginBottom: 3,
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 0.9,
+    color: colors.primary,
+  },
+
   taskTitle: {
     fontSize: 16,
     lineHeight: 22,
@@ -2484,6 +2576,69 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: colors.textPrimary,
+  },
+
+  taskTypeOptions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+
+  taskTypeOptionsSmall: {
+    flexDirection: "column",
+  },
+
+  taskTypeOption: {
+    flex: 1,
+    minHeight: 84,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.lg,
+    backgroundColor: colors.background,
+  },
+
+  taskTypeOptionSelected: {
+    borderColor: colors.primary,
+    backgroundColor: `${colors.secondary}18`,
+  },
+
+  taskTypeIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${colors.secondary}25`,
+  },
+
+  taskTypeIconSelected: {
+    backgroundColor: colors.primary,
+  },
+
+  taskTypeCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  taskTypeOptionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: colors.textPrimary,
+  },
+
+  taskTypeOptionTitleSelected: {
+    color: colors.primary,
+  },
+
+  taskTypeOptionDescription: {
+    marginTop: 3,
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.textMuted,
   },
 
   input: {

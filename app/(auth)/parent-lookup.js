@@ -153,10 +153,12 @@ export default function ParentLookup() {
       : [];
 
     const tasks = Array.isArray(
-      performance?.tasks
+      performance?.homework
     )
-      ? performance.tasks
-      : [];
+      ? performance.homework
+      : Array.isArray(performance?.tasks)
+        ? performance.tasks
+        : [];
 
     const attendedCount =
       attendance.filter(
@@ -251,10 +253,12 @@ export default function ParentLookup() {
 
   const year = group?.year || null;
 
-  const quizzes = Array.isArray(
-    performance?.quizzes
+  const homework = Array.isArray(
+    performance?.homework
   )
-    ? performance.quizzes
+    ? performance.homework
+    : Array.isArray(performance?.tasks)
+      ? performance.tasks
     : [];
 
   const inClassQuizzes = Array.isArray(
@@ -450,12 +454,12 @@ export default function ParentLookup() {
 
                 <SummaryCard
                   icon="document-text-outline"
-                  label="Tasks submitted"
+                  label="Homework submitted"
                   value={`${performanceSummary.submittedTasksCount}/${performanceSummary.tasksTotal}`}
                   description={
                     performanceSummary.tasksTotal
-                      ? "Submitted homework tasks"
-                      : "No tasks assigned yet"
+                      ? "Submitted homework"
+                      : "No homework assigned yet"
                   }
                   tone="primary"
                 />
@@ -479,32 +483,34 @@ export default function ParentLookup() {
               />
 
               <PerformanceSection
-                title="Quizzes"
-                subtitle="Question-bank quiz attempts and scores"
-                icon="help-circle-outline"
-                emptyText="No quiz records are available yet."
+                title="Homework"
+                subtitle="Homework submission status and grades"
+                icon="home-outline"
+                emptyText="No homework records are available yet."
               >
-                {quizzes.map((quiz) => (
-                  <QuizRow
-                    key={quiz.quizId}
-                    title={quiz.title}
-                    attempted={quiz.attempted}
-                    score={quiz.score}
-                    total={quiz.total}
+                {homework.map((task) => (
+                  <GradeRow
+                    key={task.taskId}
+                    title={task.title}
+                    submitted={task.submitted}
+                    grade={task.grade}
+                    gradeOutOf={task.gradeOutOf}
+                    statusLabel="Homework"
                   />
                 ))}
               </PerformanceSection>
 
               <PerformanceSection
-                title="In-Class Quizzes"
-                subtitle="Grades recorded during class sessions"
+                title="In Class Quizzes"
+                subtitle="In Class Quiz submission status and grades"
                 icon="clipboard-outline"
                 emptyText="No in-class quiz grades are available yet."
               >
                 {inClassQuizzes.map((quiz) => (
                   <GradeRow
-                    key={quiz.quizId}
-                    title={quiz.quizName}
+                    key={quiz.taskId}
+                    title={quiz.title}
+                    submitted={quiz.submitted}
                     grade={quiz.grade}
                     gradeOutOf={
                       quiz.gradeOutOf
@@ -930,8 +936,10 @@ function QuizRow({
 
 function GradeRow({
   title,
+  submitted,
   grade,
   gradeOutOf,
+  statusLabel = "In-class assessment",
 }) {
   const hasGrade =
     grade !== null &&
@@ -947,7 +955,7 @@ function GradeRow({
         </Text>
 
         <Text style={styles.recordStatus}>
-          In-class assessment
+          {submitted ? `${statusLabel} submitted` : "Not submitted yet"}
         </Text>
       </View>
 
@@ -955,7 +963,7 @@ function GradeRow({
         <Text style={styles.scoreText}>
           {hasGrade
             ? `${grade}/${gradeOutOf}`
-            : "Not graded"}
+            : submitted ? "Submitted" : "Pending"}
         </Text>
       </View>
     </View>

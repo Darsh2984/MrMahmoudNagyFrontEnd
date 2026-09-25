@@ -222,6 +222,14 @@ export const styles =
       color: colors.textPrimary,
     },
 
+    taskTypeLabel: {
+      marginBottom: 3,
+      fontSize: 10,
+      fontWeight: "900",
+      letterSpacing: 0.9,
+      color: colors.primary,
+    },
+
     taskDescription: {
       ...typography.caption,
       color: colors.textMuted,

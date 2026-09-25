@@ -232,7 +232,7 @@ export default function MyTasks() {
         />
 
         <Text style={styles.loadingText}>
-          Loading your homework...
+          Loading your tasks...
         </Text>
       </Screen>
     );
@@ -256,7 +256,7 @@ export default function MyTasks() {
             <Text
               style={styles.pageSubtitle}
             >
-              Review assigned homework,
+              Review assigned tasks,
               track deadlines, submit your
               work, and check grading
               progress.
@@ -492,6 +492,12 @@ function TaskCard({
           <View
             style={styles.taskMainInfo}
           >
+            <Text style={styles.taskTypeLabel}>
+              {task.taskType === "IN_CLASS_QUIZ"
+                ? "IN CLASS QUIZ"
+                : "HOMEWORK"}
+            </Text>
+
             <Text
               numberOfLines={2}
               style={styles.taskTitle}
@@ -882,8 +888,8 @@ function EmptyTasksState({
         style={styles.emptyDescription}
       >
         {hasGroup
-          ? "Your teacher has not assigned any homework to this group yet."
-          : "You must be assigned to an academic group before homework becomes available."}
+          ? "Your teacher has not assigned any tasks to this group yet."
+          : "You must be assigned to an academic group before tasks become available."}
       </Text>
     </Card>
   );

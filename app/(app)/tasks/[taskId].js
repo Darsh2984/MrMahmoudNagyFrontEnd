@@ -630,6 +630,15 @@ export default function TaskDetail() {
 
               <View style={styles.heroBadges}>
                 <Badge
+                  label={
+                    task.taskType === "IN_CLASS_QUIZ"
+                      ? "In Class Quiz"
+                      : "Homework"
+                  }
+                  tone="info"
+                />
+
+                <Badge
                   label={`Grade out of ${
                     task.gradeOutOf ?? "-"
                   }`}
