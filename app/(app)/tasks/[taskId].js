@@ -405,7 +405,12 @@ export default function TaskDetail() {
   function confirmHardcopySubmission(student) {
     const message =
       `Mark ${student?.name || "this student"} as having submitted this homework externally as a hardcopy?`;
-    const proceed = () => markHardcopySubmitted(student);
+    const proceed = async () => {
+      const marked = await markHardcopySubmitted(student);
+      if (marked) {
+        setSubmissionTab("ALL");
+      }
+    };
 
     if (Platform.OS === "web") {
       if (typeof window !== "undefined" && !window.confirm(message)) {
