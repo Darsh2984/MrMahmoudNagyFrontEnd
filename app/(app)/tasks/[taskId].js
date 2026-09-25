@@ -404,7 +404,7 @@ export default function TaskDetail() {
 
   function confirmHardcopySubmission(student) {
     const message =
-      `Mark ${student?.name || "this student"} as having submitted this homework externally as a hardcopy?`;
+      `Mark ${student?.name || "this student"} as having submitted this ${task?.taskType === "IN_CLASS_QUIZ" ? "in-class quiz" : "homework"} externally as a hardcopy?`;
     const proceed = async () => {
       const marked = await markHardcopySubmitted(student);
       if (marked) {
