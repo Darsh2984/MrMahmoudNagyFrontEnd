@@ -12,6 +12,7 @@ import {
 import * as DocumentPicker from "expo-document-picker";
 
 import api from "../../../../src/lib/api";
+import { selectAndUploadForStudent } from "../../../../src/utils/staffSubmissionUpload";
 
 import {
   ACCEPTED_CORRECTED_FILE_TYPES,
@@ -202,6 +203,12 @@ export function useTaskDetail({
   );
 
   const [markingHardcopyStudentId, setMarkingHardcopyStudentId] =
+    useState(null);
+
+  const [uploadingForStudentId, setUploadingForStudentId] =
+    useState(null);
+
+  const [removingHardcopySubmissionId, setRemovingHardcopySubmissionId] =
     useState(null);
 
   const taskGroups =
@@ -1504,6 +1511,70 @@ export function useTaskDetail({
     }
   }
 
+  async function uploadSubmissionForStudent(student) {
+    if (!student?.id || uploadingForStudentId) {
+      return false;
+    }
+
+    clearMessages();
+    setUploadingForStudentId(student.id);
+
+    try {
+      const result = await selectAndUploadForStudent({
+        taskId,
+        studentId: student.id,
+      });
+
+      if (result.cancelled) {
+        return false;
+      }
+
+      setSuccess(
+        `${result.count} ${result.count === 1 ? "file was" : "files were"} submitted for ${student.name || "the student"}.`,
+      );
+      await loadTask({ silent: true });
+      return true;
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          "Couldn't submit files for this student.",
+        ),
+      );
+      return false;
+    } finally {
+      setUploadingForStudentId(null);
+    }
+  }
+
+  async function removeHardcopySubmission(submission) {
+    if (!submission?.id || removingHardcopySubmissionId) {
+      return false;
+    }
+
+    clearMessages();
+    setRemovingHardcopySubmissionId(submission.id);
+
+    try {
+      await api.delete(`/submissions/${submission.id}/hardcopy`);
+      setSuccess(
+        `The accidental hardcopy submission for ${submission.student?.name || "the student"} was removed.`,
+      );
+      await loadTask({ silent: true });
+      return true;
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          "Couldn't remove the hardcopy submission.",
+        ),
+      );
+      return false;
+    } finally {
+      setRemovingHardcopySubmissionId(null);
+    }
+  }
+
   function dismissError() {
     setError("");
   }
@@ -1565,6 +1636,8 @@ export function useTaskDetail({
     reopenReason,
     reopeningSubmissionId,
     markingHardcopyStudentId,
+    uploadingForStudentId,
+    removingHardcopySubmissionId,
 
     loadTask,
     clearMessages,
@@ -1613,5 +1686,7 @@ export function useTaskDetail({
     setReopenReason,
     confirmReopenSubmission,
     markHardcopySubmitted,
+    uploadSubmissionForStudent,
+    removeHardcopySubmission,
   };
 }

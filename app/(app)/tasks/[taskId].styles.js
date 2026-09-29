@@ -520,6 +520,13 @@ export const styles =
       minWidth: 0,
     },
 
+    hardcopyStudentActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      alignItems: "center",
+      gap: spacing.sm,
+    },
+
     hardcopyStudentName: {
       ...typography.bodyBold,
       color: colors.textPrimary,

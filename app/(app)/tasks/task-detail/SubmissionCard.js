@@ -58,6 +58,7 @@ export function SubmissionCard({
   editingSubmissionId,
   openingFileKey,
   delegationBusyId,
+  isRemovingHardcopy,
   onToggleSelection,
   onOpenFile,
   onDeleteCorrectedFile,
@@ -74,6 +75,7 @@ export function SubmissionCard({
   onOpenDelegationHistory,
   onOpenGradingHistory,
   onOpenReopen,
+  onRemoveHardcopy,
 }) {
   const graded =
     submission.grade !== null &&
@@ -422,15 +424,29 @@ export function SubmissionCard({
       ) : null}
 
       {(isAdminLevel || delegatedToCurrentUser) && isHardcopy ? (
-        <View style={styles.aiUnavailablePanel}>
-          <Ionicons name="sparkles-outline" size={20} color={colors.textMuted} />
-          <View style={styles.aiUnavailableCopy}>
-            <Text style={styles.aiUnavailableTitle}>AI grading unavailable</Text>
-            <Text style={styles.aiUnavailableText}>
-              This submission was received as a hardcopy, so there are no original student answer files for AI grading. Manual grading and corrected-file uploads remain available.
-            </Text>
+        <>
+          <View style={styles.aiUnavailablePanel}>
+            <Ionicons name="sparkles-outline" size={20} color={colors.textMuted} />
+            <View style={styles.aiUnavailableCopy}>
+              <Text style={styles.aiUnavailableTitle}>AI grading unavailable</Text>
+              <Text style={styles.aiUnavailableText}>
+                This submission was received as a hardcopy, so there are no original student answer files for AI grading. Manual grading and corrected-file uploads remain available.
+              </Text>
+            </View>
           </View>
-        </View>
+
+          {!graded && !correctedFiles.length ? (
+            <View style={styles.hardcopyRemovalRow}>
+              <Button
+                title="Remove accidental hardcopy"
+                variant="danger"
+                loading={isRemovingHardcopy}
+                disabled={isRemovingHardcopy}
+                onPress={onRemoveHardcopy}
+              />
+            </View>
+          ) : null}
+        </>
       ) : null}
 
       {(isAdminLevel || delegatedToCurrentUser) && !isHardcopy ? (

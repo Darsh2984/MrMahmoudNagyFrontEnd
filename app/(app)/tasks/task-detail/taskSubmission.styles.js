@@ -23,6 +23,12 @@ export const styles = StyleSheet.create({
     opacity: 0.45,
   },
 
+  hardcopyRemovalRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginBottom: spacing.md,
+  },
+
   cardSelectionRow: {
     alignSelf: "flex-start",
     flexDirection: "row",

@@ -102,7 +102,13 @@ function getRouteParam(value) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function HardcopyStudentCard({ student, busy, onMarkHardcopy }) {
+function HardcopyStudentCard({
+  student,
+  hardcopyBusy,
+  uploadBusy,
+  onMarkHardcopy,
+  onUploadFiles,
+}) {
   const groupNames = Array.isArray(student?.groups)
     ? student.groups.map((group) => group?.name).filter(Boolean)
     : [];
@@ -128,13 +134,21 @@ function HardcopyStudentCard({ student, busy, onMarkHardcopy }) {
         </View>
       </View>
 
-      <Button
-        title="Mark as hardcopy submitted"
-        variant="outline"
-        loading={busy}
-        disabled={busy}
-        onPress={onMarkHardcopy}
-      />
+      <View style={styles.hardcopyStudentActions}>
+        <Button
+          title="Upload for student"
+          loading={uploadBusy}
+          disabled={hardcopyBusy || uploadBusy}
+          onPress={onUploadFiles}
+        />
+        <Button
+          title="Mark as hardcopy submitted"
+          variant="outline"
+          loading={hardcopyBusy}
+          disabled={hardcopyBusy || uploadBusy}
+          onPress={onMarkHardcopy}
+        />
+      </View>
     </Card>
   );
 }
@@ -245,6 +259,8 @@ export default function TaskDetail() {
     reopenReason,
     reopeningSubmissionId,
     markingHardcopyStudentId,
+    uploadingForStudentId,
+    removingHardcopySubmissionId,
 
     loadTask,
     dismissError,
@@ -291,6 +307,8 @@ export default function TaskDetail() {
     setReopenReason,
     confirmReopenSubmission,
     markHardcopySubmitted,
+    uploadSubmissionForStudent,
+    removeHardcopySubmission,
   } = detail;
 
   const [submissionTab, setSubmissionTab] =
@@ -423,6 +441,25 @@ export default function TaskDetail() {
     Alert.alert("Record hardcopy submission", message, [
       { text: "Cancel", style: "cancel" },
       { text: "Mark submitted", onPress: proceed },
+    ]);
+  }
+
+  function confirmRemoveHardcopySubmission(submission) {
+    const message =
+      `Remove the hardcopy submission recorded for ${submission?.student?.name || "this student"}? They will return to the awaiting-submission list.`;
+    const proceed = () => removeHardcopySubmission(submission);
+
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && !window.confirm(message)) {
+        return;
+      }
+      proceed();
+      return;
+    }
+
+    Alert.alert("Remove hardcopy submission", message, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: proceed },
     ]);
   }
 
@@ -1175,10 +1212,14 @@ export default function TaskDetail() {
                       <HardcopyStudentCard
                         key={student.id}
                         student={student}
-                        busy={
+                        hardcopyBusy={
                           String(markingHardcopyStudentId) === String(student.id)
                         }
+                        uploadBusy={
+                          String(uploadingForStudentId) === String(student.id)
+                        }
                         onMarkHardcopy={() => confirmHardcopySubmission(student)}
+                        onUploadFiles={() => uploadSubmissionForStudent(student)}
                       />
                     ))
                   : visibleSubmissions.map(
@@ -1225,6 +1266,10 @@ export default function TaskDetail() {
                         }
                         delegationBusyId={
                           delegationBusyId
+                        }
+                        isRemovingHardcopy={
+                          String(removingHardcopySubmissionId) ===
+                          String(submission.id)
                         }
                         onToggleSelection={() =>
                           toggleSubmissionSelection(
@@ -1323,6 +1368,9 @@ export default function TaskDetail() {
                           openReopenModal(
                             submission,
                           )
+                        }
+                        onRemoveHardcopy={() =>
+                          confirmRemoveHardcopySubmission(submission)
                         }
                       />
                     );
