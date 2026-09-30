@@ -820,6 +820,67 @@ export const styles =
       flexDirection: "column",
     },
 
+    sessionLinksList: {
+      width: "100%",
+      gap: spacing.sm,
+    },
+
+    sessionLinkCard: {
+      width: "100%",
+      gap: spacing.sm,
+      padding: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.background,
+    },
+
+    sessionLinkCardHeader: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: spacing.sm,
+    },
+
+    sessionLinkNumber: {
+      ...typography.bodyBold,
+      color: colors.textPrimary,
+    },
+
+    removeSessionLinkButton: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      paddingVertical: spacing.xs,
+      paddingHorizontal: spacing.sm,
+      borderRadius: radius.sm,
+      backgroundColor: `${colors.danger}10`,
+    },
+
+    removeSessionLinkText: {
+      ...typography.caption,
+      fontWeight: "700",
+      color: colors.danger,
+    },
+
+    sessionLinkTitleInput: {
+      ...typography.body,
+      flex: 0.65,
+      minWidth: 190,
+      minHeight: 50,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      backgroundColor: colors.white,
+      color: colors.textPrimary,
+
+      ...(Platform.OS === "web"
+        ? { outlineStyle: "none" }
+        : null),
+    },
+
     sessionLinkInput: {
       ...typography.body,
       flex: 1,
@@ -845,6 +906,7 @@ export const styles =
 
     sessionLinkSaveButton: {
       minWidth: 125,
+      alignSelf: "flex-start",
     },
 
     currentSessionLink: {

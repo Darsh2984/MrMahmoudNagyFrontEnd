@@ -48,6 +48,24 @@ const EMPTY_STUDENT_FORM = {
   motherPhoneCountry: DEFAULT_COUNTRY,
 };
 
+function normalizeGroupSessionLinks(group) {
+  if (Array.isArray(group?.sessionLinks)) {
+    return group.sessionLinks.map((item, index) => ({
+      id: String(item?.id || `session-${index + 1}`),
+      title: String(item?.title || ""),
+      link: String(item?.link || ""),
+    }));
+  }
+
+  return group?.sessionLink
+    ? [{
+        id: "legacy-session-link",
+        title: "Online session",
+        link: group.sessionLink,
+      }]
+    : [];
+}
+
 const COUNTRIES = countriesData
   .flatMap((country) => {
     const root = country.idd?.root || "";
@@ -155,8 +173,8 @@ export default function Groups() {
   const [newYearName, setNewYearName] =
     useState("");
 
-  const [sessionLink, setSessionLink] =
-    useState("");
+  const [sessionLinks, setSessionLinks] =
+    useState([]);
 
   const [
     savingSessionLink,
@@ -378,7 +396,7 @@ export default function Groups() {
   const resetGroupWorkspace =
     useCallback(() => {
       setSelectedGroup(null);
-      setSessionLink("");
+      setSessionLinks([]);
       setGroupSearch("");
       setStudentSearch("");
       setUnassignedSearch("");
@@ -508,8 +526,8 @@ export default function Groups() {
               : [],
         });
 
-        setSessionLink(
-          response.data?.sessionLink || ""
+        setSessionLinks(
+          normalizeGroupSessionLinks(response.data)
         );
       } catch (requestError) {
         setError(
@@ -695,7 +713,34 @@ export default function Groups() {
     }
   }
 
-  async function handleSaveSessionLink() {
+  function addSessionLink() {
+    setSessionLinks((current) => [
+      ...current,
+      {
+        id: `session-${Date.now()}-${current.length}`,
+        title: "",
+        link: "",
+      },
+    ]);
+  }
+
+  function updateSessionLinkDraft(id, field, value) {
+    setSessionLinks((current) =>
+      current.map((item) =>
+        item.id === id
+          ? { ...item, [field]: value }
+          : item
+      )
+    );
+  }
+
+  function removeSessionLinkDraft(id) {
+    setSessionLinks((current) =>
+      current.filter((item) => item.id !== id)
+    );
+  }
+
+  async function handleSaveSessionLinks() {
     if (
       !selectedGroup?.id ||
       !canManageGroups ||
@@ -704,40 +749,36 @@ export default function Groups() {
       return;
     }
 
-    const trimmedLink =
-      sessionLink.trim();
-
     setSavingSessionLink(true);
     setError("");
 
     try {
       const response =
-        await api.patch(
-          `/groups/${selectedGroup.id}/session-link`,
+        await api.put(
+          `/groups/${selectedGroup.id}/session-links`,
           {
-            sessionLink:
-              trimmedLink || null,
+            sessionLinks: sessionLinks.map((item) => ({
+              id: item.id,
+              title: item.title.trim(),
+              link: item.link.trim(),
+            })),
           }
         );
 
-      const savedLink =
-        response.data?.sessionLink ||
-        null;
+      const savedGroup = response.data?.group || {};
+      const savedLinks = normalizeGroupSessionLinks(savedGroup);
 
       setSelectedGroup(
         (current) =>
           current
             ? {
                 ...current,
-                sessionLink:
-                  savedLink,
+                ...savedGroup,
               }
             : current
       );
 
-      setSessionLink(
-        savedLink || ""
-      );
+      setSessionLinks(savedLinks);
 
       await loadGroupsWithoutReset(
         selectedYearId
@@ -746,7 +787,7 @@ export default function Groups() {
       setError(
         getRequestError(
           requestError,
-          "Couldn't update the session link."
+          "Couldn't update the session links."
         )
       );
     } finally {
@@ -1976,8 +2017,7 @@ async function handleAddSelectedStudents() {
                                   styles.subsectionTitle
                                 }
                               >
-                                Online
-                                session link
+                                Online session links
                               </Text>
 
                               <Text
@@ -1985,122 +2025,81 @@ async function handleAddSelectedStudents() {
                                   styles.subsectionDescription
                                 }
                               >
-                                Set the
-                                permanent
-                                Zoom,
-                                Google Meet,
-                                Teams, or
-                                other online
-                                session link
-                                for this
-                                group.
-                                Students in
-                                this group
-                                will use it
-                                when they
-                                press Join
-                                the Session.
+                                Add one or more titled Zoom, Google Meet, Teams,
+                                or other online session links for this group.
+                                Students will see every link on their dashboard.
                               </Text>
                             </View>
                           </View>
-                        </View>
-
-                        <View
-                          style={[
-                            styles.sessionLinkForm,
-
-                            isCompact &&
-                              styles.sessionLinkFormCompact,
-                          ]}
-                        >
-                          <TextInput
-                            value={
-                              sessionLink
-                            }
-                            onChangeText={
-                              setSessionLink
-                            }
-                            placeholder="https://zoom.us/j/... or https://meet.google.com/..."
-                            placeholderTextColor={
-                              colors.textMuted
-                            }
-                            autoCapitalize="none"
-                            autoCorrect={
-                              false
-                            }
-                            keyboardType="url"
-                            editable={
-                              !savingSessionLink
-                            }
-                            style={
-                              styles.sessionLinkInput
-                            }
-                          />
 
                           <Button
-                            title={
-                              savingSessionLink
-                                ? "Saving..."
-                                : "Save link"
-                            }
-                            onPress={
-                              handleSaveSessionLink
-                            }
-                            loading={
-                              savingSessionLink
-                            }
-                            disabled={
-                              savingSessionLink
-                            }
-                            style={
-                              styles.sessionLinkSaveButton
-                            }
+                            title="Add session link"
+                            variant="outline"
+                            disabled={savingSessionLink}
+                            onPress={addSessionLink}
                           />
                         </View>
 
-                        {selectedGroup.sessionLink ? (
-                          <View
-                            style={
-                              styles.currentSessionLink
-                            }
-                          >
-                            <MaterialCommunityIcons
-                              name="check-circle-outline"
-                              size={19}
-                              color={
-                                colors.secondary
-                              }
-                            />
+                        {sessionLinks.length ? (
+                          <View style={styles.sessionLinksList}>
+                            {sessionLinks.map((item, index) => (
+                              <View key={item.id} style={styles.sessionLinkCard}>
+                                <View style={styles.sessionLinkCardHeader}>
+                                  <Text style={styles.sessionLinkNumber}>
+                                    Session link {index + 1}
+                                  </Text>
+                                  <Pressable
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Remove session link ${index + 1}`}
+                                    disabled={savingSessionLink}
+                                    onPress={() => removeSessionLinkDraft(item.id)}
+                                    style={({ pressed }) => [
+                                      styles.removeSessionLinkButton,
+                                      pressed && styles.pressed,
+                                    ]}
+                                  >
+                                    <MaterialCommunityIcons
+                                      name="trash-can-outline"
+                                      size={19}
+                                      color={colors.danger}
+                                    />
+                                    <Text style={styles.removeSessionLinkText}>Remove</Text>
+                                  </Pressable>
+                                </View>
 
-                            <View
-                              style={
-                                styles.currentSessionLinkContent
-                              }
-                            >
-                              <Text
-                                style={
-                                  styles.currentSessionLinkLabel
-                                }
-                              >
-                                Current
-                                session
-                                link
-                              </Text>
-
-                              <Text
-                                selectable
-                                numberOfLines={
-                                  2
-                                }
-                                style={
-                                  styles.currentSessionLinkText
-                                }
-                              >
-                                {
-                                  selectedGroup.sessionLink
-                                }
-                              </Text>
-                            </View>
+                                <View
+                                  style={[
+                                    styles.sessionLinkForm,
+                                    isCompact && styles.sessionLinkFormCompact,
+                                  ]}
+                                >
+                                  <TextInput
+                                    value={item.title}
+                                    onChangeText={(value) =>
+                                      updateSessionLinkDraft(item.id, "title", value)
+                                    }
+                                    placeholder="Title, e.g. Saturday revision session"
+                                    placeholderTextColor={colors.textMuted}
+                                    editable={!savingSessionLink}
+                                    maxLength={100}
+                                    style={styles.sessionLinkTitleInput}
+                                  />
+                                  <TextInput
+                                    value={item.link}
+                                    onChangeText={(value) =>
+                                      updateSessionLinkDraft(item.id, "link", value)
+                                    }
+                                    placeholder="https://zoom.us/j/..."
+                                    placeholderTextColor={colors.textMuted}
+                                    autoCapitalize="none"
+                                    autoCorrect={false}
+                                    keyboardType="url"
+                                    editable={!savingSessionLink}
+                                    style={styles.sessionLinkInput}
+                                  />
+                                </View>
+                              </View>
+                            ))}
                           </View>
                         ) : (
                           <View
@@ -2121,30 +2120,19 @@ async function handleAddSelectedStudents() {
                                 styles.noSessionLinkText
                               }
                             >
-                              No online
-                              session link
-                              has been
-                              added for
-                              this group
-                              yet.
+                              No online session links have been added for this
+                              group yet. Use Add session link to create one.
                             </Text>
                           </View>
                         )}
 
-                        {selectedGroup.sessionLink &&
-                        sessionLink.trim() ===
-                          "" ? (
-                          <Text
-                            style={
-                              styles.sessionLinkClearHelp
-                            }
-                          >
-                            Save the empty
-                            field to remove
-                            the current
-                            session link.
-                          </Text>
-                        ) : null}
+                        <Button
+                          title={savingSessionLink ? "Saving..." : "Save session links"}
+                          onPress={handleSaveSessionLinks}
+                          loading={savingSessionLink}
+                          disabled={savingSessionLink}
+                          style={styles.sessionLinkSaveButton}
+                        />
                       </View>
 
                       <View

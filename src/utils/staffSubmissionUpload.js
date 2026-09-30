@@ -95,6 +95,7 @@ async function uploadToStorage(asset, prepared, webBody) {
 
 export async function selectAndUploadForStudent({ taskId, studentId }) {
   const selection = await DocumentPicker.getDocumentAsync({
+    base64: false,
     type: ACCEPTED_TYPES,
     multiple: true,
     copyToCacheDirectory: true,

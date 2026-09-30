@@ -1057,6 +1057,9 @@ export default function MyTaskDetail() {
     try {
       const result =
         await DocumentPicker.getDocumentAsync({
+          // Do not ask Expo's web picker to convert the file with FileReader.
+          // We upload the original File/URI directly on every platform.
+          base64: false,
           type: [
             "application/pdf",
             "image/*",

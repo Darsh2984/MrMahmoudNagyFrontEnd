@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -45,6 +46,24 @@ const DASHBOARD_ITEMS = [
   },
 ];
 
+function getGroupSessionLinks(group) {
+  const links = Array.isArray(group?.sessionLinks)
+    ? group.sessionLinks
+    : group?.sessionLink
+      ? [{ id: "legacy", title: "Online session", link: group.sessionLink }]
+      : [];
+
+  return links
+    .map((item, index) => ({
+      id: String(item?.id || `${group?.id || "group"}-${index}`),
+      title: String(item?.title || "Online session"),
+      link: String(item?.link || ""),
+      groupName: group?.name || "Your group",
+      yearName: group?.year?.name || "",
+    }))
+    .filter((item) => item.link);
+}
+
 export default function MyDashboard() {
   const router = useRouter();
   const { user } = useAuth();
@@ -52,6 +71,7 @@ export default function MyDashboard() {
   const [summary, setSummary] = useState(null);
   const [ticketCount, setTicketCount] = useState(0);
   const [quizCount, setQuizCount] = useState(0);
+  const [sessionLinks, setSessionLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -69,10 +89,20 @@ export default function MyDashboard() {
 
     try {
       const profile = await api.get(`/students/${user.id}`);
-      const group = profile.data.groupMemberships?.[0]?.group;
+      const memberships = Array.isArray(profile.data.groupMemberships)
+        ? profile.data.groupMemberships
+        : [];
+      const group = memberships[0]?.group;
+
+      setSessionLinks(
+        memberships.flatMap((membership) =>
+          getGroupSessionLinks(membership?.group)
+        )
+      );
 
       if (!group) {
         setSummary(null);
+        setSessionLinks([]);
         setError("You have not been added to a group yet.");
         return;
       }
@@ -160,6 +190,18 @@ export default function MyDashboard() {
       },
     };
   }, [summary, quizCount, ticketCount]);
+
+  async function openSessionLink(link) {
+    try {
+      const supported = await Linking.canOpenURL(link);
+      if (!supported) {
+        throw new Error("This session link cannot be opened on this device.");
+      }
+      await Linking.openURL(link);
+    } catch (linkError) {
+      setError(linkError?.message || "Couldn't open the session link.");
+    }
+  }
 
   if (loading) {
     return (
@@ -301,6 +343,49 @@ export default function MyDashboard() {
                 </View>
               </View>
             </Card>
+
+            {sessionLinks.length ? (
+              <View style={styles.sessionSection}>
+                <View style={styles.sectionHeader}>
+                  <View>
+                    <Text style={styles.sectionTitle}>Join your online sessions</Text>
+                    <Text style={styles.sectionSubtitle}>
+                      Zoom and online-class links shared with your groups
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.sessionLinksGrid}>
+                  {sessionLinks.map((item) => (
+                    <Pressable
+                      key={`${item.groupName}-${item.id}`}
+                      accessibilityRole="link"
+                      onPress={() => openSessionLink(item.link)}
+                      style={({ pressed }) => [
+                        styles.sessionLinkWrapper,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Card style={styles.sessionLinkCard}>
+                        <View style={styles.sessionLinkIcon}>
+                          <Ionicons name="videocam-outline" size={23} color={colors.primary} />
+                        </View>
+                        <View style={styles.sessionLinkContent}>
+                          <Text style={styles.sessionLinkTitle}>{item.title}</Text>
+                          <Text style={styles.sessionLinkGroup}>
+                            {item.groupName}{item.yearName ? ` · ${item.yearName}` : ""}
+                          </Text>
+                        </View>
+                        <View style={styles.sessionJoinButton}>
+                          <Text style={styles.sessionJoinText}>Join</Text>
+                          <Ionicons name="open-outline" size={17} color="#FFFFFF" />
+                        </View>
+                      </Card>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            ) : null}
 
             <View style={styles.sectionHeader}>
               <View>
@@ -705,6 +790,75 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     backgroundColor: colors.primary,
     overflow: "hidden",
+  },
+
+  sessionSection: {
+    marginBottom: spacing.xl,
+  },
+
+  sessionLinksGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.md,
+  },
+
+  sessionLinkWrapper: {
+    flexGrow: 1,
+    flexBasis: 330,
+    maxWidth: 560,
+  },
+
+  sessionLinkCard: {
+    minHeight: 88,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: "rgba(11, 60, 73, 0.14)",
+  },
+
+  sessionLinkIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(11, 60, 73, 0.10)",
+  },
+
+  sessionLinkContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  sessionLinkTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: colors.text,
+  },
+
+  sessionLinkGroup: {
+    marginTop: 4,
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.textMuted,
+  },
+
+  sessionJoinButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+  },
+
+  sessionJoinText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 
   heroTopRow: {
