@@ -45,6 +45,95 @@ const MAX_HOMEWORK_FILE_SIZE_BYTES =
   50 * 1024 * 1024;
 const MAX_PARALLEL_UPLOADS = 2;
 
+const HOMEWORK_FILE_ACCEPT = [
+  "application/pdf",
+  "image/*",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+];
+
+function pickHomeworkDocumentsOnWeb() {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    let settled = false;
+
+    input.type = "file";
+    input.multiple = true;
+    input.accept = HOMEWORK_FILE_ACCEPT.join(",");
+    input.style.position = "fixed";
+    input.style.left = "-10000px";
+    input.style.top = "-10000px";
+
+    const finish = (result) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      window.removeEventListener("focus", handleWindowFocus);
+      input.remove();
+      resolve(result);
+    };
+
+    const handleWindowFocus = () => {
+      // iOS Safari does not consistently dispatch the input `cancel` event.
+      // Give a selected file's `change` event a chance to run first.
+      window.setTimeout(() => {
+        if (!settled && !input.files?.length) {
+          finish({ canceled: true, assets: null });
+        }
+      }, 300);
+    };
+
+    input.addEventListener("change", () => {
+      const files = Array.from(input.files || []);
+
+      if (!files.length) {
+        finish({ canceled: true, assets: null });
+        return;
+      }
+
+      finish({
+        canceled: false,
+        assets: files.map((file) => ({
+          file,
+          uri: URL.createObjectURL(file),
+          name: file.name,
+          size: file.size,
+          mimeType:
+            file.type || "application/octet-stream",
+          lastModified: file.lastModified,
+        })),
+      });
+    });
+
+    input.addEventListener("cancel", () => {
+      finish({ canceled: true, assets: null });
+    });
+
+    document.body.appendChild(input);
+    window.addEventListener("focus", handleWindowFocus);
+    input.click();
+  });
+}
+
+function pickHomeworkDocuments() {
+  if (Platform.OS === "web") {
+    return pickHomeworkDocumentsOnWeb();
+  }
+
+  return DocumentPicker.getDocumentAsync({
+    type: HOMEWORK_FILE_ACCEPT,
+    multiple: true,
+    copyToCacheDirectory: true,
+  });
+}
+
 async function readWebUploadBody(asset) {
   const reportedSize = Number(
     asset.file?.size ?? asset.size,
@@ -60,32 +149,36 @@ async function readWebUploadBody(asset) {
   }
 
   try {
-    let bytes;
-
-    if (asset.file?.arrayBuffer) {
-      bytes = await asset.file.arrayBuffer();
-    } else {
-      const response = await fetch(asset.uri);
-
-      if (!response.ok) {
-        throw new Error("The selected file is unavailable.");
+    if (asset.file) {
+      if (!asset.file.size) {
+        throw new Error("The selected file is empty.");
       }
 
-      bytes = await response.arrayBuffer();
+      // Send the browser File object directly. Converting it to an ArrayBuffer
+      // can invoke FileReader internally on iOS WebViews where it is missing.
+      return asset.file;
     }
 
-    if (!bytes.byteLength) {
+    const response = await fetch(asset.uri);
+
+    if (!response.ok) {
+      throw new Error("The selected file is unavailable.");
+    }
+
+    const blob = await response.blob();
+
+    if (!blob.size) {
       throw new Error("The selected file is empty.");
     }
 
     if (
-      bytes.byteLength >
+      blob.size >
       MAX_HOMEWORK_FILE_SIZE_BYTES
     ) {
       throw new Error("The selected file is too large.");
     }
 
-    return bytes;
+    return blob;
   } catch {
     throw new Error(
       `Could not read "${asset.name || "this file"}". If it is in Google Drive, open it there and try again, or save a copy to your phone first.`,
@@ -726,6 +819,7 @@ export default function MyTaskDetail() {
                         item.asset.type ||
                         "application/octet-stream",
                       size:
+                        webBody?.size ||
                         webBody?.byteLength ||
                         item.asset.size,
                     },
@@ -1056,30 +1150,7 @@ export default function MyTaskDetail() {
 
     try {
       const result =
-        await DocumentPicker.getDocumentAsync({
-          // Do not ask Expo's web picker to convert the file with FileReader.
-          // We upload the original File/URI directly on every platform.
-          base64: false,
-          type: [
-            "application/pdf",
-            "image/*",
-
-            "application/msword",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-
-            "application/vnd.ms-powerpoint",
-            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-
-            "text/plain",
-          ],
-
-          multiple: true,
-
-          copyToCacheDirectory: true,
-        });
+        await pickHomeworkDocuments();
 
       if (
         result.canceled ||
