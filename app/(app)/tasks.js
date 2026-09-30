@@ -176,6 +176,22 @@ export default function Tasks() {
     user?.role === "TEACHER" ||
     (user?.role === "ASSISTANT" && user?.isHeadAssistant === true);
 
+  const isRegularAssistant =
+    user?.role === "ASSISTANT" && user?.isHeadAssistant !== true;
+
+  const taskGroupsLocked =
+    Boolean(editingTask) && isRegularAssistant;
+
+  const modalGroupOptions = taskGroupsLocked
+    ? (editingTask?.groups || [])
+        .map((taskGroup) => ({
+          id: taskGroup.groupId || taskGroup.group?.id,
+          name:
+            taskGroup.group?.name || "Assigned group",
+        }))
+        .filter((group) => group.id)
+    : groups;
+
   const undelegatedSubmissions = useMemo(() => {
     if (!isDelegationAdmin) return [];
 
@@ -1508,7 +1524,9 @@ export default function Tasks() {
 
                 <Text style={styles.mutedText}>
                   {editingTask
-                    ? "Update the task type, details, deadline, file, or target groups."
+                    ? taskGroupsLocked
+                      ? "Update this shared task. Your changes will apply to every group currently assigned to it."
+                      : "Update the task type, details, deadline, file, or target groups."
                     : "Choose a task type, add its details, and select the groups that should receive it."}
                 </Text>
               </View>
@@ -1770,11 +1788,13 @@ export default function Tasks() {
                   </Text>
 
                   <Text style={styles.groupHint}>
-                    Select at least one group.
+                    {taskGroupsLocked
+                      ? "Group assignments are kept unchanged. Changes to the task apply to all groups below."
+                      : "Select at least one group."}
                   </Text>
                 </View>
 
-                {groups.length ? (
+                {modalGroupOptions.length > 0 && !taskGroupsLocked ? (
                   <View style={styles.groupActions}>
                     <Pressable onPress={selectAllGroups}>
                       <Text style={styles.groupActionText}>
@@ -1793,7 +1813,7 @@ export default function Tasks() {
                 ) : null}
               </View>
 
-              {!groups.length ? (
+              {!modalGroupOptions.length ? (
                 <View style={styles.noGroupsBox}>
                   <Ionicons
                     name="people-outline"
@@ -1807,21 +1827,26 @@ export default function Tasks() {
                 </View>
               ) : (
                 <View style={styles.groupGrid}>
-                  {groups.map((group) => {
+                  {modalGroupOptions.map((group) => {
                     const selected =
                       selectedGroupIds.includes(group.id);
 
                     return (
                       <Pressable
                         key={group.id}
-                        onPress={() =>
-                          toggleGroup(group.id)
+                        disabled={taskGroupsLocked}
+                        onPress={
+                          taskGroupsLocked
+                            ? undefined
+                            : () => toggleGroup(group.id)
                         }
                         style={({ pressed }) => [
                           styles.groupChip,
                           selected &&
                             styles.groupChipSelected,
-                          pressed && styles.pressed,
+                          pressed &&
+                            !taskGroupsLocked &&
+                            styles.pressed,
                         ]}
                       >
                         <Ionicons
