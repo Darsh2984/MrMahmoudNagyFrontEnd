@@ -260,7 +260,6 @@ export default function TaskDetail() {
     reopeningSubmissionId,
     markingHardcopyStudentId,
     uploadingForStudentId,
-    removingHardcopySubmissionId,
 
     loadTask,
     dismissError,
@@ -308,7 +307,8 @@ export default function TaskDetail() {
     confirmReopenSubmission,
     markHardcopySubmitted,
     uploadSubmissionForStudent,
-    removeHardcopySubmission,
+    removingSubmissionId,
+    removeSubmission,
   } = detail;
 
   const [submissionTab, setSubmissionTab] =
@@ -444,10 +444,10 @@ export default function TaskDetail() {
     ]);
   }
 
-  function confirmRemoveHardcopySubmission(submission) {
+  function confirmRemoveSubmission(submission) {
     const message =
-      `Remove the hardcopy submission recorded for ${submission?.student?.name || "this student"}? They will return to the awaiting-submission list.`;
-    const proceed = () => removeHardcopySubmission(submission);
+      `Permanently remove the submission from ${submission?.student?.name || "this student"}? Original files, corrected files, grading history, AI correction history, and delegation records for this submission will also be removed.`;
+    const proceed = () => removeSubmission(submission);
 
     if (Platform.OS === "web") {
       if (typeof window !== "undefined" && !window.confirm(message)) {
@@ -457,7 +457,7 @@ export default function TaskDetail() {
       return;
     }
 
-    Alert.alert("Remove hardcopy submission", message, [
+    Alert.alert("Remove submission", message, [
       { text: "Cancel", style: "cancel" },
       { text: "Remove", style: "destructive", onPress: proceed },
     ]);
@@ -1267,10 +1267,6 @@ export default function TaskDetail() {
                         delegationBusyId={
                           delegationBusyId
                         }
-                        isRemovingHardcopy={
-                          String(removingHardcopySubmissionId) ===
-                          String(submission.id)
-                        }
                         onToggleSelection={() =>
                           toggleSubmissionSelection(
                             submission.id,
@@ -1369,8 +1365,11 @@ export default function TaskDetail() {
                             submission,
                           )
                         }
-                        onRemoveHardcopy={() =>
-                          confirmRemoveHardcopySubmission(submission)
+                        isRemovingSubmission={
+                          removingSubmissionId === submission.id
+                        }
+                        onRemoveSubmission={() =>
+                          confirmRemoveSubmission(submission)
                         }
                       />
                     );

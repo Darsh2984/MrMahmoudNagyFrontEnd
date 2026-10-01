@@ -23,10 +23,13 @@ export const styles = StyleSheet.create({
     opacity: 0.45,
   },
 
-  hardcopyRemovalRow: {
+  submissionRemovalRow: {
     flexDirection: "row",
     justifyContent: "flex-end",
-    marginBottom: spacing.md,
+    paddingTop: spacing.md,
+    marginTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
 
   cardSelectionRow: {

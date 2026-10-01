@@ -58,7 +58,6 @@ export function SubmissionCard({
   editingSubmissionId,
   openingFileKey,
   delegationBusyId,
-  isRemovingHardcopy,
   onToggleSelection,
   onOpenFile,
   onDeleteCorrectedFile,
@@ -75,7 +74,8 @@ export function SubmissionCard({
   onOpenDelegationHistory,
   onOpenGradingHistory,
   onOpenReopen,
-  onRemoveHardcopy,
+  isRemovingSubmission,
+  onRemoveSubmission,
 }) {
   const graded =
     submission.grade !== null &&
@@ -107,6 +107,9 @@ export function SubmissionCard({
   const canManageDelegation =
     isAdminLevel &&
     !graded;
+
+  const canRemoveSubmission =
+    isAdminLevel || delegatedToCurrentUser;
 
   const status =
     getSubmissionStatus(
@@ -435,17 +438,6 @@ export function SubmissionCard({
             </View>
           </View>
 
-          {!graded && !correctedFiles.length ? (
-            <View style={styles.hardcopyRemovalRow}>
-              <Button
-                title="Remove accidental hardcopy"
-                variant="danger"
-                loading={isRemovingHardcopy}
-                disabled={isRemovingHardcopy}
-                onPress={onRemoveHardcopy}
-              />
-            </View>
-          ) : null}
         </>
       ) : null}
 
@@ -473,6 +465,18 @@ export function SubmissionCard({
             onCancelEditingGrade
           }
         />
+      ) : null}
+
+      {canRemoveSubmission ? (
+        <View style={styles.submissionRemovalRow}>
+          <Button
+            title="Remove submission"
+            variant="danger"
+            loading={isRemovingSubmission}
+            disabled={isRemovingSubmission}
+            onPress={onRemoveSubmission}
+          />
+        </View>
       ) : null}
     </Card>
   );

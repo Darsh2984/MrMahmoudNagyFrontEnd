@@ -6,8 +6,10 @@ import React, {
 } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -125,6 +127,9 @@ export default function Groups() {
     Boolean(user?.isHeadAssistant);
 
   const canAddStudents =
+    canManageGroups || isRegularAssistant;
+
+  const canRemoveStudents =
     canManageGroups || isRegularAssistant;
 
   const canCreateGroups =
@@ -1002,7 +1007,7 @@ async function handleAddSelectedStudents() {
     if (
       !selectedGroup?.id ||
       removingStudentId ||
-      !canManageGroups
+      !canRemoveStudents
     ) {
       return;
     }
@@ -1036,6 +1041,29 @@ async function handleAddSelectedStudents() {
     } finally {
       setRemovingStudentId(null);
     }
+  }
+
+  function confirmRemoveStudent(student) {
+    if (!student?.id || !canRemoveStudents) {
+      return;
+    }
+
+    const message =
+      `Remove ${student.name || "this student"} from ${selectedGroup?.name || "this group"}? Their account, homework submissions, and grades will remain unchanged.`;
+    const proceed = () => handleRemoveStudent(student.id);
+
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && !window.confirm(message)) {
+        return;
+      }
+      proceed();
+      return;
+    }
+
+    Alert.alert("Remove student from group", message, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Remove", style: "destructive", onPress: proceed },
+    ]);
   }
 
   async function openStudentEdit(
@@ -2833,7 +2861,7 @@ async function handleAddSelectedStudents() {
                       icon="school-outline"
                       title={`Students (${safeMembers.length})`}
                       description={
-                        canManageGroups
+                        canRemoveStudents
                           ? "View contact details, edit student information, or remove students from the group."
                           : "Add unassigned students and update contact information for this assigned group."
                       }
@@ -3092,7 +3120,7 @@ async function handleAddSelectedStudents() {
                                     </Pressable>
                                   ) : null}
 
-                                  {canManageGroups ? (
+                                  {canRemoveStudents ? (
                                     <Pressable
                                       accessibilityRole="button"
                                       accessibilityLabel={`Remove ${student.name} from group`}
@@ -3100,9 +3128,7 @@ async function handleAddSelectedStudents() {
                                         isRemoving
                                       }
                                       onPress={() =>
-                                        handleRemoveStudent(
-                                          student.id
-                                        )
+                                        confirmRemoveStudent(student)
                                       }
                                       style={({
                                         pressed,

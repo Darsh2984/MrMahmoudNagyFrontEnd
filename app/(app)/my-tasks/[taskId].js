@@ -8,6 +8,7 @@ import React, {
 
 import {
   ActivityIndicator,
+  Alert,
   Linking,
   Platform,
   Pressable,
@@ -421,6 +422,11 @@ export default function MyTaskDetail() {
     setDeletingFileId,
   ] = useState(null);
 
+  const [
+    removingSubmission,
+    setRemovingSubmission,
+  ] = useState(false);
+
   const [error, setError] =
     useState("");
 
@@ -501,6 +507,11 @@ export default function MyTaskDetail() {
       mySubmission,
       task?.allowLateSubmission,
     ]);
+
+  const canRemoveOwnSubmission =
+    Boolean(mySubmission) &&
+    mySubmission.grade == null &&
+    mySubmission.submissionMethod !== "HARDCOPY";
 
   const status =
     useMemo(() => {
@@ -1358,6 +1369,59 @@ export default function MyTaskDetail() {
     }
   }
 
+  async function removeMySubmission() {
+    if (
+      !mySubmission?.id ||
+      removingSubmission ||
+      !canRemoveOwnSubmission
+    ) {
+      return;
+    }
+
+    clearMessages();
+    setRemovingSubmission(true);
+
+    try {
+      await api.delete(`/submissions/${mySubmission.id}`);
+      setMySubmission(null);
+      setUploadItems([]);
+      setSuccess(
+        "Your homework submission was removed. You may submit it again while submissions remain open.",
+      );
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          "Couldn't remove your homework submission.",
+        ),
+      );
+    } finally {
+      setRemovingSubmission(false);
+    }
+  }
+
+  function confirmRemoveMySubmission() {
+    const message =
+      "Remove your complete homework submission? Every uploaded file will be deleted. You may submit again only while submissions remain open.";
+
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && !window.confirm(message)) {
+        return;
+      }
+      removeMySubmission();
+      return;
+    }
+
+    Alert.alert("Remove homework submission", message, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: removeMySubmission,
+      },
+    ]);
+  }
+
   function openSubmissionFile(
     file,
   ) {
@@ -1963,9 +2027,15 @@ export default function MyTaskDetail() {
                   canModify={
                     canModifySubmission
                   }
+                  canRemoveSubmission={
+                    canRemoveOwnSubmission
+                  }
                   uploading={uploading}
                   deletingFileId={
                     deletingFileId
+                  }
+                  removingSubmission={
+                    removingSubmission
                   }
                   openingSubmissionFileId={
                     openingSubmissionFileId
@@ -1978,6 +2048,9 @@ export default function MyTaskDetail() {
                   }
                   onDeleteFile={
                     deleteHomeworkFile
+                  }
+                  onRemoveSubmission={
+                    confirmRemoveMySubmission
                   }
                   onOpenSubmissionFile={
                     openSubmissionFile
@@ -2359,12 +2432,15 @@ function SubmittedPanel({
   correctedFiles,
   gradeOutOf,
   canModify,
+  canRemoveSubmission,
   uploading,
   deletingFileId,
+  removingSubmission,
   openingSubmissionFileId,
   openingCorrectedFileId,
   onAddFiles,
   onDeleteFile,
+  onRemoveSubmission,
   onOpenSubmissionFile,
   onOpenLegacySubmission,
   onOpenCorrectedFile,
@@ -2720,6 +2796,21 @@ function SubmittedPanel({
             submission.modificationBlockedReason ||
             "This submission can no longer be modified."
           }
+        />
+      ) : null}
+
+      {canRemoveSubmission ? (
+        <Button
+          title="Remove complete submission"
+          variant="danger"
+          loading={removingSubmission}
+          disabled={
+            removingSubmission ||
+            uploading ||
+            Boolean(deletingFileId)
+          }
+          onPress={onRemoveSubmission}
+          style={styles.removeSubmissionButton}
         />
       ) : null}
 

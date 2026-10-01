@@ -208,7 +208,7 @@ export function useTaskDetail({
   const [uploadingForStudentId, setUploadingForStudentId] =
     useState(null);
 
-  const [removingHardcopySubmissionId, setRemovingHardcopySubmissionId] =
+  const [removingSubmissionId, setRemovingSubmissionId] =
     useState(null);
 
   const taskGroups =
@@ -1547,18 +1547,18 @@ export function useTaskDetail({
     }
   }
 
-  async function removeHardcopySubmission(submission) {
-    if (!submission?.id || removingHardcopySubmissionId) {
+  async function removeSubmission(submission) {
+    if (!submission?.id || removingSubmissionId) {
       return false;
     }
 
     clearMessages();
-    setRemovingHardcopySubmissionId(submission.id);
+    setRemovingSubmissionId(submission.id);
 
     try {
-      await api.delete(`/submissions/${submission.id}/hardcopy`);
+      await api.delete(`/submissions/${submission.id}`);
       setSuccess(
-        `The accidental hardcopy submission for ${submission.student?.name || "the student"} was removed.`,
+        `The submission for ${submission.student?.name || "the student"} was removed.`,
       );
       await loadTask({ silent: true });
       return true;
@@ -1566,12 +1566,12 @@ export function useTaskDetail({
       setError(
         getErrorMessage(
           requestError,
-          "Couldn't remove the hardcopy submission.",
+          "Couldn't remove the submission.",
         ),
       );
       return false;
     } finally {
-      setRemovingHardcopySubmissionId(null);
+      setRemovingSubmissionId(null);
     }
   }
 
@@ -1637,7 +1637,7 @@ export function useTaskDetail({
     reopeningSubmissionId,
     markingHardcopyStudentId,
     uploadingForStudentId,
-    removingHardcopySubmissionId,
+    removingSubmissionId,
 
     loadTask,
     clearMessages,
@@ -1687,6 +1687,6 @@ export function useTaskDetail({
     confirmReopenSubmission,
     markHardcopySubmitted,
     uploadSubmissionForStudent,
-    removeHardcopySubmission,
+    removeSubmission,
   };
 }

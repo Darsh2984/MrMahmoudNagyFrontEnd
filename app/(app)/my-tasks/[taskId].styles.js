@@ -651,6 +651,11 @@ export const styles =
       marginTop: spacing.xs,
     },
 
+    removeSubmissionButton: {
+      marginTop: spacing.sm,
+      marginBottom: spacing.md,
+    },
+
     maximumFilesText: {
       ...typography.caption,
       color: colors.warning,
