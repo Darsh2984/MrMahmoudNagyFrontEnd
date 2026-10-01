@@ -9,7 +9,6 @@ import React, {
 import {
   ActivityIndicator,
   Alert,
-  Linking,
   Platform,
   Pressable,
   Text,
@@ -36,6 +35,7 @@ import { useAuth } from "../../../src/contexts/AuthContext";
 import api from "../../../src/lib/api";
 
 import { formatDate } from "../../../src/utils/formatDate";
+import { openStoredFile } from "../../../src/utils/openStoredFile";
 
 import { colors } from "../../../src/theme";
 
@@ -1111,37 +1111,21 @@ export default function MyTaskDetail() {
   }
 
   async function openExternalFile(
-    url,
+    fileOrUrl,
     setOpening,
   ) {
-    if (!url) {
-      setError(
-        "This file does not have a valid link.",
-      );
-
-      return;
-    }
-
     clearMessages();
     setOpening(true);
 
     try {
-      const supported =
-        await Linking.canOpenURL(
-          url,
-        );
-
-      if (!supported) {
-        throw new Error(
-          "This file cannot be opened on this device.",
-        );
-      }
-
-      await Linking.openURL(url);
+      await openStoredFile(
+        fileOrUrl,
+        "Save homework file",
+      );
     } catch (requestError) {
       setError(
         requestError?.message ||
-          "Couldn't open the file. Please try again.",
+          "Couldn't download the file. Please try again.",
       );
     } finally {
       setOpening(false);
@@ -1426,7 +1410,7 @@ export default function MyTaskDetail() {
     file,
   ) {
     openExternalFile(
-      file.fileUrl,
+      file,
       (opening) =>
         setOpeningSubmissionFileId(
           opening
@@ -1452,7 +1436,7 @@ export default function MyTaskDetail() {
     file,
   ) {
     openExternalFile(
-      file.fileUrl,
+      file,
       (opening) =>
         setOpeningCorrectedFileId(
           opening
@@ -1698,8 +1682,8 @@ export default function MyTaskDetail() {
               <Button
                 title={
                   openingTaskFile
-                    ? "Opening..."
-                    : "Open homework file"
+                    ? "Downloading..."
+                    : "Download homework file"
                 }
                 variant="outline"
                 loading={
@@ -1891,7 +1875,7 @@ export default function MyTaskDetail() {
                         styles.fileSubtitle
                       }
                     >
-                      Open the task file
+                      Download the task file
                       or additional
                       instructions
                     </Text>
@@ -1906,7 +1890,7 @@ export default function MyTaskDetail() {
                     />
                   ) : (
                     <Ionicons
-                      name="open-outline"
+                      name="download-outline"
                       size={19}
                       color={
                         colors.primary
@@ -2586,7 +2570,7 @@ function SubmittedPanel({
                     />
                   ) : (
                     <Ionicons
-                      name="open-outline"
+                      name="download-outline"
                       size={19}
                       color={
                         colors.primary
@@ -2693,7 +2677,7 @@ function SubmittedPanel({
             />
           ) : (
             <Ionicons
-              name="open-outline"
+              name="download-outline"
               size={19}
               color={colors.primary}
             />
@@ -3017,7 +3001,7 @@ function SubmittedPanel({
                   />
                 ) : (
                   <Ionicons
-                    name="open-outline"
+                    name="download-outline"
                     size={19}
                     color={
                       colors.primary
@@ -3075,7 +3059,7 @@ function SubmittedPanel({
                 styles.fileSubtitle
               }
             >
-              Open the corrected file
+              Download the corrected file
               returned by the grader
             </Text>
           </View>
@@ -3088,7 +3072,7 @@ function SubmittedPanel({
             />
           ) : (
             <Ionicons
-              name="open-outline"
+              name="download-outline"
               size={19}
               color={colors.primary}
             />

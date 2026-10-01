@@ -534,7 +534,7 @@ function SubmissionFiles({
               }
               onPress={() =>
                 onOpenFile(
-                  file.fileUrl,
+                  file,
                   fileKey,
                 )
               }
@@ -578,7 +578,7 @@ function SubmissionFiles({
                 />
               ) : (
                 <Ionicons
-                  name="open-outline"
+                  name="download-outline"
                   size={19}
                   color={colors.primary}
                 />
@@ -678,7 +678,7 @@ function GradedResult({
                     }
                     onPress={() =>
                       onOpenFile(
-                        file.fileUrl,
+                        file,
                         openKey,
                       )
                     }
@@ -722,7 +722,7 @@ function GradedResult({
                       />
                     ) : (
                       <Ionicons
-                        name="open-outline"
+                        name="download-outline"
                         size={19}
                         color={colors.primary}
                       />

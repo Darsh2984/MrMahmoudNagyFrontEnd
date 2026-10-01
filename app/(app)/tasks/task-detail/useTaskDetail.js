@@ -5,14 +5,11 @@ import {
   useState,
 } from "react";
 
-import {
-  Linking,
-} from "react-native";
-
 import * as DocumentPicker from "expo-document-picker";
 
 import api from "../../../../src/lib/api";
 import { selectAndUploadForStudent } from "../../../../src/utils/staffSubmissionUpload";
+import { openStoredFile } from "../../../../src/utils/openStoredFile";
 
 import {
   ACCEPTED_CORRECTED_FILE_TYPES,
@@ -464,34 +461,16 @@ export function useTaskDetail({
   }
 
   async function openExternalFile(
-    url,
+    fileOrUrl,
     key,
   ) {
-    if (!url) {
-      setError(
-        "This file does not have a valid link.",
-      );
-
-      return;
-    }
-
     clearMessages();
     setOpeningFileKey(key);
 
     try {
-      const supported =
-        await Linking.canOpenURL(
-          url,
-        );
-
-      if (!supported) {
-        throw new Error(
-          "This file cannot be opened on this device.",
-        );
-      }
-
-      await Linking.openURL(
-        url,
+      await openStoredFile(
+        fileOrUrl,
+        "Save student file",
       );
     } catch (
       requestError
@@ -499,7 +478,7 @@ export function useTaskDetail({
       setError(
         getErrorMessage(
           requestError,
-          "Couldn't open the file.",
+          "Couldn't download the file.",
         ),
       );
     } finally {
