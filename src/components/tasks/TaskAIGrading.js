@@ -118,9 +118,14 @@ function List({ title, values, warning = false }) {
   );
 }
 function RubricView({ rubric }) {
+  const calculatedTotal = Number(rubric.calculatedQuestionMarksTotal ??
+    rubric.questions.reduce((sum, question) => sum + (Number(question.possible) || 0), 0));
   return (
     <View style={s.stack}>
-      <Text style={s.label}>Extracted marking rubric • {rubric.totalPossible} marks</Text>
+      <Text style={s.label}>Marking rubric • authoritative total: {rubric.totalPossible} marks</Text>
+      {calculatedTotal !== Number(rubric.totalPossible) ? (
+        <Text style={s.warning}>The extracted question allocations add up to {calculatedTotal} marks. AI grading will still use the staff-set authoritative total of {rubric.totalPossible} marks.</Text>
+      ) : null}
       <List title="Document limitations—verify before approving" values={rubric.documentWarnings} warning />
       {rubric.questions.map(question => (
         <View key={question.question} style={s.question}>
@@ -147,7 +152,16 @@ export function TaskAIReferences({ gradeOutOf }) {
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [totalMarks, setTotalMarks] = useState("");
+  const [totalSavedMessage, setTotalSavedMessage] = useState("");
+  useEffect(() => {
+    setTotalMarks(pack?.rubric?.totalPossible == null ? "" : String(pack.rubric.totalPossible));
+  }, [pack?.id, pack?.rubric?.totalPossible]);
   if (!context || !isStaff(user)) return null;
+
+  const parsedTotalMarks = Number(totalMarks);
+  const totalMarksValid = Number.isFinite(parsedTotalMarks) && parsedTotalMarks > 0 && parsedTotalMarks <= 10000;
+  const totalMarksChanged = totalMarksValid && parsedTotalMarks !== Number(pack?.rubric?.totalPossible);
 
   async function pick(setFile) {
     try {
@@ -161,7 +175,7 @@ export function TaskAIReferences({ gradeOutOf }) {
     } catch (requestError) { setLocalError(errorText(requestError)); }
   }
   async function upload() {
-    setBusy(true); setLocalError(""); setUploadProgress(0);
+    setBusy(true); setLocalError(""); setTotalSavedMessage(""); setUploadProgress(0);
     try {
       const formData = new FormData();
       await appendPdf(formData, "questionPaper", questionPaper);
@@ -183,6 +197,23 @@ export function TaskAIReferences({ gradeOutOf }) {
       const response = await api.post(`/ai-correction/tasks/${taskId}/references/${kind}`, { packId: pack.id });
       setPack(response.data.pack);
       if (kind === "approve") setReviewing(false);
+    } catch (requestError) { setLocalError(errorText(requestError)); }
+    finally { setBusy(false); }
+  }
+  async function saveTotalMarks() {
+    if (!totalMarksValid) {
+      setLocalError("Total marks must be a number greater than 0 and no more than 10,000.");
+      return;
+    }
+    setBusy(true); setLocalError(""); setTotalSavedMessage("");
+    try {
+      const response = await api.patch(`/ai-correction/tasks/${taskId}/references/total`, {
+        packId: pack.id,
+        totalPossible: parsedTotalMarks,
+      });
+      setPack(response.data.pack);
+      setReviewing(true);
+      setTotalSavedMessage("Authoritative total updated. Review and approve this reference version before starting new AI grading.");
     } catch (requestError) { setLocalError(errorText(requestError)); }
     finally { setBusy(false); }
   }
@@ -229,6 +260,29 @@ export function TaskAIReferences({ gradeOutOf }) {
               </Text>
               {Number(gradeOutOf) !== pack.rubric?.totalPossible ? (
                 <Text style={s.warning}>The rubric has {pack.rubric?.totalPossible} marks; this task is configured for {gradeOutOf}. Suggested marks are not automatically scaled or saved as the task grade.</Text>
+              ) : null}
+              {canRun(user) && pack.rubric ? (
+                <View style={s.totalEditor}>
+                  <Text style={s.label}>Authoritative total marks used by AI</Text>
+                  <Text style={s.muted}>Correct the paper total here if the document was interpreted incorrectly. Saving creates a new reference version, keeps old corrections unchanged, and requires staff approval again.</Text>
+                  <View style={s.totalEditorRow}>
+                    <TextInput
+                      value={totalMarks}
+                      onChangeText={value => { setTotalMarks(value); setLocalError(""); setTotalSavedMessage(""); }}
+                      keyboardType="decimal-pad"
+                      inputMode="decimal"
+                      placeholder="Total marks"
+                      style={s.totalInput}
+                      editable={!busy}
+                      selectTextOnFocus
+                    />
+                    <Button title="Save total" disabled={busy || !totalMarksChanged} loading={busy && totalMarksChanged} onPress={saveTotalMarks} />
+                  </View>
+                  {pack.rubric.totalPossibleSource === "STAFF_OVERRIDE" ? (
+                    <Text style={s.success}>Staff-set total{pack.rubric.totalPossibleUpdatedByName ? ` by ${pack.rubric.totalPossibleUpdatedByName}` : ""}: {pack.rubric.totalPossible} marks.</Text>
+                  ) : null}
+                  {totalSavedMessage ? <Text style={s.success}>{totalSavedMessage}</Text> : null}
+                </View>
               ) : null}
               <Button title={reviewing ? "Hide marking rubric" : "Review marking rubric"} variant="outline" onPress={() => setReviewing(value => !value)} />
               {reviewing && pack.rubric ? <RubricView rubric={pack.rubric} /> : null}
@@ -551,6 +605,9 @@ const s = StyleSheet.create({
   warning: { fontSize: 13, lineHeight: 20, color: colors.warning },
   success: { fontSize: 13, color: colors.secondary },
   question: { gap: spacing.xs, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background },
+  totalEditor: { gap: spacing.xs, padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.background },
+  totalEditorRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.sm },
+  totalInput: { flexGrow: 1, minWidth: 140, minHeight: 44, paddingHorizontal: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.white, color: colors.textPrimary, fontSize: 16, fontWeight: "700" },
   fileOption: { padding: spacing.sm, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md },
   confirmedBanner: { gap: 3, padding: spacing.sm, borderWidth: 1, borderColor: `${colors.secondary}55`, borderRadius: radius.md, backgroundColor: `${colors.secondary}0D` },
   editField: { gap: 5 },
