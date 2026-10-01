@@ -62,6 +62,7 @@ function pickHomeworkDocumentsOnWeb() {
   return new Promise((resolve) => {
     const input = document.createElement("input");
     let settled = false;
+    let focusTimer = null;
 
     input.type = "file";
     input.multiple = true;
@@ -76,22 +77,15 @@ function pickHomeworkDocumentsOnWeb() {
       }
 
       settled = true;
+      if (focusTimer) {
+        window.clearTimeout(focusTimer);
+      }
       window.removeEventListener("focus", handleWindowFocus);
       input.remove();
       resolve(result);
     };
 
-    const handleWindowFocus = () => {
-      // iOS Safari does not consistently dispatch the input `cancel` event.
-      // Give a selected file's `change` event a chance to run first.
-      window.setTimeout(() => {
-        if (!settled && !input.files?.length) {
-          finish({ canceled: true, assets: null });
-        }
-      }, 300);
-    };
-
-    input.addEventListener("change", () => {
+    const finishFromSelectedFiles = () => {
       const files = Array.from(input.files || []);
 
       if (!files.length) {
@@ -111,7 +105,18 @@ function pickHomeworkDocumentsOnWeb() {
           lastModified: file.lastModified,
         })),
       });
-    });
+    };
+
+    const handleWindowFocus = () => {
+      // Some desktop browsers restore window focus before dispatching the
+      // file input's change event, while some mobile browsers omit change.
+      // Read input.files as the fallback instead of assuming cancellation.
+      focusTimer = window.setTimeout(() => {
+        if (!settled) finishFromSelectedFiles();
+      }, 1000);
+    };
+
+    input.addEventListener("change", finishFromSelectedFiles);
 
     input.addEventListener("cancel", () => {
       finish({ canceled: true, assets: null });
