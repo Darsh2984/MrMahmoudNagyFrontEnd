@@ -18,6 +18,9 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.mahmoudnagy.platform",
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
 
     android: {
