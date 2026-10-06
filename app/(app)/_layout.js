@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 import {
   Slot,
@@ -10,6 +10,8 @@ import {
   Text,
   Pressable,
   StyleSheet,
+  Alert,
+  Platform,
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +22,7 @@ import { AppShell } from "../../src/components/layout/AppShell";
 import { Screen } from "../../src/components/layout/Screen";
 import { Card } from "../../src/components/ui/Card";
 import { Button } from "../../src/components/ui/Button";
+import api from "../../src/lib/api";
 
 import {
   colors,
@@ -267,6 +270,8 @@ function getRoleLabel(user) {
 function WaitingForGroupScreen({
   user,
   onLogout,
+  onRequestAccountDeletion,
+  requestingDeletion,
 }) {
   return (
     <Screen
@@ -393,6 +398,14 @@ function WaitingForGroupScreen({
             onPress={onLogout}
             style={styles.pendingLogoutButton}
           />
+
+          <Button
+            title="Request account deletion"
+            variant="danger"
+            loading={requestingDeletion}
+            onPress={onRequestAccountDeletion}
+            style={styles.pendingDeleteButton}
+          />
         </Card>
 
         <View style={styles.pendingFooter}>
@@ -421,6 +434,88 @@ export default function AppLayout() {
     logout,
   } = useAuth();
 
+  const [requestingDeletion, setRequestingDeletion] =
+    useState(false);
+
+  function showMessage(title, message) {
+    if (Platform.OS === "web") {
+      window.alert(`${title}\n\n${message}`);
+      return;
+    }
+
+    Alert.alert(title, message);
+  }
+
+  function askForDeletionConfirmation() {
+    const message =
+      "Are you sure you want to Request account deletion? The request will be processed within 48 hours.";
+
+    if (Platform.OS === "web") {
+      return Promise.resolve(
+        window.confirm(message),
+      );
+    }
+
+    return new Promise((resolve) => {
+      Alert.alert(
+        "Request account deletion",
+        message,
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+            onPress: () => resolve(false),
+          },
+          {
+            text: "Yes, send request",
+            style: "destructive",
+            onPress: () => resolve(true),
+          },
+        ],
+        {
+          cancelable: true,
+          onDismiss: () => resolve(false),
+        },
+      );
+    });
+  }
+
+  async function handleRequestAccountDeletion() {
+    if (requestingDeletion) {
+      return;
+    }
+
+    const confirmed =
+      await askForDeletionConfirmation();
+
+    if (!confirmed) {
+      return;
+    }
+
+    setRequestingDeletion(true);
+
+    try {
+      const response = await api.post(
+        "/auth/account-deletion-request",
+      );
+
+      showMessage(
+        "Request sent",
+        response.data?.msg ||
+          "Your account deletion request was sent and will be processed within 48 hours.",
+      );
+    } catch (error) {
+      showMessage(
+        "Request not sent",
+        error?.response?.data?.msg ||
+          error?.message ||
+          "Could not send the deletion request. Please try again.",
+      );
+    } finally {
+      setRequestingDeletion(false);
+    }
+  }
+
   if (loading) {
     return null;
   }
@@ -440,6 +535,10 @@ export default function AppLayout() {
       <WaitingForGroupScreen
         user={user}
         onLogout={logout}
+        onRequestAccountDeletion={
+          handleRequestAccountDeletion
+        }
+        requestingDeletion={requestingDeletion}
       />
     );
   }
@@ -501,6 +600,33 @@ export default function AppLayout() {
               Log out
             </Text>
           </Pressable>
+
+          {(user.role === "STUDENT" ||
+            user.role === "ASSISTANT") ? (
+            <Pressable
+              onPress={handleRequestAccountDeletion}
+              disabled={requestingDeletion}
+              accessibilityRole="button"
+              accessibilityLabel="Request account deletion"
+              style={({ pressed }) => [
+                styles.sidebarDeleteButton,
+                (pressed || requestingDeletion) &&
+                  styles.sidebarDeletePressed,
+              ]}
+            >
+              <Ionicons
+                name="trash-outline"
+                size={17}
+                color="#FFD9D2"
+              />
+
+              <Text style={styles.sidebarDeleteText}>
+                {requestingDeletion
+                  ? "Sending request..."
+                  : "Request account deletion"}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       }
     >
@@ -724,6 +850,11 @@ const styles = StyleSheet.create({
     marginTop: 15,
   },
 
+  pendingDeleteButton: {
+    minWidth: 220,
+    marginTop: 10,
+  },
+
   pendingFooter: {
     marginTop: 17,
     flexDirection: "row",
@@ -812,5 +943,28 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     color: colors.cream,
+  },
+
+  sidebarDeleteButton: {
+    minHeight: 42,
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 217, 210, 0.34)",
+    backgroundColor: "rgba(200, 93, 71, 0.14)",
+  },
+
+  sidebarDeletePressed: {
+    opacity: 0.7,
+  },
+
+  sidebarDeleteText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#FFD9D2",
   },
 });
