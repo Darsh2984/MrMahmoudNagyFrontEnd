@@ -28,6 +28,7 @@ import { DatePickerInput } from "../../src/components/ui/DatePickerInput";
 
 import { useAuth } from "../../src/contexts/AuthContext";
 import api from "../../src/lib/api";
+import { exportSessionReport } from "../../src/utils/exportSessionReport";
 import { formatDate } from "../../src/utils/formatDate";
 import { colors } from "../../src/theme";
 
@@ -467,6 +468,7 @@ function DeleteSessionModal({
 }
 
 function TeacherSessionManager() {
+  const [exportingReport, setExportingReport] = useState(false);
   const [years, setYears] =
     useState([]);
 
@@ -1049,6 +1051,26 @@ function TeacherSessionManager() {
       );
     } finally {
       setAttendanceSaving(false);
+    }
+  }
+
+  async function handleExportSessionReport() {
+    if (!selectedSession || exportingReport) return;
+    const hasUnsavedAttendance = (selectedSession.attendance || []).some(
+      record => attendance[record.studentId] !== record.status,
+    );
+    if (hasUnsavedAttendance) {
+      setError("Save your attendance changes before exporting.");
+      return;
+    }
+    setExportingReport(true);
+    setError("");
+    try {
+      await exportSessionReport(selectedSession);
+    } catch (error) {
+      setError(error.message || "Could not export the session report.");
+    } finally {
+      setExportingReport(false);
     }
   }
 
@@ -1646,6 +1668,14 @@ function TeacherSessionManager() {
                         styles.detailsActions
                       }
                     >
+                      <Button
+                        title="Export session report"
+                        variant="outline"
+                        onPress={handleExportSessionReport}
+                        loading={exportingReport}
+                        disabled={attendanceSaving || exportingReport}
+                        style={styles.smallActionButton}
+                      />
                       <Button
                         title="Edit"
                         variant="outline"
