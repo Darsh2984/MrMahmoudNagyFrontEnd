@@ -4,14 +4,14 @@ import * as Sharing from "expo-sharing";
 import api from "../lib/api";
 import { getToken } from "../lib/storage";
 
-const MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const MIME = "application/pdf";
 
 export async function exportSessionReport(session) {
   const token = await getToken();
   if (!token) throw new Error("Please sign in again.");
   const title = String(session.title || "Session")
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").slice(0, 90);
-  const fileName = `${title} - Attendance and Grades.xlsx`;
+  const fileName = `${title} - Attendance and Grades.pdf`;
   const url = `${api.defaults.baseURL.replace(/\/+$/, "")}/sessions/${encodeURIComponent(session.id)}/report`;
   const headers = { Authorization: `Bearer ${token}`, Accept: MIME };
   if (Platform.OS === "web") {
@@ -49,7 +49,7 @@ export async function exportSessionReport(session) {
       throw new Error(message);
     }
     await Sharing.shareAsync(result.uri, {
-      mimeType: MIME, UTI: "org.openxmlformats.spreadsheetml.sheet",
+      mimeType: MIME, UTI: "com.adobe.pdf",
       dialogTitle: "Save or share session report",
     });
   } catch (error) {

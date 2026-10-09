@@ -1669,7 +1669,7 @@ function TeacherSessionManager() {
                       }
                     >
                       <Button
-                        title="Export session report"
+                        title="Export PDF report"
                         variant="outline"
                         onPress={handleExportSessionReport}
                         loading={exportingReport}
