@@ -28,6 +28,8 @@ import { DatePickerInput } from "../../src/components/ui/DatePickerInput";
 
 import { useAuth } from "../../src/contexts/AuthContext";
 import api from "../../src/lib/api";
+import { pickLiveFile, appendLiveFile } from "../../src/utils/liveAnswerUpload";
+import LiveQuestionAI from "../../src/components/sessions/LiveQuestionAI";
 import { exportSessionReport } from "../../src/utils/exportSessionReport";
 import { formatDate } from "../../src/utils/formatDate";
 import { colors } from "../../src/theme";
@@ -2729,6 +2731,7 @@ function LiveQuestionsPanel({
                         styles.answerSection
                       }
                     >
+                      {question.type !== "MCQ" ? <LiveQuestionAI key={question.id} question={question} answers={loadingAnswers ? [] : answers} /> : null}
                       {loadingAnswers ? (
                         <View
                           style={
@@ -3091,79 +3094,21 @@ function StudentSessionView() {
     }
   }
 
-  async function answerQuestion(
-    liveQuestionId
-  ) {
-    const result =
-      await DocumentPicker.getDocumentAsync(
-        {
-          type: [
-            "image/*",
-            "application/pdf",
-          ],
-        }
-      );
-
-    if (result.canceled) {
-      return;
-    }
-
-    const file =
-      result.assets[0];
-
-    const formData =
-      new FormData();
-
-    if (Platform.OS === "web") {
-      formData.append(
-        "file",
-        file.file || file
-      );
-    } else {
-      formData.append(
-        "file",
-        {
-          uri: file.uri,
-
-          name: file.name,
-
-          type:
-            file.mimeType ||
-            "image/jpeg",
-        }
-      );
-    }
-
-    setUploadingQuestionId(
-      liveQuestionId
-    );
-
+  async function answerQuestion(liveQuestionId) {
+    if (uploadingQuestionId) return;
+    setUploadingQuestionId(liveQuestionId);
     setError("");
-
     try {
-      await api.post(
-        `/live-questions/${liveQuestionId}/answer`,
-        formData,
-        {
-          headers: {
-            "Content-Type":
-              "multipart/form-data",
-          },
-        }
-      );
-
-      await openSession(
-        selected.id
-      );
+      const file = await pickLiveFile();
+      if (!file) return;
+      const formData = new FormData();
+      await appendLiveFile(formData, "file", file);
+      await api.post(`/live-questions/${liveQuestionId}/answer`, formData, { timeout: 300000 });
+      await openSession(selected.id);
     } catch (err) {
-      setError(
-        err.response?.data?.msg ||
-          "Couldn't upload the answer."
-      );
+      setError(err.response?.data?.msg || err.message || "Upload failed. Reopen this session to check whether your answer was received before retrying.");
     } finally {
-      setUploadingQuestionId(
-        null
-      );
+      setUploadingQuestionId(null);
     }
   }
 
@@ -3691,6 +3636,11 @@ function StudentSessionView() {
                       </View>
                     ) : null}
 
+                    {myAnswer && question.type === "MCQ" && question.correctAnswer ? (
+                      <Text style={{ color: colors.primary, marginVertical: 8 }}>
+                        Your answer: {myAnswer.selectedOption}. Correct answer: {question.correctAnswer}.
+                      </Text>
+                    ) : null}
                     {myAnswer ? (
                       myAnswer.status ===
                       "GRADED" ? (
@@ -3722,7 +3672,7 @@ function StudentSessionView() {
                       </View>
                     ) : question.type !== "MCQ" ? (
                       <Button
-                        title="Upload answer photo"
+                        title="Upload answer PDF or image"
                         variant="warning"
                         onPress={() =>
                           answerQuestion(

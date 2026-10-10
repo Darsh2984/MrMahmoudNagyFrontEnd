@@ -7,6 +7,7 @@ import {
 } from "react-native-safe-area-context";
 import { AuthProvider } from "../src/contexts/AuthContext";
 import PushNotificationRegistrar from "../src/components/notifications/PushNotificationRegistrar";
+import AppUpdateNotice from "../src/components/notifications/AppUpdateNotice";
 import { colors } from "../src/theme";
 
 function RootSafeArea() {
@@ -27,6 +28,7 @@ function RootSafeArea() {
     >
         <AuthProvider>
           <PushNotificationRegistrar />
+          <AppUpdateNotice />
           <Stack
             screenOptions={{
               headerShown: false,
